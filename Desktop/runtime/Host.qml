@@ -17,12 +17,15 @@ Item {
     property bool claimed:false
     property string ownershipToken:Date.now().toString(36)+"-"+Math.random().toString(36)
     function claimVisible() {
-        if(visible) claimed=Native.Desktop.claim(screenName,ownershipToken)
+        if(visible && (!preferredScreen || preferredScreen===screenName)) claimed=Native.Desktop.claim(screenName,ownershipToken)
         else if(claimed) {
             if(battle.item)Native.Desktop.parkRun(SaveData.encodeRun(battle.item.run))
             Native.Desktop.release(ownershipToken);claimed=false
         }
     }
+    readonly property string preferredScreen:Native.Desktop.config.screenName || ""
+    onPreferredScreenChanged:claimVisible()
+    onScreenNameChanged:claimVisible()
     onVisibleChanged:claimVisible()
     property bool bookOpen:false
     property string bookTab:"enemies"

@@ -1890,9 +1890,11 @@ FocusScope {
     Rectangle {
         id: selectionPanel
         anchors.horizontalCenter:parent.horizontalCenter
-        anchors.verticalCenter:play.preparing && !play.paused ? undefined : parent.verticalCenter
-        anchors.bottom:play.preparing && !play.paused ? parent.bottom : undefined
-        anchors.bottomMargin:play.compactLayout ? 14 : 26
+        // Switching a bottom anchor and a centre anchor in the same update
+        // can leave Qt holding a stretched height when reopening preparation.
+        y: play.preparing && !play.paused
+            ? parent.height - height - (play.compactLayout ? 14 : 26)
+            : (parent.height - height) / 2
         width: Math.min(parent.width - 40,play.preparing ? 1120 : 804)
         opacity: play.fighting ? 0 : 1
         Behavior on opacity { enabled:!play.paused; NumberAnimation { duration: play.motion ? 145 : 0 } }

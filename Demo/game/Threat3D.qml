@@ -337,74 +337,80 @@ Node {
                         scale: Qt.vector3d(.095,.225,.059)
                         materials: [dark]
                     }
-                    Model {
-                        source: "#Sphere"
-                        visible: !actor.crawler
-                        y: actor.teeth ? -23 : -15-actor.jawOpen*19
-                        z: actor.teeth ? 21 : 13
-                        scale: actor.teeth ? Qt.vector3d(.47, .32 + (Math.max(0, actor.strike) * .29), .16)
-                            : actor.dragon ? Qt.vector3d(.43, .18 + Math.abs(actor.strike) * .24, .16)
-                            : actor.tongue ? Qt.vector3d(.39, .22, .13)
-                            : Qt.vector3d(.34,.09+actor.jawOpen*1.19,.16)
-                        materials: [dark]
-                    }
-                    Repeater3D {
-                        model: 2
-                        delegate: Model {
-                            required property int index
-                            source: "#Cube"
-                            visible: !actor.crawler && !actor.teeth
-                            x: index === 0 ? -6 : 6
-                            y: actor.roaring ? -8 : -13+actor.jawOpen*23
-                            z: 22
-                            eulerRotation.x: actor.jawOpen*29
-                            scale: Qt.vector3d(.055,.095,.039)
-                            materials: [enamel]
+                    Node {
+                        readonly property bool belly: Livery.bellyMaws.includes(actor.enemy.type)
+                        y: belly ? -54 : 0
+                        z: belly ? 7 : 0
+                        scale: belly ? Qt.vector3d(1.78,1.48,1.15) : Qt.vector3d(1,1,1)
+                        Model {
+                            source: "#Sphere"
+                            visible: !actor.crawler
+                            y: actor.teeth ? -23 : -15-actor.jawOpen*19
+                            z: actor.teeth ? 21 : 13
+                            scale: actor.teeth ? Qt.vector3d(.47, .32 + (Math.max(0, actor.strike) * .29), .16)
+                                : actor.dragon ? Qt.vector3d(.43, .18 + Math.abs(actor.strike) * .24, .16)
+                                : actor.tongue ? Qt.vector3d(.39, .22, .13)
+                                : Qt.vector3d(.34,.09+actor.jawOpen*1.19,.16)
+                            materials: [dark]
                         }
-                    }
-                    Model {
-                        visible: !actor.crawler && !actor.teeth && !actor.dragon
-                        source:"#Sphere"
-                        y:-24-actor.jawOpen*61
-                        z:12+actor.jawOpen*14
-                        eulerRotation.x:actor.jawOpen*38
-                        scale:Qt.vector3d(.42,.13,.32)
-                        materials:[bone]
-                    }
-                    Repeater3D {
-                        model: !actor.crawler && !actor.teeth && !actor.dragon ? 4 : 0
-                        delegate: Model {
-                            required property int index
-                            source:"#Cone"
-                            x:(index-1.5)*6
-                            y:-21-actor.jawOpen*55
-                            z:25+actor.jawOpen*17
-                            scale:Qt.vector3d(.043,.076,.05)
-                            materials:[enamel]
+                        Repeater3D {
+                            model: 2
+                            delegate: Model {
+                                required property int index
+                                source: "#Cube"
+                                visible: !actor.crawler && !actor.teeth
+                                x: index === 0 ? -6 : 6
+                                y: actor.roaring ? -8 : -13+actor.jawOpen*23
+                                z: 22
+                                eulerRotation.x: actor.jawOpen*29
+                                scale: Qt.vector3d(.055,.095,.039)
+                                materials: [enamel]
+                            }
                         }
-                    }
-                    Repeater3D {
-                        model: actor.teeth ? 10 : 0
-                        delegate: Model {
-                            required property int index
-                            source: "#Cone"
-                            visible: actor.teeth
-                            x: (index % 5 - 2) * 7
-                            y: index < 5 ? -13 : -34
-                            z: 28
-                            eulerRotation.z: index < 5 ? 180 : 0
-                            scale: Qt.vector3d(.065, index % 3 === 0 ? .134 : .103, .07)
-                            materials: [enamel]
+                        Model {
+                            visible: !actor.crawler && !actor.teeth && !actor.dragon
+                            source:"#Sphere"
+                            y:-24-actor.jawOpen*61
+                            z:12+actor.jawOpen*14
+                            eulerRotation.x:actor.jawOpen*38
+                            scale:Qt.vector3d(.42,.13,.32)
+                            materials:[bone]
                         }
-                    }
-                    Model {
-                        visible: actor.tongue
-                        source: "#Sphere"
-                        y: -25
-                        z: 23 + actor.flap * 3 + Math.abs(actor.strike) * 25
-                        eulerRotation.z: actor.flap * 30
-                        scale: Qt.vector3d(.087, .34 + Math.abs(actor.strike) * .24, .10)
-                        materials: [saliva]
+                        Repeater3D {
+                            model: !actor.crawler && !actor.teeth && !actor.dragon ? 4 : 0
+                            delegate: Model {
+                                required property int index
+                                source:"#Cone"
+                                x:(index-1.5)*6
+                                y:-21-actor.jawOpen*55
+                                z:25+actor.jawOpen*17
+                                scale:Qt.vector3d(.043,.076,.05)
+                                materials:[enamel]
+                            }
+                        }
+                        Repeater3D {
+                            model: actor.teeth ? 10 : 0
+                            delegate: Model {
+                                required property int index
+                                source: "#Cone"
+                                visible: actor.teeth
+                                x: (index % 5 - 2) * 7
+                                y: index < 5 ? -13 : -34
+                                z: 28
+                                eulerRotation.z: index < 5 ? 180 : 0
+                                scale: Qt.vector3d(.065, index % 3 === 0 ? .134 : .103, .07)
+                                materials: [enamel]
+                            }
+                        }
+                        Model {
+                            visible: actor.tongue
+                            source: "#Sphere"
+                            y: -25
+                            z: 23 + actor.flap * 3 + Math.abs(actor.strike) * 25
+                            eulerRotation.z: actor.flap * 30
+                            scale: Qt.vector3d(.087, .34 + Math.abs(actor.strike) * .24, .10)
+                            materials: [saliva]
+                        }
                     }
                 }
 

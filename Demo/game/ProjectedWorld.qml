@@ -658,6 +658,12 @@ Item {
                         ctx.fillRect(.38, .477, .052, .043)
                         ctx.fillRect(.57, .477, .052, .043)
                     } else {
+                        ctx.save()
+                        if (Livery.bellyMaws.includes(enemy.type)) {
+                            ctx.translate(.5,.71)
+                            ctx.scale(1.48,1.38)
+                            ctx.translate(-.5,-.50)
+                        }
                         const gape = Math.max(0,strike)*pose[3]
                         oval(ctx,.351,.50,.298,.063+gape*.72,"#28131d","#c6937c")
                         oval(ctx,.342,.56+gape*.55,.32,.052,Qt.lighter(skin,1.20),"#c6937c")
@@ -666,6 +672,7 @@ Item {
                             ctx.fillRect(.388+i*.056,.505,.027,.030)
                             ctx.fillRect(.385+i*.057,.56+gape*.55,.027,.029)
                         }
+                        ctx.restore()
                     }
                 }
 

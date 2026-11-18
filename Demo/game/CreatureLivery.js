@@ -18,3 +18,5 @@ var details = {
     stinkaturumus:[3,44,20,26,"gem"], saslimigus:[2,34,16,15,"gem"],
     battlestar:[3,43,24,22,"blade"], skarabatunus:[3,27,18,20,"gem"], capablancamus:[6,23,39,19,"rib"]
 }
+
+var bellyMaws = ["silophosus","hosphoragus","ghorimagous","princoratus","capablancamus","gojemarus"]
