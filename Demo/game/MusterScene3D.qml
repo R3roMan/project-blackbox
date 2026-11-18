@@ -5,6 +5,7 @@ import "Encounters.js" as Mission
 
 View3D {
     id: scene
+    objectName:"enemyMusterViewport"
     required property var company
     required property var placements
     property bool motion: true

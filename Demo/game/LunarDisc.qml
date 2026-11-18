@@ -12,6 +12,10 @@ Canvas {
     onWidthChanged:requestPaint()
     onVisibleChanged:if (visible) requestPaint()
     onRedNightChanged:requestPaint()
+    function noise(index) {
+        const sample=Math.sin(index*73.467+12.653)*19139.491
+        return sample-Math.floor(sample)
+    }
     onPaint: {
         const ctx=getContext("2d"), centre=width*.5, r=width*.275, red=lunarDisc.redNight
         ctx.reset()
@@ -34,9 +38,9 @@ Canvas {
         ctx.save()
         ctx.clip()
         for (let i=0;i<43;i++) {
-            const angle=i*2.39996
-            const distance=((i*.38197)%1)*.94
-            const size=.028+(i%4)*.019
+            const angle=noise(i*3)*Math.PI*2
+            const distance=Math.sqrt(noise(i*3+1))*.95
+            const size=.025+noise(i*3+2)*.065
             ctx.fillStyle=red ? "rgba(112,15,34,.22)" : "rgba(49,65,101,.18)"
             ctx.beginPath()
             ctx.ellipse(Math.cos(angle)*distance-size,Math.sin(angle)*distance-size,size*2,size*1.47)

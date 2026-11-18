@@ -472,7 +472,7 @@ FocusScope {
         turn.stop()
         turnAnimation.stop()
         turnRatio=1
-        paused=true
+        paused=restored.phase==="combat"
         run=restored
         frontId=previousFront=restored.playerFront
         reportedMetrics=Object.assign({},restored.metrics)
@@ -481,7 +481,6 @@ FocusScope {
         seenRoster=seenBolts=seenGifts=seenSmokes=-1
         selectedOffer=""
         saveNotice=""
-        setup.debugEnabled=restored.debug && !restored.training
         publish()
         Qt.callLater(giveMenuFocus)
     }
@@ -538,7 +537,6 @@ FocusScope {
         shotFlash = 0
         previousFront = "front"
         frontId = "front"
-        setup.debugEnabled = false
         run = run.training ? Tutorial.create(run.seed+1,unlockedGear) : Rules.create(run.seed+1,unlockedGear)
         publish()
         Qt.callLater(giveMenuFocus)
@@ -963,6 +961,14 @@ FocusScope {
             asynchronous: true
         }
         Rectangle { anchors.fill: parent; color: play.lab && play.phase !== "shop" ? "#9930192e" : "#250b080e" }
+        WeatherFX {
+            anchors.fill:parent
+            sky:true
+            condition:play.fighting ? play.weather : "clear"
+            opacity:1-play.blindness
+            time:play.elapsed
+            motion:play.motion
+        }
         LunarDisc {
             visible:play.fighting && play.frontId==="up" && Conditions.isNight(play.weather)
             opacity:1-play.blindness
@@ -2085,7 +2091,6 @@ FocusScope {
                 wrapMode: Text.WordWrap
             }
             RunSetup {
-                id: setup
                 Layout.fillWidth: true
                 visible: play.phase === "ready" && !play.paused
                 difficulty: { play.revision; return play.run.difficulty }

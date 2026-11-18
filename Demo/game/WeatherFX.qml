@@ -2,17 +2,18 @@ import QtQuick
 
 Item {
     id: weatherFx
-    objectName: "weatherEffects"
+    objectName: sky ? "weatherLighting" : "weatherEffects"
     required property string condition
     required property real time
     required property bool motion
+    property bool sky:false
     readonly property bool redNight:condition==="bloodMoon"
 
     property real gust: 0
 
     Rectangle {
         anchors.fill: parent
-        visible: ["night","bloodMoon","rain","inferno","winter","incursion"].includes(weatherFx.condition)
+        visible: weatherFx.sky && ["night","bloodMoon","rain","inferno","winter","incursion"].includes(weatherFx.condition)
         gradient: Gradient {
             GradientStop { position: 0; color: weatherFx.redNight ? "#ac731027" : weatherFx.condition === "inferno" ? "#75381821" : weatherFx.condition === "incursion" ? "#bb130a22" : weatherFx.condition === "night" ? "#ba0a193d" : "#54435a71" }
             GradientStop { position: .50; color: weatherFx.redNight ? "#82501225" : weatherFx.condition === "inferno" ? "#30b64027" : weatherFx.condition === "incursion" ? "#8722143b" : weatherFx.condition === "night" ? "#74071138" : "#41353b59" }
@@ -24,7 +25,7 @@ Item {
         anchors.left: parent.left
         width: parent.width
         height: parent.height * .56
-        visible: weatherFx.condition === "night"
+        visible: weatherFx.sky && weatherFx.condition === "night"
         opacity: weatherFx.motion ? .42 + Math.sin(weatherFx.time * .48) * .09 : .42
         gradient: Gradient {
             GradientStop { position: 0; color: "#426279c3" }
@@ -34,7 +35,7 @@ Item {
     EffectCanvas {
         id: rain
         anchors.fill: parent
-        visible: ["rain","meteor","inferno","winter","incursion","windy","glitch"].includes(weatherFx.condition)
+        visible: !weatherFx.sky && ["rain","meteor","inferno","winter","incursion","windy","glitch"].includes(weatherFx.condition)
         onVisibleChanged: if (visible) requestPaint()
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()

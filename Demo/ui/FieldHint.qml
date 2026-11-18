@@ -15,12 +15,13 @@ Popup {
     parent:anchorItem
     modal:false
     focus:false
+    popupType:Popup.Item
     closePolicy:Popup.NoAutoClose
     padding:12
     z:50
     readonly property real windowWidth:anchorItem.Window.window?.width || 760
     readonly property real windowHeight:anchorItem.Window.window?.height || 530
-    readonly property point origin:anchorItem.mapToItem(null,0,0)
+    property point origin:Qt.point(0,0)
     width:Math.max(160,Math.min(432,windowWidth-24))
     height:Math.min(implicitHeight,windowHeight-24)
     x:Math.max(12-origin.x,Math.min((anchorItem.width-width)/2,windowWidth-origin.x-width-12))
@@ -42,7 +43,14 @@ Popup {
     onHoveredChanged:updateHover()
     onDetailsChanged:if (!details.length) close()
     Component.onCompleted:updateHover()
-    Timer { id:reveal; interval:card.delay; onTriggered:if (card.hovered) card.open() }
+    Timer {
+        id:reveal
+        interval:card.delay
+        onTriggered:if (card.hovered) {
+            card.origin=card.anchorItem.mapToItem(null,0,0)
+            card.open()
+        }
+    }
     Timer { id:dismiss; interval:380; onTriggered:if (!card.hovered && !underPointer.hovered && !expand.activeFocus) card.close() }
     background:Rectangle {
         radius:7

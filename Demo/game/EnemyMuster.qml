@@ -114,7 +114,7 @@ Item {
         HoverHandler {
             id:paradeHover
             enabled:!!nativeParade.item
-            onPointChanged: {
+            function updateMember() {
                 if (!hovered || !nativeParade.item) {
                     muster.hoveredMember=-1
                     return
@@ -122,7 +122,8 @@ Item {
                 const local=nativeParade.mapFromItem(parade,point.position)
                 muster.hoveredMember=nativeParade.item.indexAt(local.x,local.y)
             }
-            onHoveredChanged:if (!hovered) muster.hoveredMember=-1
+            onPointChanged:updateMember()
+            onHoveredChanged:updateMember()
         }
         Item {
             id: army
