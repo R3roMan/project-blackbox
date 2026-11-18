@@ -13,30 +13,6 @@ import "../Demo/game/SaveData.js" as SaveData
 Item {
     id:host
     objectName:"blackboxDesktopHost"
-    function sampleControl(node,wanted) {
-        if (node.objectName===wanted) return node
-        for (const child of node.children) {
-            const seen=sampleControl(child,wanted)
-            if (seen) return seen
-        }
-        return null
-    }
-    HoverHandler { id: previewProbe }
-    function inputSample() {
-        const rows={}
-        for (const name of ["enableDebug","debugStart","debugBuild-star","primaryPlayAction","pausePlay"]) {
-            const item=host.sampleControl(host,name)
-            if (!item || !item.visible) continue
-            const box=item.mapToItem(null,0,0)
-            rows[name]=[box.x,box.y,item.width,item.height,item.enabled]
-        }
-        return {pointer:[previewProbe.hovered,previewProbe.point.position.x,previewProbe.point.position.y],parentZ:host.parent.parent.z,size:[width,height],panelArea:[workArea.x,workArea.y,workArea.width,workArea.height],controls:rows}
-    }
-    Timer {
-        interval: 2400
-        running: host.claimed
-        onTriggered: host.grabToImage(function(result) { result.saveToFile("/tmp/blackbox-refit/nested-setup.png") })
-    }
     property string screenName:Screen.name
     property bool claimed:false
     property bool useWorkArea:false
@@ -93,7 +69,7 @@ Item {
         if(!claimed || !battle.item)return
         const game=battle.item,run=game.run
         const actives=run.slots.active.map(function(slot,i){return slot.item ? {title:Gear.activeAbilities[slot.item.id].title,id:slot.item.id,cooldown:Rules.activeCooldown(run,slot.item.id),duration:Rules.abilityRecovery(run,slot)} : {title:"Empty",cooldown:0,duration:1}})
-        Native.Desktop.publish({qa:inputSample(),renderer:game.projectedMode ? "2D fallback" : "Qt Quick 3D",
+        Native.Desktop.publish({renderer:game.projectedMode ? "2D fallback" : "Qt Quick 3D",
             canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(home && mode==="play" && battle.item)battle.item.keyTargetFocus()

@@ -16,7 +16,7 @@ ApplicationWindow {
     height: 750
     minimumWidth: 760
     minimumHeight: 530
-    title: "Project Blackbox · Grimoire build"
+    title: "Project Blackbox · Workshop build"
     visible: true
     color: "#110e19"
 

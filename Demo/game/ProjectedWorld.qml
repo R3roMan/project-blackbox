@@ -862,6 +862,7 @@ Item {
         ProjectedPet {
             id: pet
             helper: Pets.spec(companion.model ? companion.model.id : "crow")
+            motion: world.motion
             strike: { world.revision; return companion.model ? companion.model.flash : 0 }
             readonly property var gesture: Pets.attackPose(helper.id, world.motion ? strike : 0)
             visible: { world.revision; return !world.hypnotised && !!companion.model && companion.model.front === world.frontId }

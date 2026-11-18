@@ -266,23 +266,23 @@ kits = kits.concat(primaryKits.filter(function(kit) { return kit.generated }))
 var unlockPrices = { weapon: [0, 440], active: [0, 390], passive: [0, 0, 0, 0, 565, 565, 565, 565] }
 var slotPowers = {
     weapon: [
-        { id: "ballistics", title: "Hardened chamber", stat: "damage", levels: [1, 1.4, 1.8, 2.2], color:"#ffa46d",
+        { id: "ballistics", title: "Hardened chamber", stat: "damage", levels: [.45, .64, .82, 1], color:"#ffa46d",
             description: "Adds %1 damage per shot to this weapon slot." },
-        { id: "stabilizer", title: "Stabilizer", stat: "recovery", levels: [.86, .82, .78, .74], format: "reduction", color:"#69dfed",
+        { id: "stabilizer", title: "Stabilizer", stat: "recovery", levels: [.93,.91,.89,.87], format: "reduction", color:"#69dfed",
             description: "Shortens shot recovery in this weapon slot by %1%." },
-        { id: "feeder", title: "Magazine feeder", stat: "ammo", levels: [3, 4, 5, 6], color:"#edcf73",
+        { id: "feeder", title: "Magazine feeder", stat: "ammo", levels: [1,2,3,4], color:"#edcf73",
             description: "Adds %1 rounds to the magazine in this weapon slot." }
     ],
     active: [
-        { id: "relay", title: "Cooling relay", stat: "cooldown", levels: [.80, .76, .72, .68], format: "reduction", color:"#84a7ff",
+        { id: "relay", title: "Cooling relay", stat: "cooldown", levels: [.91,.88,.85,.82], format: "reduction", color:"#84a7ff",
             description: "Shortens cooldowns for this active slot by %1%." },
-        { id: "coupler", title: "Power coupler", stat: "strength", levels: [1, 2, 3, 4], color:"#cfa2ff",
+        { id: "coupler", title: "Power coupler", stat: "strength", levels: [.35,.50,.65,.80], color:"#cfa2ff",
             description: "Increases the effective level of this slot's active by %1." }
     ],
     passive: [
         { id: "amplifier", title: "Passive amplifier", stat: "strength", levels: [1, 2, 3, 4], color:"#ec9cd6",
             description: "Increases the effective level of this slot's passive by %1." },
-        { id: "padding", title: "Lined socket", stat: "armour", levels: [.10, .13, .16, .19], format: "percent", color:"#82ecad",
+        { id: "padding", title: "Lined socket", stat: "armour", levels: [.042,.054,.066,.078], format: "percent", color:"#82ecad",
             description: "Reduces damage taken by %1% while this passive slot is occupied." }
     ]
 }
@@ -845,7 +845,7 @@ function replacementKey(power) {
 }
 
 function shopCategory(action) {
-    return ({power:"Slot effect","power-upgrade":"Slot rank",upgrade:"Equipment rank",gear:"Equipment",
+    return ({shop:"Shop guide",power:"Slot effect","power-upgrade":"Slot rank",upgrade:"Equipment rank",gear:"Equipment",
         "shop-quality":"Stock quality","expand-shop":"Counter space",unlock:"Equipment slot",inventory:"Storage",
         mystery:"Sealed cache","repeat-upgrade":"Stock affinity",pet:"Companion",
         "barrier-core":"Protection","shield-upgrade":"Protection",scramble:"Rebuild","shop-stat":"Run stat"})[action] || "Supplies"
@@ -926,7 +926,7 @@ function makeShop(run, random, excluded, maximum) {
     const roll = random()
     if (roll < odds.premium) {
         const rarity = roll < odds.legendary ? "legendary" : "epic"
-        const premium = Object.values(activeAbilities).concat(Object.values(passives)).filter(function(item) {
+        const premium = Object.values(activeAbilities).concat(Object.values(passives),Object.values(weapons)).filter(function(item) {
             return item.rarity === rarity && !blocked.includes("premium-" + item.id) && canOffer(run, item)
         })
         if (premium.length) {

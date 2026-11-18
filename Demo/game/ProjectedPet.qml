@@ -6,11 +6,15 @@ Canvas {
     required property var helper
     required property real flap
     property bool resting: false
+    property bool motion: true
     property real strike: 0
+    property real fold: resting ? 1 : 0
+    Behavior on fold { enabled: pet.motion; NumberAnimation { duration: 270; easing.type: Easing.InOutSine } }
     readonly property bool angry: strike > .04
     readonly property bool machine: ["wasp", "kite", "ray", "beetle"].includes(helper.form)
     readonly property bool membrane: ["bat", "ray", "drake", "fox"].includes(helper.form)
     onFlapChanged: requestPaint()
+    onFoldChanged: requestPaint()
     onStrikeChanged: requestPaint()
     onHelperChanged: requestPaint()
     onWidthChanged: requestPaint()
@@ -33,12 +37,12 @@ Canvas {
             ctx.lineWidth = .026
             for (let i = 0; i < 8; i += 1) {
                 const side = i < 4 ? -1 : 1
-                const step = Math.sin(i * 1.9 + pet.flap * 2.5) * .07
+                const step = Math.sin(i * 1.9 + pet.flap * 2.5) * .07 * (1 - pet.fold)
                 const offset = i % 4 * .105
                 ctx.beginPath()
                 ctx.moveTo(.5 + side * .12, .53)
                 ctx.lineTo(.5 + side * (.22 + offset * .37), .50 + offset + step)
-                ctx.lineTo(.5 + side * (.44 - offset * .38), .87 - offset * .4 + step)
+                ctx.lineTo(.5 + side * (.44 - offset * .38 - pet.fold * .065), .87 - offset * .4 + step)
                 ctx.stroke()
             }
             for (let i = 0; i < 12; i += 1) {
@@ -49,8 +53,8 @@ Canvas {
                 ctx.stroke()
             }
             ctx.fillStyle = pet.angry ? "#ffe893" : pet.helper.accent
-            ctx.fillRect(.44, .55, .035, .045)
-            ctx.fillRect(.52, .55, .035, .045)
+            ctx.fillRect(.44, .55, .035, .045 - pet.fold * .028)
+            ctx.fillRect(.52, .55, .035, .045 - pet.fold * .028)
             if (pet.angry)
                 brows(ctx)
             return
@@ -70,17 +74,18 @@ Canvas {
             ctx.ellipse(.25,.17,.50,.52)
             ctx.fill()
             ctx.fillStyle=pet.angry ? "#ff82df" : pet.helper.accent
-            ctx.fillRect(.37,.40,.098,.05)
-            ctx.fillRect(.54,.40,.098,.05)
+            ctx.fillRect(.37,.40,.098,.05 - pet.fold * .034)
+            ctx.fillRect(.54,.40,.098,.05 - pet.fold * .034)
             return
         }
+        const wingspan=1-pet.fold*.50
         for (const side of [-1, 1]) {
             ctx.beginPath()
             ctx.moveTo(.5, .51)
-            ctx.lineTo(.5 + side * .46, .22 - pet.flap * .19)
-            ctx.lineTo(.5 + side * .34, pet.membrane ? .64 : .49)
-            ctx.lineTo(.5 + side * .23, pet.membrane ? .49 : .61)
-            ctx.lineTo(.5 + side * .18, .65)
+            ctx.lineTo(.5 + side * .46 * wingspan, .22 - pet.flap * .19 + pet.fold * .39)
+            ctx.lineTo(.5 + side * .34 * wingspan, (pet.membrane ? .64 : .49) + pet.fold * .18)
+            ctx.lineTo(.5 + side * .23 * wingspan, (pet.membrane ? .49 : .61) + pet.fold * .12)
+            ctx.lineTo(.5 + side * .18 * wingspan, .65)
             ctx.closePath()
             ctx.fill()
             ctx.stroke()
@@ -88,8 +93,8 @@ Canvas {
             ctx.lineWidth = .013
             for (let i = 0; i < 3; i += 1) {
                 ctx.beginPath()
-                ctx.moveTo(.50 + side * (.21+i*.065),.46)
-                ctx.lineTo(.50 + side * (.28+i*.038),.48+pet.flap*.07)
+                ctx.moveTo(.50 + side * (.21+i*.065) * wingspan,.46 + pet.fold*.13)
+                ctx.lineTo(.50 + side * (.28+i*.038) * wingspan,.48+pet.flap*.07 + pet.fold*.20)
                 ctx.stroke()
             }
         }
@@ -117,8 +122,8 @@ Canvas {
             ctx.ellipse(.320,.202,.362,.189)
             ctx.fill()
             ctx.fillStyle = pet.angry ? "#fff290" : pet.helper.accent
-            ctx.fillRect(.385,.418,.082,.070)
-            ctx.fillRect(.534,.418,.082,.070)
+            ctx.fillRect(.385,.418,.082,.070 - pet.fold * .048)
+            ctx.fillRect(.534,.418,.082,.070 - pet.fold * .048)
             if (pet.angry)
                 brows(ctx)
             ctx.fillStyle = "#7e4054"
@@ -148,8 +153,8 @@ Canvas {
             }
         }
         ctx.fillStyle = pet.angry ? "#fff09a" : pet.helper.accent
-        ctx.fillRect(.39, .42, .065, .075)
-        ctx.fillRect(.55, .42, .065, .075)
+        ctx.fillRect(.39, .42, .065, .075 - pet.fold * .052)
+        ctx.fillRect(.55, .42, .065, .075 - pet.fold * .052)
         if (pet.angry)
             brows(ctx)
         ctx.fillStyle = pet.helper.form === "chicken" ? "#e5a462" : pet.machine ? "#b8d9ec" : "#171823"
@@ -180,11 +185,12 @@ Canvas {
             const tip=owl ? .46 : finch ? .34 : wendy ? .33 : .46
             for (let i=0;i<6;i++) {
                 const reach=tip-i*(finch ? .041 : .049)
-                const y=(owl ? .23 : .16)+i*.064-flap*.18
-                path(ctx,[.5+side*.12,.43,.5+side*reach,y,.5+side*(reach-.051),y+.17,.5+side*.16,.68],
+                const y=(owl ? .23 : .16)+i*.064-flap*.18+fold*(.38-i*.028)
+                const span=1-fold*.47
+                path(ctx,[.5+side*.12,.43,.5+side*reach*span,y,.5+side*(reach-.051)*span,y+.17,.5+side*.16,.68],
                     i%3===1 ? Qt.lighter(helper.skin,1.36) : helper.skin)
             }
-            path(ctx,[.5+side*.076,.70,.5+side*.087,.84,.5+side*.156,.88,.5+side*.055,.90,.5+side*.049,.72],bill)
+            path(ctx,[.5+side*.076,.70,.5+side*.087,.84-fold*.10,.5+side*.156,.88-fold*.13,.5+side*.055,.90-fold*.12,.5+side*.049,.72],bill)
         }
         oval(ctx, wendy ? .265 : .32, .33,wendy ? .47 : .36,wendy ? .43 : .38,helper.skin)
         oval(ctx,.355,.426,.29,.26,tan)
@@ -200,8 +206,8 @@ Canvas {
         for (const side of [-1,1]) {
             const x=.50+side*(owl ? .095 : .067)
             if (owl || finch) oval(ctx,x-.071,.318,.142,.156,tan)
-            oval(ctx,x-.041,.372,.082,.091,"#151420")
-            oval(ctx,x-.027,.388,.054,angry ? .031 : .057,angry ? "#ff544a" : helper.accent)
+            oval(ctx,x-.041,.372+fold*.033,.082,.091-fold*.067,"#151420")
+            if (fold < .62) oval(ctx,x-.027,.388,.054,(angry ? .031 : .057)*(1-fold),angry ? "#ff544a" : helper.accent)
         }
         if (angry) brows(ctx)
         path(ctx,[.451,.475,.55,.475,.52+(raven ? .043 : 0),finch ? .534 : .588,.49,.562],bill)

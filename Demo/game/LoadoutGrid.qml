@@ -87,6 +87,7 @@ RowLayout {
                         readonly property var spec: item ? Gear.catalogs[track.group][item.id] : null
                         readonly property bool showsPortrait: !!spec && !grid.offerId.length
                         readonly property var power: { grid.revision; return Gear.slotPower(track.group, slot) }
+                        readonly property bool powerLive: { grid.revision; return !!Gear.socketEffect(grid.run,track.group,slot).id }
                         readonly property color upgradeColor: { grid.revision; return Gear.slotUpgradeColor(track.group, slot) }
                         readonly property string number: track.group === "active" ? (index === 0 ? "Q" : "E") : String(index + 1)
                         readonly property color tierColor: spec ? Gear.rarities[spec.rarity].color : "#77728b"
@@ -114,7 +115,8 @@ RowLayout {
                         entryId:spec ? (spec.debugOnly ? "" : spec.id) : power.id || ""
                         onEntryRequested:function(chapter,id) { grid.entryRequested(chapter,id) }
                         hintText: (grid.offerId.length && spec ? "Replace " : "") + text
-                            + (power.title ? "\nSlot effect · " + power.title + " · Lv " + power.level + "\n" + power.description : "")
+                            + (power.title ? "\nSlot effect · " + power.title + " · Lv " + power.level + "\n" + power.description
+                                +(powerLive ? "\nActive with this build." : "\nWaiting for a compatible build.") : "")
                             + (spec ? "\n" + Gear.itemDetails(grid.run,track.group,item) : "")
                         onClicked: grid.select(track.group, index)
                         contentItem: ColumnLayout {
@@ -173,6 +175,8 @@ RowLayout {
                             anchors.fill: parent
                             tint: slotTile.upgradeColor
                             motion: grid.animate
+                            socketRank:slotTile.power.id ? slotTile.power.level : -1
+                            socketReady:!slotTile.power.id || slotTile.powerLive
                         }
                         GearDrag {
                             id: sourceDrag

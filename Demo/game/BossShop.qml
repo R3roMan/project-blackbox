@@ -13,6 +13,7 @@ ColumnLayout {
     property bool compact: false
     property bool nativeScene: false
     property bool motion: true
+    readonly property bool stacked: width < 590
     signal entryRequested(string chapter, string id)
     signal purchaseRequested(string offerId, int slot, string confirmed)
 
@@ -54,7 +55,7 @@ ColumnLayout {
         if (!offer) return ""
         if (offer.action==="power" || offer.action==="power-upgrade") {
             const slot=run.slots[offer.group][offer.index]
-            if (!slot) return offer.description
+            if (!slot) return offer.description || ""
             const spec=offer.powerId || slot.power
             const level=offer.action==="power" ? 0 : (offer.level || slot.powerLevel+1)
             const effect=Gear.slotPower(offer.group,{power:spec,powerLevel:level})
@@ -67,7 +68,7 @@ ColumnLayout {
         }
         const shown=displayItem(offer)
         return Gear.catalogs[offer.group]?.[shown.id] ? Gear.itemDetails(run,offer.group,{id:shown.id,level:offer.level || 0})
-            : offer.description
+            : (offer.description || "")
     }
 
     function purchase(confirmed) {
@@ -83,7 +84,7 @@ ColumnLayout {
 
     ShopBench {
         Layout.fillWidth: true
-        Layout.preferredHeight: shop.compact ? 107 : 149
+        Layout.preferredHeight: shop.compact ? 95 : 149
         nativeScene: shop.nativeScene
         motion: shop.motion
         cards: shop.cards
@@ -115,8 +116,7 @@ ColumnLayout {
         }
         Ui.ActionButton {
             objectName:"shopLedger"
-            visible:!shop.compact
-            text:"Shop ledger"
+            text:shop.compact ? "Ledger" : "Shop ledger"
             onClicked:shop.entryRequested("shop","counter")
         }
     }
@@ -140,7 +140,7 @@ ColumnLayout {
 
     GridLayout {
         Layout.fillWidth: true
-        columns:shop.compact ? 1 : 2
+        columns:shop.stacked ? 1 : 2
         rowSpacing:8
         columnSpacing:12
         GridLayout {
@@ -256,7 +256,7 @@ ColumnLayout {
                 }
                 Text {
                     Layout.fillWidth: true
-                    text: shop.selected ? shop.selected.title : "Select a listing"
+                    text: shop.pendingReplacement ? "Replace "+shop.replacing.title+"?" : shop.selected ? shop.selected.title : "Select a listing"
                     color: shop.rarityTone
                     font.family: "Inter"
                     font.pixelSize: Ui.UiMetrics.text(18)
@@ -270,54 +270,8 @@ ColumnLayout {
                         available: shop.pickSlot
                     }
                 }
-                Text {
-                    Layout.fillWidth: true
-                    text: {shop.revision;return shop.selected ? shop.details(shop.selected) : "Select a listing to see what it changes in your run."}
-                    wrapMode: Text.WordWrap
-                    color: "#d5e0f0"
-                    font.family: "Inter"
-                    font.pixelSize: Ui.UiMetrics.text(13)
-                }
-                Text {
-                    Layout.fillWidth: true
-                    visible: !!shop.premium
-                    text: {
-                        shop.revision
-                        if (!shop.premium || shop.selected.sold)
-                            return ""
-                        if (shop.storing)
-                            return "Sent straight to your inventory · no equipped item is replaced."
-                        const destination = shop.pickSlot ? shop.selectedSlot : shop.slotForPremium
-                        const existing = shop.run.slots[shop.selected.group][destination]
-                        if (!existing)
-                            return "Choose a slot."
-                        if (!existing.item)
-                            return "Equips in empty slot " + (destination + 1) + "."
-                        if (existing.item.id === shop.premium.id)
-                            return "Upgrade to Lv " + (existing.item.level + 1) + " · " + Gear.upgradeText(shop.premium, existing.item.level + 1)
-                        return "Replaces " + Gear.catalogs[shop.selected.group][existing.item.id].title
-                            + " in slot " + (destination + 1) + (Gear.canStore(shop.run) ? ". The old item moves to inventory." : ". Inventory full: the old item is discarded.")
-                    }
-                    wrapMode: Text.WordWrap
-                    color: "#aebed8"
-                    font.family: "Inter"
-                    font.pixelSize: Ui.UiMetrics.text(12)
-                }
-                LoadoutGrid {
-                    Layout.fillWidth: true
-                    visible: shop.pickSlot
-                    run: shop.run
-                    revision: shop.revision
-                    compact: true
-                    groups: shop.pickSlot ? [shop.selected.group] : []
-                    offerId: shop.selectedId
-                    selectedGroup: shop.pickSlot ? shop.selected.group : ""
-                    selectedIndex: shop.selectedSlot
-                    onEntryRequested:function(chapter,id) { shop.entryRequested(chapter,id) }
-                    onPlaced: function(offerId, slot) { shop.selectedSlot = slot }
-                }
                 RowLayout {
-                    visible: !shop.pendingReplacement
+                    visible: !!shop.selected && !shop.pendingReplacement
                     Ui.ActionButton {
                         visible: shop.canStash && !shop.selected.sold
                         text: shop.selectedSlot === Gear.inventoryDestination ? "Use slot" : "Store instead"
@@ -338,20 +292,11 @@ ColumnLayout {
                         onClicked: shop.purchase("")
                     }
                 }
-                Text {
-                    visible:shop.pendingReplacement.length>0
-                    Layout.fillWidth:true
-                    text:shop.replacing.title+" · Lv "+shop.replacing.level+" will be removed from this slot."
-                    wrapMode:Text.WordWrap
-                    color:"#ffd3a1"
-                    font.family:"Inter"
-                    font.pixelSize:Ui.UiMetrics.text(13)
-                }
                 Flow {
                     visible:shop.pendingReplacement.length>0
                     Layout.fillWidth:true
                     spacing:6
-                    Ui.ActionButton {text:"Keep current"; onClicked:shop.pendingReplacement=""}
+                    Ui.ActionButton {objectName:"cancelSlotReplacement";text:"Keep current"; onClicked:shop.pendingReplacement=""}
                     Ui.ActionButton {
                         objectName:"confirmSlotReplacement"
                         text:shop.selected ? "Replace · "+shop.selected.cost+" gold" : "Replace"
@@ -359,6 +304,53 @@ ColumnLayout {
                         enabled:!!shop.selected && shop.balance>=shop.selected.cost && shop.pendingReplacement===shop.replacingKey
                         onClicked:shop.purchase(shop.pendingReplacement)
                     }
+                }
+                LoadoutGrid {
+                    Layout.fillWidth: true
+                    visible: shop.pickSlot
+                    run: shop.run
+                    revision: shop.revision
+                    compact: true
+                    groups: shop.pickSlot ? [shop.selected.group] : []
+                    offerId: shop.selectedId
+                    selectedGroup: shop.pickSlot ? shop.selected.group : ""
+                    selectedIndex: shop.selectedSlot
+                    onEntryRequested:function(chapter,id) { shop.entryRequested(chapter,id) }
+                    onPlaced: function(offerId, slot) { shop.selectedSlot = slot }
+                }
+                Text {
+                    Layout.fillWidth: true
+                    visible: !!shop.premium && !shop.selected.sold
+                    text: {
+                        shop.revision
+                        if (!shop.premium || shop.selected.sold)
+                            return ""
+                        if (shop.storing)
+                            return "Destination: inventory."
+                        const destination = shop.pickSlot ? shop.selectedSlot : shop.slotForPremium
+                        const existing = shop.run.slots[shop.selected.group][destination]
+                        if (!existing)
+                            return "Choose a slot."
+                        if (!existing.item)
+                            return "Equips in empty slot " + (destination + 1) + "."
+                        if (existing.item.id === shop.premium.id)
+                            return "Upgrade to Lv " + (existing.item.level + 1) + " · " + Gear.upgradeText(shop.premium, existing.item.level + 1)
+                        return "Replaces " + Gear.catalogs[shop.selected.group][existing.item.id].title
+                            + " in slot " + (destination + 1) + (Gear.canStore(shop.run) ? ". The old item moves to inventory." : ". Inventory full: the old item is discarded.")
+                    }
+                    wrapMode: Text.WordWrap
+                    color: "#aebed8"
+                    font.family: "Inter"
+                    font.pixelSize: Ui.UiMetrics.text(12)
+                }
+                Text {
+                    Layout.fillWidth: true
+                    visible: !!shop.selected
+                    text: {shop.revision;return shop.selected ? shop.details(shop.selected) : ""}
+                    wrapMode: Text.WordWrap
+                    color: "#d5e0f0"
+                    font.family: "Inter"
+                    font.pixelSize: Ui.UiMetrics.text(13)
                 }
                 Item { Layout.fillHeight: true }
             }

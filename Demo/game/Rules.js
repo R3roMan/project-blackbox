@@ -378,6 +378,7 @@ function blockWithShield(run, amount, origin, type, payload, projectile, critica
         const reward = Math.min(4,rank(run,"guardToll") + 1) + Gear.kitBonus(run,"guardGold")
         run.gold += reward
         record(run, "goldEarned", reward)
+        passiveVisual(run,"guardToll",origin,"coin","mint",null,"+"+reward+" GOLD")
     }
     guard.credit = Math.min(guard.recovery*.50, guard.credit + rank(run,"coolGuard")*.5)
     if (guard.mode === "fleetShell")
@@ -403,8 +404,10 @@ function blockWithShield(run, amount, origin, type, payload, projectile, critica
         guard.parried = true
         guard.credit += guard.recovery*.25
         record(run,"parries")
-        if (rank(run,"parry"))
+        if (rank(run,"parry")) {
             guard.credit += 3.8 + Gear.perk(run,"parryCredit") + Gear.kitBonus(run,"parryCredit")
+            passiveVisual(run,"parry",origin,"guard","shield",null,"PARRY RECHARGE")
+        }
     }
     const foil = rank(run,"foilGuard")
     const mirror = !(payload && payload.mirror) && (perfect
@@ -1102,18 +1105,24 @@ function remove(run, index, paid, source) {
     const relay = enemy.elements.burn ? rank(run, "thermalRelay") : 0
     const echo = enemy.depth < 445 && enemy.front === run.playerFront ? rank(run, "echoReload") : 0
     if (relay || echo) {
+        const before=current.ammo
         current.ammo = Math.min(magazine(run), current.ammo + relay + Number(echo > 0))
         if (echo && current.reload > 0)
             current.reload = Math.max(.01, current.reload - .24 * echo)
+        if (current.ammo>before)
+            passiveVisual(run,relay ? "thermalRelay" : "echoReload",run.playerFront,"reload","reload",null,"+"+(current.ammo-before)+" ROUNDS")
     }
     const pact = rank(run,"bloodPact")
     if (pact && source === "gun" && run.time >= run.vampireReady) {
-        recoverBlood(run,1.5+pact)
+        const healed=recoverBlood(run,1.5+pact)
+        if (healed>0) passiveVisual(run,"bloodPact",enemy.front,"blood","drain",arcPoint(enemy),"+"+Number(healed.toFixed(1))+" HP")
         run.vampireReady=run.time+1.5
     }
     const battery = rank(run, "wardBattery")
-    if (battery && run.waveKills % 6 === 0)
+    if (battery && run.waveKills % 6 === 0) {
         raiseBarrier(run, 2.3 + battery * 1.25, 1)
+        passiveVisual(run,"wardBattery",run.playerFront,"guard","shield",null,"BARRIER CHARGE")
+    }
     const role = enemyTypes[enemy.type].role
     const baseGold = Math.round(goldPerKill(run.wave) * (role === "boss" ? 10 : enemy.type === "gojemarus" ? 5 : 1)
         + rank(run,"liquidAssets") + Gear.passiveSockets(run,"killGold",4))
@@ -4006,9 +4015,7 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
         announce(run, charges ? "Barrier absorbed the attack" : "Barrier shattered",charges ? "shieldBlock" : "shieldBreak")
         return
     }
-    const padding = run.slots.passive.reduce(function(effect, slot) {
-        return effect + (slot.item ? Gear.slotPower("passive", slot).armour || 0 : 0)
-    }, 0)
+    const padding=Gear.passiveSockets(run,"armour",.18)
     const insulation = attacker.role === "alien" ? rank(run, "insulation") * .085 : 0
     const ground = affected.element === "electric" ? rank(run, "arcGround") * .08 : 0
     const blast = affected.blast || affected.element === "explosive" || ["princoratus","meteor","seraphijus"].includes(type)
