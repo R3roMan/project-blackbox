@@ -1,0 +1,11 @@
+{
+    "KPlugin": {
+        "Id": "local.starrain.projectblackbox",
+        "Name": "PROJECT BLACKBOX",
+        "Description": "Seven interactive environments for Star Rain",
+        "Version": "0.1.0",
+        "Icon": "preferences-desktop-wallpaper"
+    },
+    "KPackageStructure": "Plasma/Wallpaper",
+    "X-KDE-PlasmaImageWallpaper-AccentColor": "#f2c18a"
+}

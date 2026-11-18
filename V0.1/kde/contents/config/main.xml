@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0">
+    <kcfgfile name=""/>
+    <group name="General">
+        <entry name="Mode" type="String"><default>wallpaper</default></entry>
+        <entry name="RoomEdits" type="String"><default>{}</default></entry>
+        <entry name="DurationMs" type="Int"><default>480</default></entry>
+        <entry name="AmbientFps" type="Int"><default>24</default></entry>
+        <entry name="MotionAllowed" type="Bool"><default>true</default></entry>
+    </group>
+</kcfg>
