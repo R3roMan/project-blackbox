@@ -1,4 +1,5 @@
 .pragma library
+.import "Tarot.js" as Tarot
 
 var grades=["F","D","C","B","A","S","SSS"]
 var colors={F:"#8b9cac",D:"#b5a5bc",C:"#91c9ed",B:"#9cdebd",A:"#f0b87d",S:"#e3acff",SSS:"#ffe283"}
@@ -20,35 +21,64 @@ var parcels=[
     {id:"epic",title:"Violet reliquary",glyph:"✦",price:180,rarity:"epic",description:"Start the next regular run with one random eligible Epic weapon.",line:"I knew its last owner. This is where I'd say I miss them, isn't it?"},
     {id:"legendary",title:"Gilded casket",glyph:"✷",price:430,rarity:"legendary",description:"Start the next regular run with one random eligible Legendary weapon.",line:"You're sure? Good. I want to see what it does in your hands."}
 ]
+var reading = {id:"tarot",title:"The witch’s reading",glyph:"✶",price:44,
+    description:"Turn one card from a hand of five. Its omen follows your next regular expedition.",
+    line:"Five doors. Behind each, a different way to come back alive."}
+var offers = vows.concat(parcels,[reading])
 
 function fresh() {
-    return {gems:0,ranks:{},pending:{},settled:{},started:{},best:null,last:null,archive:[]}
+    return {gems:0,earned:0,purchases:0,ranks:{},pending:{},settled:{},started:{},best:null,last:null,archive:[],
+        reading:null,sale:{discount:0,free:""}}
 }
 
 function level(state,id) {return state?.ranks?.[id] || 0}
 
-function price(state,offer) {
+function basePrice(state,offer) {
     const rank=level(state,offer.id)
-    return offer.prices ? offer.prices[rank] : Math.ceil(offer.price*Math.pow(offer.growth || 1,rank))
+    return offer.prices ? offer.prices[Math.min(rank,offer.prices.length-1)] : Math.ceil(offer.price*Math.pow(offer.growth || 1,rank))
+}
+
+function discount(state,offer) {
+    const sale=state.sale
+    return sale?.free===offer.id ? 100 : sale?.discount || 0
+}
+
+function price(state,offer) {
+    return Math.ceil(basePrice(state,offer)*(100-discount(state,offer))/100)
+}
+
+function inStock(state,offer) {
+    if (offer.id===reading.id) return !state.reading
+    if (offer.cap) return level(state,offer.id)<offer.cap
+    return !(state.pending[offer.id] || offer.rarity && (state.pending.epic || state.pending.legendary))
 }
 
 function canBuy(state,offer) {
-    if (offer.cap && level(state,offer.id)>=offer.cap) return false
-    if (!offer.cap && (state.pending[offer.id] || offer.rarity && (state.pending.epic || state.pending.legendary))) return false
-    return state.gems>=price(state,offer)
+    return inStock(state,offer) && state.gems>=price(state,offer)
 }
 
-function buy(state,id) {
-    const offer=vows.concat(parcels).find(function(item) {return item.id===id})
+function buy(state,id,random) {
+    const offer=offers.find(function(item) {return item.id===id})
     if (!offer || !canBuy(state,offer)) return false
     state.gems-=price(state,offer)
-    if (offer.cap) state.ranks[id]=level(state,id)+1
+    if (state.sale.free===id) state.sale.free=""
+    state.purchases++
+    if (id===reading.id) state.reading={cards:Tarot.draw(random || Math.random),chosen:""}
+    else if (offer.cap) state.ranks[id]=level(state,id)+1
     else state.pending[id]=true
     return true
 }
 
+function turnCard(state,id) {
+    if (!state.reading || state.reading.chosen || !state.reading.cards.includes(id)) return false
+    state.reading.chosen=id
+    return true
+}
+
 function contract(state) {
-    return {ranks:Object.assign({},state.ranks),pending:Object.assign({},state.pending)}
+    const terms={ranks:Object.assign({},state.ranks),pending:Object.assign({},state.pending)}
+    if (state.reading?.chosen) terms.tarot=state.reading.chosen
+    return terms
 }
 
 function begin(state,id) {
@@ -56,6 +86,7 @@ function begin(state,id) {
     if (state.started[id]) return state.started[id]
     const terms=contract(state)
     state.pending={}
+    if (terms.tarot) state.reading=null
     state.started[id]=terms
     return terms
 }
@@ -65,10 +96,11 @@ var unmodified={health:0,weapon:1,active:1,duration:1,recovery:1,passive:1,barri
 function benefits(run) {
     const terms=run?.covenant
     if (!terms) return unmodified
-    const rank=terms?.ranks || {}, parcels=terms?.pending || {}
-    return {health:(rank.health || 0)*10+(parcels.vitality ? 35 : 0),
+    const rank=terms.ranks || {}, parcels=terms.pending || {}
+    const omen=terms.tarot ? Tarot.stats(run) : {}
+    return {health:(rank.health || 0)*10+(parcels.vitality ? 35 : 0)+(omen.health || 0),
         weapon:(1+(rank.weapon || 0)*.02)*(parcels.force ? 1.12 : 1), active:parcels.force ? 1.12 : 1,
-        duration:1+(rank.duration || 0)*.025, recovery:(1-(rank.recovery || 0)*.015)*(parcels.quickening ? .90 : 1),
+        duration:1+(rank.duration || 0)*.025+(omen.duration || 0), recovery:(1-(rank.recovery || 0)*.015)*(parcels.quickening ? .90 : 1),
         passive:1+(rank.passive || 0)*.02, barrier:rank.barrier || 0, shield:(rank.shield || 0)*.12,
         parry:(rank.parry || 0)*.015}
 }
@@ -90,6 +122,7 @@ function report(run, reason, load) {
     const flawless=m.flawless || 0, stage=Math.max(1,run.wave)
     const accuracy=shots ? hits/shots : 0
     const experience=curve(cleared,18)
+    const waveScore=round(100*curve(cleared,30))
     const precision=accuracy*curve(shots,38)+(hits/(shots+10))*(1-curve(shots,38))
     const killPressure=curve(kills,Math.max(18,cleared*3.1))
     const guard=curve(blocks+2.0*parries+intercepts*.45,Math.max(6,cleared*.9))
@@ -110,8 +143,9 @@ function report(run, reason, load) {
     const engaged=kills>=2 || blocks>=2 || shots>=6 && accuracy>=.55
     const score=round(Math.max(engaged ? 19 : 0,Math.min(100,
         (skill*.43+finance*.22+survival*.35)*(.63+.37*curve(cleared,12))+restraint+risk*experience)))
-    const perfect=reason==="retired" && cleared>=50 && bosses>=5 && shots>=180 && hits===shots
-        && damage===0 && contacts===0 && flawless===cleared && score>=84
+    const perfect=reason==="retired" && cleared>=80 && waveScore>=93 && bosses>=8 && shots>=350 && hits===shots
+        && kills>=420 && seals>=8 && blocks>=28 && parries>=8 && purchases>=10
+        && damage===0 && contacts===0 && flawless===cleared && skill>=90 && finance>=80 && survival>=98 && score>=91
     const overall=perfect ? "SSS" : grade(score)
     const eligible=!run.debug && !run.training && !run.rehearsal && !!run.attemptId
     const bonus=[0,4,11,26,50,92,235][grades.indexOf(overall)]
@@ -122,7 +156,24 @@ function report(run, reason, load) {
         points:{skill:skill,finance:finance,survival:survival,overall:score}, gems:gems,bonus:eligible ? bonus : 0,eligible:eligible,
         stats:{accuracy:round(accuracy*100),shots:shots,hits:hits,damage:round(damage),contacts:contacts,kills:kills,bosses:bosses,
             seals:seals,blocks:blocks,parries:parries,intercepts:intercepts,purchases:purchases,earned:gained,spent:spent,wallet:wallet,
-            flawless:flawless,items:load.items,upgrades:load.upgrades,restraint:restraint}}
+            flawless:flawless,items:load.items,upgrades:load.upgrades,restraint:restraint,waveScore:waveScore}}
+}
+
+function rotation(state,id) {
+    let seed=0x811c9dc5
+    for (let i=0;i<id.length;i++) seed=Math.imul(seed^id.charCodeAt(i),0x01000193)
+    return rollSale(state,function() {
+        seed=(Math.imul(seed,1664525)+1013904223)>>>0
+        return seed/4294967296
+    })
+}
+
+function rollSale(state,random) {
+    const rolled=random()
+    const discount=rolled<.0014 ? 50 : rolled<.0147 ? 20 : rolled<.07 ? 10 : 0
+    if (random()>=.001) return {discount:discount,free:""}
+    const stock=offers.filter(function(offer) {return inStock(state,offer)})
+    return {discount:discount,free:stock[Math.floor(random()*stock.length)]?.id || ""}
 }
 
 function settle(state,card) {
@@ -130,6 +181,8 @@ function settle(state,card) {
     state.settled[card.id]=card.grades.overall
     delete state.started[card.id]
     state.gems+=card.gems
+    state.earned+=card.gems
+    state.sale=rotation(state,card.id)
     state.last=card
     const best=state.best
     const place=grades.indexOf(card.grades.overall), previous=best ? grades.indexOf(best.grades.overall) : -1
@@ -151,6 +204,7 @@ function validId(id) {return typeof id === "string" && /^[a-z0-9-]{8,64}$/.test(
 
 function validTerms(data) {
     return object(data) && object(data.ranks) && object(data.pending)
+        && (data.tarot===undefined || typeof data.tarot==="string" && !!Tarot.card(data.tarot))
         && Object.keys(data.ranks).every(function(id) {
             const item=vows.find(function(offer) {return offer.id===id})
             return item && Number.isInteger(data.ranks[id]) && data.ranks[id]>=0 && data.ranks[id]<=item.cap
@@ -171,10 +225,27 @@ function decode(data) {
         || !Object.keys(data.started).every(function(id){return validId(id) && validTerms(data.started[id])})
         || !Object.keys(data.settled).every(function(id){return validId(id) && grades.includes(data.settled[id])})
         || !(data.best===null || validCard(data.best)) || !(data.last===null || validCard(data.last))
-        || !Array.isArray(data.archive) || data.archive.length>40 || !data.archive.every(validCard)) return null
+        || !Array.isArray(data.archive) || data.archive.length>40 || !data.archive.every(validCard)
+        || (data.earned!==undefined && (!Number.isSafeInteger(data.earned) || data.earned<0))
+        || (data.purchases!==undefined && (!Number.isSafeInteger(data.purchases) || data.purchases<0))
+        || (data.reading!=null && !validReading(data.reading))
+        || (data.sale!==undefined && !validSale(data.sale))) return null
+    if (data.earned===undefined) data.earned=Math.max(data.gems,data.last?.gems || 0)
+    if (data.purchases===undefined) data.purchases=Object.values(data.ranks).reduce(function(sum,rank){return sum+rank},0)+Object.keys(data.pending).length
+    if (data.reading===undefined) data.reading=null
+    if (data.sale===undefined) data.sale={discount:0,free:""}
     return data
 }
 
+function validReading(hand) {
+    return object(hand) && Array.isArray(hand.cards) && hand.cards.length===5 && new Set(hand.cards).size===5
+        && hand.cards.every(function(id){return typeof id==="string" && !!Tarot.card(id)})
+        && (hand.chosen==="" || hand.cards.includes(hand.chosen))
+}
+
+function validSale(sale) {
+    return object(sale) && [0,10,20,50].includes(sale.discount) && (sale.free==="" || known(sale.free,offers))
+}
 function read(value) {
     try {return decode(JSON.parse(value)) || fresh()}
     catch (error) {return fresh()}

@@ -33,6 +33,10 @@ Canvas {
             drawBird(ctx)
             return
         }
+        if (pet.helper.form==="jacko") {
+            drawJacko(ctx)
+            return
+        }
         if (pet.helper.crawl) {
             ctx.lineWidth = .026
             for (let i = 0; i < 8; i += 1) {
@@ -175,6 +179,54 @@ Canvas {
         ctx.beginPath();ctx.moveTo(points[0],points[1])
         for (let index=2; index<points.length; index+=2) ctx.lineTo(points[index],points[index+1])
         ctx.closePath();ctx.fillStyle=color;ctx.fill()
+    }
+
+    function drawJacko(ctx) {
+        const embers = pet.angry ? "#c0ff73" : "#82e95d"
+        for (let i=0;i<6;i++) {
+            const x=.27+i*.094
+            const bend=(i%2 ? -.1 : .1)*(pet.flap*.4+.6)
+            ctx.fillStyle=i%3===0 ? embers : "#398d46"
+            ctx.globalAlpha=(1-pet.fold)*(.46+i%3*.17)
+            ctx.beginPath()
+            ctx.moveTo(x,.54)
+            ctx.bezierCurveTo(x-.14,.34,x+bend,.25,x+bend,.06+i%3*.05)
+            ctx.bezierCurveTo(x+.12,.27,x+.10,.46,x,.54)
+            ctx.fill()
+        }
+        ctx.globalAlpha=1
+        ctx.fillStyle="#4c4927"
+        ctx.fillRect(.47,.25,.10,.20)
+        for (const i of [0,4,1,3,2]) {
+            const offset=Math.abs(i-2)
+            ctx.fillStyle=i%2 ? "#db7532" : "#a34c22"
+            ctx.strokeStyle="#623323"
+            ctx.lineWidth=.018
+            ctx.beginPath()
+            ctx.ellipse(.16+i*.083,.35+offset*.04,.35,.6-offset*.078)
+            ctx.fill()
+            ctx.stroke()
+        }
+        ctx.fillStyle=embers
+        for (const side of [-1,1]) {
+            ctx.beginPath()
+            ctx.moveTo(.5+side*.06,.59)
+            ctx.lineTo(.5+side*.24,.52+pet.fold*.072)
+            ctx.lineTo(.5+side*.146,.68-pet.fold*.068)
+            ctx.fill()
+        }
+        ctx.globalAlpha=1-.72*pet.fold
+        ctx.beginPath()
+        ctx.moveTo(.28,.68)
+        ctx.lineTo(.39,.73)
+        ctx.lineTo(.42,.69)
+        ctx.lineTo(.52,.77)
+        ctx.lineTo(.58,.71)
+        ctx.lineTo(.63,.74)
+        ctx.lineTo(.75,.63)
+        ctx.quadraticCurveTo(.54,.97,.28,.68)
+        ctx.fill()
+        ctx.globalAlpha=1
     }
 
     function drawBird(ctx) {

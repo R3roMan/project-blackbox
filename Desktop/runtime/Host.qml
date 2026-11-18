@@ -222,6 +222,7 @@ Item {
             motion:host.options.motion
             vaultOpened:host.records.wave100Boss>0
             onPurchaseRequested:function(id) {careerVault.purchase(id)}
+            onCardRequested:function(id) {careerVault.turnCard(id)}
             onBackRequested:host.vaultOpen=false
         }
     }

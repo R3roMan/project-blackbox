@@ -11,6 +11,7 @@
 .import "Conditions.js" as Conditions
 .import "SkillArt.js" as SkillArt
 .import "Meta.js" as Meta
+.import "Tarot.js" as Tarot
 
 var fronts = Mission.fronts
 var groundFronts = Mission.groundFronts
@@ -68,7 +69,7 @@ function create(seed, unlocks) {
         nextStage:null,stage:null,desktop:null,training:null,abilityEvents:[],passiveFxReady:{},salvoTime:0,salvoBonus:0,runeReady:0,sprayTime:0,vampireReady:0,
         careerUnlocks:unlocks || [], playerFront:"front", viewReady:true, weatherEffect:"clear", nextFirePulse:0,
         skyProgress:0,skyPhase:"daytime",skyClearing:false,bloodMoonSeen:false,stormAt:0,stormBursts:[],
-        attemptId:"",covenant:null,rehearsal:false,finishReason:"",
+        attemptId:"",covenant:null,omenCounts:{},tarotPet:null,rehearsal:false,finishReason:"",
         abyssSeal:{progress:0,closed:false}, grab:null, hypnosis:null, inkStains:false, dizzyLeft:0,
         fearCut:false, souls:0, scytheSouls:0, boneTime:0, boneRank:0, windAt:20, gustLeft:0,scareTime:0,
         starterChoice:"", starterOffers:[], starterSeed:(seed >>> 0)^0x614f93cd,
@@ -114,10 +115,72 @@ function draftStarters(run, previous) {
     return Gear.draftStarters(run.unlocks,rolls,previous)
 }
 
+var omenMetrics={kills:"kill",bossKills:"boss",hitShots:"hit",shieldBlocks:"block",parries:"parry",
+    seals:"seal",intercepts:"intercept",reloads:"reload",shopBuys:"buy"}
+
+function tarotEvent(run,event,advance) {
+    if (!event || !run.covenant || !run.covenant.tarot) return
+    const card=Tarot.card(run.covenant.tarot)
+    if (!card || !card.rite || card.rite[0]!==event) return
+    const before=run.omenCounts[event] || 0
+    const count=before+(advance || 1)
+    run.omenCounts[event]=count
+    if (before>=card.rite[1] || count<card.rite[1]) return
+    const effect=Tarot.rite(run,event,card.rite[1])
+    if (!effect) return
+    let action=effect.action, amount=effect.amount
+    if (action==="fortune") {
+        const result=run.wave/3%3
+        action=["gold","fire","barrier"][result]
+        amount=[18,6,1][result]
+    }
+    switch (action) {
+    case "gold":
+        run.gold+=amount
+        record(run,"goldEarned",amount)
+        break
+    case "heal":
+        run.health=Math.min(Gear.maxHealth(run),run.health+amount)
+        break
+    case "cool":
+        for (const id of Object.keys(run.cooldowns))
+            run.cooldowns[id]=Math.max(0,run.cooldowns[id]-amount)
+        break
+    case "shield":
+        if (run.shield.raised) run.shield.credit+=amount
+        else run.shield.cool=Math.max(0,run.shield.cool-amount)
+        break
+    case "fire":
+        run.fastFire=Math.max(amount,run.fastFire)
+        break
+    case "barrier":
+        if (run.barrierHp===0) {
+            run.barrierMax=0
+            raiseBarrier(run,25,1)
+        }
+        break
+    case "rounds": {
+        const gun=Gear.current(run)
+        if (Gear.usesAmmo(weapons[gun.id]))
+            gun.ammo=Math.min(magazine(run)+(event==="wave" ? amount : 0),gun.ammo+amount)
+        break
+    }
+    case "infinite":
+        run.infiniteAmmo=Math.max(amount,run.infiniteAmmo)
+        break
+    case "refresh":
+        run.refreshBank=Math.min(5,run.refreshBank+1)
+        break
+    }
+    if (run.cues)
+        announce(run,null,action==="gold" ? "gold" : action==="barrier" ? "shieldBlock" : "seal")
+}
+
 function record(run, key, amount) {
     run.metrics[key] = (run.metrics[key] || 0) + (amount === undefined ? 1 : amount)
     if (key === "goldEarned")
         run.metrics.bestWallet = Math.max(run.metrics.bestWallet || 0,run.gold)
+    tarotEvent(run,omenMetrics[key],amount)
     run.progress += 1
 }
 
@@ -273,9 +336,9 @@ function criticalProfile(run, weapon) {
     return {
         chance:.05 + (weapon.crit || 0) + rank(run,"criticalLens")*.07 + Gear.perk(run,"critChance")
             + (run.boneTime > 0 ? .24 + (run.boneRank-1)*.045 : 0)
-            + Gear.kitBonus(run,"crit",weapon.id) + Gear.passiveSockets(run,"critical",.06),
+            + Gear.kitBonus(run,"crit",weapon.id) + Gear.passiveSockets(run,"critical",.06) + Tarot.value(run,"critChance"),
         power:2 + rank(run,"deepCut")*.30 + Gear.perk(run,"critPower") + Gear.kitBonus(run,"critPower",weapon.id)
-            + (run.boneTime > 0 ? .52 + (run.boneRank-1)*.14 : 0)
+            + (run.boneTime > 0 ? .52 + (run.boneRank-1)*.14 : 0) + Tarot.value(run,"critPower")
     }
 }
 
@@ -291,7 +354,8 @@ function weaponCritical(run, weapon, gun, enemy) {
     const boost = forced ? run.surePower : 0
     run.sureAttack = false
     run.surePower = 0
-    return forced || criticalRoll(run,Math.min(.83,chance)) ? base.power + boost + (melee && run.sharpenTime > 0 ? .45 : 0) : 1
+    const bossPower=enemy && enemyTypes[enemy.type].role==="boss" ? Tarot.value(run,"bossCrit") : 0
+    return forced || criticalRoll(run,Math.min(.83,chance)) ? base.power + boost + bossPower + (melee && run.sharpenTime > 0 ? .45 : 0) : 1
 }
 
 function criticalHit(run, damage, killed) {
@@ -326,7 +390,7 @@ function raiseShield(run) {
     guard.limit = spec.limit ? spec.limit + upgrades*.12 + Gear.perk(run,"shieldLimit") : 0
     guard.capacity = spec.hits + Number(guard.level >= 2) + Number(rank(run,"guardSeam") >= 3) + Gear.kitBonus(run,"shieldHits")
     guard.recovery = Math.max(2.45,spec.cooldown - upgrades*.25 - guard.level*.65 - rank(run,"guardSeam")*.45
-        - Gear.perk(run,"shieldCool") - Gear.kitBonus(run,"shieldCooldown") - Gear.passiveSockets(run,"shieldRecovery",.85) - Meta.benefits(run).shield)
+        - Gear.perk(run,"shieldCool") - Gear.kitBonus(run,"shieldCooldown") - Gear.passiveSockets(run,"shieldRecovery",.85) - Meta.benefits(run).shield - Tarot.value(run,"shield"))
     guard.mode = mode
     guard.tint = spec.tint
     guard.raised = true
@@ -340,7 +404,7 @@ function raiseShield(run) {
 }
 
 function isTimedParry(run, extraWindow) {
-    return run.shield.raised && run.shield.age <= .20+Meta.benefits(run).parry+(extraWindow || 0)
+    return run.shield.raised && run.shield.age <= .20+Meta.benefits(run).parry+Tarot.value(run,"parry")+Gear.perk(run,"parryWindow")+(extraWindow || 0)
 }
 
 function lowerShield(run) {
@@ -414,7 +478,7 @@ function blockWithShield(run, amount, origin, type, payload, projectile, critica
         guard.credit += 1.8
     if (parried && !guard.parried) {
         guard.parried = true
-        guard.credit += guard.recovery*.25
+        guard.credit += guard.recovery*.25+Tarot.value(run,"parryCredit")
         record(run,"parries")
         if (rank(run,"parry")) {
             guard.credit += 3.8 + Gear.perk(run,"parryCredit") + Gear.kitBonus(run,"parryCredit")
@@ -591,7 +655,7 @@ function blindStrength(run) {
 function turnDuration(run) {
     const base = Math.max(145, 345 / (1 + run.boons.speed + (run.fastTurn > 0 ? .44 : 0)))
     const weight = run.shield.raised && run.shield.mode === "bulwark" ? 1.34 : 1
-    return Math.round(base * weight * (run.hexes.turn ? 1.65 : 1) / Elements.pace(run.elements))
+    return Math.round(base * (1-Tarot.value(run,"turn")) * weight * (run.hexes.turn ? 1.65 : 1) / Elements.pace(run.elements))
 }
 
 function sealTarget(run, view) {
@@ -817,6 +881,13 @@ function startWave(run) {
         run.pet.stamina += rank(run,"sparePart") * 2 + Gear.perk(run,"petDuty")
     }
     run.guestPet = null
+    run.tarotPet = Tarot.value(run,"jacko") ? Pets.deploy("jacko") : null
+    if (run.tarotPet) {
+        run.tarotPet.lane=195
+        run.tarotPet.elevation=128
+        run.tarotPet.next=2.8
+    }
+    run.omenCounts={}
     run.guestTime = 0
     run.infiniteAmmo = 0
     run.maxGearTime = 0
@@ -889,6 +960,7 @@ function startWave(run) {
     run.stormBursts=[]
     run.nextFirePulse = 0
     run.nextFrostPulse = 5
+    tarotEvent(run,"wave")
     const sky = Conditions.entries[run.weatherEffect]
     const cue = {inferno:"inferno",incursion:"voidIntrusion",winter:"winterArrival",windy:"windArrival",
         glitch:"glitchArrival",rain:"rainArrival",thunder:"rainArrival",meteor:"meteorArrival"}
@@ -1789,8 +1861,10 @@ function hurtReaction(run, enemy) {
 function wound(run, enemy, amount, source, element, level, impact) {
     if (!enemy || enemy.hp <= 0 || enemy.waitingBoss || !Number.isFinite(amount) || amount < 0)
         return ""
-    if (source==="ability" && !impact?.weaponId) amount*=Meta.benefits(run).active
     const spec = enemyTypes[enemy.type]
+    const weaponId=impact && impact.weaponId
+    if (source==="ability" && !weaponId) amount*=Meta.benefits(run).active*(1+Gear.perk(run,"activeDamage"))
+    if (spec.role==="boss" && (source==="gun" || weaponId)) amount*=1+Tarot.value(run,"bossDamage")
     if (run.training && spec.trainer) {
         const mode=run.training.mode
         if (mode==="lesson") {
@@ -2872,8 +2946,10 @@ function shoot(run, hits, view, aim, continuation) {
         stats.damage *= 1.22
     if (ammoWeapon && !unlimited)
         gun.ammo -= 1
+    const healthyCycle=Tarot.value(run,"healthyCycle")
     gun.cycle = stats.delay * (run.hexes.fire ? 1.42 : 1)
-        * Math.max(.52, 1 - rank(run, "cycling") * .064 - Gear.perk(run, "cycle")) * (run.fastFire > 0 ? .68 : 1) * (run.salvoTime>0 ? 1-run.salvoBonus : 1)
+        * Math.max(.52, 1 - rank(run, "cycling") * .064 - Gear.perk(run, "cycle") - Tarot.value(run,"cycle")
+            - (healthyCycle && run.health>=Gear.maxHealth(run)*.80 ? healthyCycle : 0)) * (run.fastFire > 0 ? .68 : 1) * (run.salvoTime>0 ? 1-run.salvoBonus : 1)
         * (run.giftRate > 0 ? .73 : 1) * (power.recovery || 1)
         * (weapon.melee ? 1-Gear.passiveSockets(run,"meleeRecovery",.14) : 1)
         * (gun.id === "carbine" && Gear.hasKit(run, "carbine") ? .85 : 1)
@@ -3155,7 +3231,8 @@ function reload(run, hits, view, aim) {
     const hunger = Math.min(.61, .40 + .075 * Math.max(0,rank(run,"redHunger") - 1))
         * missingHealth(run,"redHunger") * (Gear.hasKit(run,"redHungerKit") ? 1.10 : 1)
     gun.reloadLength = Math.max(.32, stats.reload * kit * (1 - hunger)
-        * Math.max(.54, 1 - rank(run, "reload") * .095 - Gear.perk(run, "reload") - Gear.kitBonus(run,"reload",gun.id)))
+        * Math.max(.54, 1 - rank(run, "reload") * .095 - Gear.perk(run, "reload") - Gear.kitBonus(run,"reload",gun.id)
+            - Tarot.value(run,"reload") - (Tarot.dark(run) ? Tarot.value(run,"nightReload") : 0)))
         * (run.hexes.reload ? 1.43 : 1) * (Gear.weaponSocket(run).reload || 1)
     gun.reload = gun.reloadLength
     gun.burstLeft = 0
@@ -3568,18 +3645,59 @@ function expansionActive(run, id, stats, view, aimId, available) {
         return "staffImpact"
     }
     default:
-        return utilityActive(run, activeAbilities[id], strength, local, pointed, view, aimId)
+        return utilityActive(run, activeAbilities[id], stats, local, pointed, view, aimId)
     }
 }
 
-function utilityActive(run, card, strength, local, pointed, view, aimId) {
+function utilityActive(run, card, stats, local, pointed, view, aimId) {
     if (!card || !card.form)
         return false
+    const strength=stats.strength
     const power = card.value
-    const damage = (power + strength*.9) * outgoing(run)
+    const damage = (power + strength*.9) * Gear.affinity(run,card) * outgoing(run)
     const gun = Gear.current(run)
     const near = local.filter(function(enemy) { return enemy.depth <= 575 && !enemyTypes[enemy.type].ship })
     switch (card.form) {
+    case "clearRound":
+        if (!Gear.usesAmmo(weapons[gun.id]) || gun.ammo>=magazine(run) && !gun.reload) return false
+        gun.ammo=Math.min(magazine(run),gun.ammo+power+strength)
+        if (gun.reload>0) gun.reload=Math.max(.02,gun.reload-.45)
+        return "reload"
+    case "stormPush": {
+        const targets=near.slice().sort(function(a,b){return a.depth-b.depth}).slice(0,3)
+        const tier=Math.min(3,1+Number(Tarot.weather(run))+Number(strength>=2))
+        for (const foe of targets) applyKnockback(run,foe,tier)
+        return targets.length && "turn"
+    }
+    case "solarCone":
+    case "nightVeil": {
+        const hot=card.form==="solarCone"
+        const tier=stats.elementLevel
+        const targets=(hot ? local.filter(function(foe){return foe.depth<=925}) : local.slice())
+            .sort(function(a,b){return a.depth-b.depth}).slice(0,hot ? 3 : 4)
+        for (const foe of targets) wound(run,foe,damage,"ability",hot ? "burn" : "blind",tier)
+        return targets.length && (hot ? "burn" : "voidIntrusion")
+    }
+    case "stormGlass": {
+        const bolts=run.bolts.filter(function(bolt){return bolt.front===view && !bolt.returning && !bolt.bubble})
+            .sort(function(a,b){return a.remaining-b.remaining}).slice(0,4)
+        if (!bolts.length) return false
+        const ids=new Set(bolts.map(function(bolt){return bolt.id}))
+        run.bolts=run.bolts.filter(function(bolt){return !ids.has(bolt.id)})
+        run.boltRoster++
+        record(run,"intercepts",bolts.length)
+        const nearFoe=local.slice().sort(function(a,b){return a.depth-b.depth})[0]
+        if (nearFoe) wound(run,nearFoe,bolts.length*damage,"ability")
+        return "intercept"
+    }
+    case "lunarWard":
+        if (run.barrierHp===0) {
+            run.barrierMax=0
+            raiseBarrier(run,6+strength*.6,1)
+        }
+        else if (!run.shield.cool) return false
+        run.shield.cool=Math.max(0,run.shield.cool-2-strength*.3)
+        return "shieldBlock"
     case "repelShield":
         for (const enemy of near)
             applyToEnemy(run,enemy,"wind",run.shield.raised ? 3 : 1 + Number(strength >= 2))
@@ -3711,6 +3829,10 @@ function useAbility(run, slot, view, aimId, aim) {
     }
     if (activeCooldown(run, id) > 0)
         return false
+    if (!Gear.environmentMatches(run,activeAbilities[id].environment)) {
+        announce(run,activeAbilities[id].title+" requires "+Gear.environmentNames[activeAbilities[id].environment],"")
+        return false
+    }
     const slotBonus = Gear.socketEffect(run,"active",equipped)
     const stats = Gear.activeStats(equipped.item, slotBonus.strength)
     const strength = stats.strength
@@ -4017,7 +4139,7 @@ function useAbility(run, slot, view, aimId, aim) {
         gun.recovery=Math.max(0,gun.recovery-slotBonus.weaponRecovery)
     if (timing) extendActiveTiming(run,available,timing,boon.duration)
     for (const grenade of run.grenades.slice(grenadesBefore)) {
-        grenade.damage*=boon.active
+        grenade.damage*=boon.active*(1+Gear.perk(run,"activeDamage"))
         grenade.effect=Object.assign({},grenade.effect,{durationScale:boon.duration})
     }
     const targets=available.filter(function(enemy,index) {
@@ -4029,6 +4151,7 @@ function useAbility(run, slot, view, aimId, aim) {
         : run.bolts.length<boltsBefore ? (boltsBefore-run.bolts.length)+" INTERCEPTED" : ""
     abilityVisual(run,id,view,stats,aim,targets,summary)
     run.cooldowns[id] = abilityRecovery(run, equipped, stats, slotBonus)
+    tarotEvent(run,"cast")
     announce(run, feedback || activeAbilities[id].title + " activated", sound)
     return true
 }
@@ -4106,7 +4229,8 @@ function abilityRecovery(run, slot, stats, bonus) {
     const ability = stats || Gear.activeStats(slot.item, power.strength)
     const kitTiming = slot.item.id === "execution" && Gear.hasKit(run,"verdictSet") ? .82 : 1
     return ability.cooldown * Meta.benefits(run).recovery * kitTiming * (run.waveTime<30 ? Math.max(.60,1-.07*rank(run,"secondHand")) : 1) * Math.max(.38, 1 - rank(run, "cooling") * .085
-        - rank(run, "deepcell") * .068 - Gear.perk(run, "cooldown") - Gear.kitBonus(run,"active",slot.item.id)) * (power.cooldown || 1)
+        - rank(run, "deepcell") * .068 - Gear.perk(run, "cooldown") - Gear.kitBonus(run,"active",slot.item.id)
+        - Tarot.value(run,"cooldown") - (Tarot.weather(run) ? 0 : Tarot.value(run,"clearCooldown"))) * (power.cooldown || 1)
 }
 
 function evadesImpact(run, projectile) {
@@ -4204,7 +4328,7 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
     const brine = attacker.abyss ? rank(run,"brinePlate")*.083 : 0
     const apron = !burningTick && source && source.depth <= 500 ? .08 * rank(run,"furnaceApron") : 0
     const damage = Math.max(1, amount * (1-apron) * (1-rank(run,"firstShift")*(run.wave<=20 ? .08 : .02)) * (projectile ? Math.max(.70,1-rank(run,"leeSide")*.04) : 1) * (run.cursed ? 1.20 : 1) * criticalPower * lining * exposure * guarded * Math.max(.25,
-        1 - rank(run, "armour") * .095 - padding - insulation - ground - blast - steady - first - brine - Gear.perk(run, "armor")))
+        1 - rank(run, "armour") * .095 - padding - insulation - ground - blast - steady - first - brine - Gear.perk(run, "armor") - (run.covenant && run.covenant.tarot ? Tarot.armor(run,Gear.maxHealth(run),projectile) : 0)))
     if (run.desktop)run.desktop.pressure=Math.min(1,run.desktop.pressure+.06+damage/400)
     const before=run.health
     run.health = Math.max(0, run.health - damage)
@@ -4471,7 +4595,7 @@ function petStrike(run, pet, helper, enemy) {
         gun.ammo = Math.min(magazine(run), gun.ammo + 1)
     }
     const third = pet.strikes % 3 === 0
-    const element=charged && secondary.kind==="burn" ? "burn"
+    const element=charged && secondary.kind==="burn" || power==="greenfire" && third ? "burn"
         : power==="blind" ? "blind" : power==="mind" ? "weaken" : power==="spark" && third ? "electric" : ""
     wound(run, enemy, damage * (pet.cursed ? .78 : 1), pet,
         element,power==="blind" ? 2 : 1)
@@ -4482,7 +4606,7 @@ function petStrike(run, pet, helper, enemy) {
         run.health = Math.min(Gear.maxHealth(run), run.health + 2 + pet.level * .70)
     if (power === "heal" && enemy.hp <= 0)
         run.health = Math.min(Gear.maxHealth(run), run.health + 2 + pet.level * 1.15)
-    if (power === "splash") {
+    if (power === "splash" || power==="greenfire" && charged) {
         const nearby = run.enemies.filter(function(other) {
             return other.id !== enemy.id && other.front === pet.front
                 && other.warp <= 0 && !ghosted(other) && Math.abs(other.depth - enemy.depth) < (charged ? 290 : 190)
@@ -4816,6 +4940,14 @@ function strike(run, enemy, creature) {
             return
         if (attackMisses(run,enemy.elements.blind)) {
             missFeedback(run,creature.title)
+            return
+        }
+        if (run.shield.raised) {
+            blockWithShield(run,Gear.maxHealth(run)*.5,enemy.front,enemy.type,{sourceId:enemy.id},false,false)
+            knockBack(run,enemy,1120)
+            enemy.attack=Math.max(enemy.attack,creature.interval)
+            run.bursts.push(Object.assign(arcPoint(enemy),{front:enemy.front,radius:164,life:.45,span:.45,color:"#c880f6"}))
+            announce(run,"Shield repelled Fearme","parryBlock")
             return
         }
         run.fearCut = true
@@ -5406,6 +5538,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
     }
     updatePet(run, run.pet, dt)
     updatePet(run, run.guestPet, dt)
+    updatePet(run, run.tarotPet, dt)
     updateDetonations(run, dt)
     if (run.phase === "defeat")
         return
@@ -5497,9 +5630,11 @@ function finishWave(run) {
     Elements.clearPoison(run.elements)
     run.fearCut = false
     const cap = Gear.maxHealth(run)
-    const recovery=Math.round(cap*Mission.difficulty(run.difficulty).recovery) + Gear.passiveSockets(run,"waveHeal",8)
+    const recovery=Math.round(cap*Mission.difficulty(run.difficulty).recovery) + Gear.passiveSockets(run,"waveHeal",8)+Tarot.value(run,"waveHeal")
+        +(Tarot.weather(run) ? Tarot.value(run,"weatherHeal") : 0)+(!run.hurtThisWave ? Tarot.value(run,"flawlessHeal") : 0)
     const heal = Math.max(0, Math.min(recovery, cap - run.health))
     run.health += heal
+    tarotEvent(run,"clear")
     run.gifts = []
     run.venomClouds = []
     run.grenades = []

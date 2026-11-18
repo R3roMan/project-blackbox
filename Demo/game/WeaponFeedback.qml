@@ -21,6 +21,9 @@ Item {
     property bool scoped: false
     property color tracerColor: weapon.color
     property bool coinShot:false
+    property real muzzleLife:0
+    property bool motion:true
+    property int sequence:0
 
     readonly property bool scatter: weapon.effect === "spread"
     readonly property bool beam: weapon.effect === "beam" || weapon.effect === "laser"
@@ -100,6 +103,9 @@ Item {
             }
         }
     }
+
+    MuzzleBlast {weapon:feedback.weapon;tint:feedback.paint;tip:feedback.muzzle;aim:feedback.pointer
+        life:feedback.muzzleLife;motion:feedback.motion;sequence:feedback.sequence}
 
     Canvas {
         id: bladeTrail

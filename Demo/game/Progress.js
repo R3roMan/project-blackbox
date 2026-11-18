@@ -1,5 +1,6 @@
 .pragma library
 .import "GradeGear.js" as Grades
+.import "WeatherGear.js" as Weather
 
 // The rewards are real catalogue IDs. Multiple achievements can progress during one run.
 var achievements = [
@@ -58,7 +59,7 @@ var achievements = [
     {id:"threeRedNights",title:"Three red nights",metric:"bloodMoonNights",target:3,requirement:"Witness three Blood Moon Nights in regular play.",group:"weapon",reward:"veinDrinker"},
     {id:"redOverlord",title:"Moon over the Overlord",metric:"bloodMoonBosses",target:1,requirement:"Defeat an Overlord during a Blood Moon Night.",group:"active",reward:"bloodLibation"},
     {id:"lastCustomer",title:"The last customer",metric:"completeShops",target:1,requirement:"Buy and claim every listing during a single shop visit.",group:"active",reward:"liquidation"}
-].concat(Grades.achievements)
+].concat(Grades.achievements,Weather.achievements)
 
 function read(text) {
     if (!text)
@@ -90,6 +91,8 @@ function withGrades(profile, ledger) {
         const key="grade"+grade
         awarded[key]=(awarded[key] || 0)+1
     }
+    awarded.vaultBuys=ledger.purchases || 0
+    awarded.vaultGems=ledger.earned || 0
     const merged=Object.assign({},profile)
     for (const key of Object.keys(awarded)) merged[key]=Math.max(merged[key] || 0,awarded[key])
     return merged

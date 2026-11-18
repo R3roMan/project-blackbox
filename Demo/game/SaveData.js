@@ -133,7 +133,9 @@ function decodeRun(text, unlocks) {
         }))
             return null
     }
-    if (data.pet && !Pets.pets.some(function(pet) {return pet.id === data.pet.id}))
+    if (data.pet && !Pets.pets.some(function(pet) {return pet.id === data.pet.id && !pet.tarot})
+        || data.tarotPet && (data.covenant?.tarot!=="major-15" || data.tarotPet.id!=="jacko"
+            || !shape(data.tarotPet,Pets.deploy("jacko"))))
         return null
     if ((data.covenant && !Meta.validTerms(data.covenant)) || (data.attemptId && !Meta.validId(data.attemptId)))
         return null

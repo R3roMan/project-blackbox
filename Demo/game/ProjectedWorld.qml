@@ -17,6 +17,7 @@ Item {
     property var gifts: []
     property var flyingPet: null
     property var guestPet: null
+    property var tarotPet: null
     property var smokes: []
     property real blindness: 0
     property bool fog:false
@@ -908,6 +909,7 @@ Item {
     }
     FieldPet { model: world.flyingPet }
     FieldPet { model: world.guestPet }
+    FieldPet { model: world.tarotPet }
 
     Repeater {
         id: shots

@@ -46,7 +46,7 @@ var enemies = {
         id:"fearme",title:"Fearme",role:"abyss",abyss:true,health:157,damage:0,speed:61,pace:"Very low",
         distance:3260,reach:420,interval:6.5,windup:2.05,earlyArrival:true,
         skin:"#22172e",accent:"#f06dba",size:2.15,shake:[19,24,.64,69],
-        description:"A distant reaper with a black scythe. A hit removes half your maximum health for this wave, bypasses shields and barriers, and sends Fearme back into the Void."
+        description:"A distant reaper with a black scythe. Raise your field shield against the scythe to hurl Fearme backward. An unblocked hit bypasses barriers, removes half your maximum health for this wave and sends Fearme into the Void."
     },
     archfellanus:{
         id:"archfellanus",title:"Archfellanus",role:"angel",angel:true,health:61,damage:25,speed:206,pace:"High",

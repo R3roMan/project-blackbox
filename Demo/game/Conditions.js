@@ -66,7 +66,7 @@ function rainVariant(wave,seed) {
 }
 
 function nightVariant(wave,seed) {
-    return roll(wave,seed,0x760fea47)<.10 ? "bloodMoon" : "night"
+    return roll(wave,seed,0x760fea47)<.05 ? "bloodMoon" : "night"
 }
 
 function daypart(progress,night) {

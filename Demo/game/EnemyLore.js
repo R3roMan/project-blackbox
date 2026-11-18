@@ -115,7 +115,7 @@ var tactics = {
     faeel:"Its lightning resets active cooldowns. Intercept or block it to retain your spells.",
     nightosphere:"Destroy it before it finishes calling more Void demons. It ignores status effects, so favour direct damage.",
     endme:"Shut the eyes to expose the body. Save high-impact attacks for the exposed window.",
-    fearme:"A hit steals part of your health for the current wave. Avoid entering its reach and finish it from far away.",
+    fearme:"An unblocked swing cuts maximum health in half for the wave. A field shield staggers the reaper far back into the dark.",
     archfellanus:"Its gold shell reflects damage. Wait for the shell to fall and mind your pet while you share the same front.",
     reapfast:"Track the jaws during a breath or lunge. The exposed fangs can be broken, and its floating bubbles are dangerous up close.",
     lalaBubu:"Its laugh moves across the front. Prepare for reversed control when it finally falls.",

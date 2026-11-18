@@ -40,7 +40,10 @@ var pets = [
     { id:"chibi", title:"Rose Sprite", form:"chibi", skin:"#613751", accent:"#ff83be", damage:.93, interval:4.45, travel:1.34,
         power:"spark", duty:21, rest:9, description:"A pink-haired flying chibi. Every third attack sends a small Electric jump." },
     { id:"minishade", title:"Mini Shadow", form:"minishade", skin:"#21182e", accent:"#cba2ff", damage:1.68, interval:4.45,
-        travel:1.07, power:"blind", duty:21, rest:11, description:"Sends bursts of ink that blind targets and make them drift off course.",locked:true }
+        travel:1.07, power:"blind", duty:21, rest:11, description:"Sends bursts of ink that blind targets and make them drift off course.",locked:true },
+    {id:"jacko",title:"Jacko",form:"jacko",skin:"#b55322",accent:"#95ef5b",damage:1.21,interval:4.9,travel:1.22,
+        power:"greenfire",duty:20,rest:10.5,tarot:true,
+        description:"The Devil card lends you a second companion. Jacko attacks with green fire. His charged breath scorches the target and nearby enemies."}
 ]
 
 var attackGestures = {
@@ -48,7 +51,7 @@ var attackGestures = {
     moth:[-16,45,-29,9], drake:[37,-21,9,33], kite:[-47,63,-32,49], ray:[20,36,55,8],
     finch:[-31,-45,35,24], beetle:[13,85,-11,14], archive:[-56,17,-31,22], wyvern:[34,50,-20,37],
     firefly:[-9,-70,23,21], warden:[39,-44,25,34], brain:[-22,11,7,40], chicken:[76,-12,18,34],
-    fairy:[-27,77,56,13], chibi:[-31,-49,-46,27], minishade:[51,-28,32,37]
+    fairy:[-27,77,56,13], chibi:[-31,-49,-46,27], minishade:[51,-28,32,37], jacko:[-28,37,-18,25]
 }
 
 var secondary = {
@@ -56,6 +59,7 @@ var secondary = {
     owl:{title:"Brass toll",every:2,charge:2.8,kind:"heal",power:1.4,description:"A heavy strike that restores 3 HP."},
     drake:{title:"Flux breath",every:3,charge:2.45,kind:"burn",power:1.38,description:"A wider breath attack with Burn I."},
     beetle:{title:"Aegis discharge",every:3,charge:2.3,kind:"intercept",power:1.32,description:"Breaks up to two hostile projectiles on its wallpaper before striking."},
+    jacko:{title:"Witchfire volley",every:3,charge:2.65,kind:"burn",power:1.38,description:"A spread of green fire that scorches a small cluster with Burn I."},
     chicken:{title:"Wind-up peck",every:3,charge:2.1,kind:"knockback",power:1.63,description:"A stronger peck that knocks its target back."}
 }
 
@@ -68,7 +72,7 @@ function attackPose(id, remaining) {
 }
 
 function available(unlocks) {
-    return pets.filter(function(pet) { return !pet.locked || unlocks.includes(pet.id) })
+    return pets.filter(function(pet) { return !pet.tarot && (!pet.locked || unlocks.includes(pet.id)) })
 }
 
 function draft(unlocks, random, previous) {

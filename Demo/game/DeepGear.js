@@ -26,7 +26,7 @@ var weapons = {
         signature:"rimeRelay",element:"freeze",elementLevel:2,
         description:"Hit a frozen enemy to throw ice shards into up to four neighbours. The shards deal damage and apply Frost." },
     whiteoutCoil:{ title:"Whiteout Coil",rarity:"legendary",art:"whiteoutCoil",effect:"laser",capacity:0,
-        damage:1.82,delay:.159,reload:0,aim:21,color:"#ccf8ff",trace:7.2,afterglow:.16,penetration:2,handling:"cooldown",
+        damage:2.13,delay:.159,reload:0,aim:21,color:"#ccf8ff",trace:7.2,afterglow:.16,penetration:2,handling:"cooldown",
         signature:"deepFreeze",element:"freeze",elementLevel:2,sustain:{limit:2.95,cooldown:1.94},
         description:"Hold a narrow Frost beam. Six continuous hits on one enemy lock it in solid ice for two seconds." },
     fearScythe:{title:"Fearme's Harvest",rarity:"legendary",locked:true,art:"fearScythe",effect:"melee",capacity:0,

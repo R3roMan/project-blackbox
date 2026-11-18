@@ -42,7 +42,17 @@ Node {
         }
     }
     Loader3D {
-        active:!pet.bird
+        active:pet.helper.form==="jacko"
+        sourceComponent:JackoModel {
+            phase:pet.phase
+            strike:pet.strike
+            charged:pet.chargedFlash
+            fold:pet.fold
+            motion:pet.animate
+        }
+    }
+    Loader3D {
+        active:!pet.bird && pet.helper.form!=="jacko"
         sourceComponent:Node {
             PetDetails {
                 helper:pet.helper

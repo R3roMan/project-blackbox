@@ -402,7 +402,7 @@ View3D {
             materials: [cavity]
         }
         Repeater3D {
-            model: view.weapon.id === "nightInk" || view.weapon.id === "whiteoutCoil" || view.weapon.id === "rimeRelay" ? 5 : 0
+            model: view.weapon.id === "nightInk" || view.weapon.id === "whiteoutCoil" || view.weapon.id === "rimeRelay" || view.weapon.id === "zenithThroat" || view.weapon.id === "moonwake" ? 5 : 0
             delegate: Model {
                 required property int index
                 source:"#Cylinder"

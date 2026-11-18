@@ -58,7 +58,9 @@ var forms = {
     reloadCut:["reload","self","reload"],axePrep:["cut","self","empower"],sight:["critical","self","mark"],
     cleanFrost:["heal","self","recover"],shieldWindow:["guard","self","shield"],ember:["burn","target","brand"],
     interrupt:["stun","target","stasis"],corrode:["poison","target","rupture"],burstPulse:["explosive","field","shockwave"],
-    mint:["coin","field","mint"],pierceScroll:["electric","target","arc"]
+    mint:["coin","field","mint"],pierceScroll:["electric","target","arc"],clearRound:["reload","self","reload"],
+    stormPush:["wind","field","surge"],solarCone:["burn","field","pyre"],stormGlass:["intercept","field","intercept"],
+    nightVeil:["blind","field","veil"],lunarWard:["guard","self","shield"]
 }
 
 function profile(ability) {

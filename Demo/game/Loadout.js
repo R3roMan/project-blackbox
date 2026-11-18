@@ -11,7 +11,9 @@
 .import "Defense.js" as Defense
 .import "SlotEffects.js" as Sockets
 .import "Meta.js" as Meta
+.import "Tarot.js" as Tarot
 .import "GradeGear.js" as Grades
+.import "WeatherGear.js" as Weather
 
 var weapons = {
     pistol: { id: "pistol", title: "Service pistol", category: "Weapon", rarity: "common", effect: "ballistic", capacity:7, damage:2, delay:0.25,
@@ -61,7 +63,7 @@ var weapons = {
         handling:"reload", element:"poison", elementLevel:1, signature:"sporeSeed",
         description: "Poison rounds spread a level 1 dose to nearby enemies when they hit a target already suffering from Poison." },
     minigun: { id:"minigun", title:"Foundry minigun", category:"Weapon", rarity:"rare", effect:"tracer", capacity:44,
-        damage:1.19, delay:0.091, reload:3.21, aim:36, color:"#fed18f", trace:2.8, afterglow:.10, spinup:1,
+        damage:1.25, delay:0.091, reload:2.91, aim:36, color:"#fed18f", trace:2.8, afterglow:.10, spinup:1,
         handling:"spinup", description:"Hold fire for one second to spin up six barrels. A long belt feeds the firing burst." },
     launcher: { id:"launcher", title:"Lobber grenade launcher", category:"Weapon", rarity:"epic", effect:"grenade", capacity:5,
         damage:8.2, delay:0.82, reload:2.57, aim:45, color:"#ffad55", trace:4, afterglow:.58, blast:160,
@@ -117,7 +119,7 @@ var activeAbilities = {
         description: "Destroy incoming bolts on the front you are looking at." },
     decoy: { id: "decoy", title: "Decoy", category: "Active", rarity: "common", cooldown:15,
         element:"blind", elementLevel:1, description: "Hold enemy attacks briefly and blind the targets on this wallpaper." },
-    breaker: { id: "breaker", title: "Barrier breaker", category: "Active", rarity: "rare", cooldown:16, firstOfferWave: 5,
+    breaker: { id: "breaker", title: "Barrier breaker", category: "Active", rarity: "rare", cooldown:14, firstOfferWave: 5,
         description: "Shatter every enemy barrier on the front you are looking at." },
     stasis: { id: "stasis", title: "Time snare", category: "Active", rarity: "epic", cooldown:26,
         description: "Freeze movement and attacks on this front for 3 seconds." },
@@ -231,10 +233,10 @@ var kits = [
     { key:"quartermaster", weapon:"pistol", active:"quickload", passive:"rewire", title:"Quartermaster kit", bonus:"Quickload also clears shot recovery." }
 ]
 
-Object.assign(weapons, Extra.weapons, Arsenal.weapons, Defense.weapons, Deep.weapons, Milestones.weapons,Campaign.weapons,Blood.weapons,Grades.weapons)
-Object.assign(activeAbilities, Extra.actives, Arsenal.actives, Defense.actives, Deep.actives, Milestones.actives,Campaign.actives,Blood.actives,Grades.actives)
-Object.assign(passives, Extra.passives, Arsenal.passives, Defense.passives, Deep.passives, Milestones.passives,Campaign.passives,Blood.passives,Grades.passives)
-kits = kits.concat(Extra.kits, Arsenal.kits, Defense.kits, Deep.kits, Milestones.kits,Campaign.kits,Blood.kits,Grades.kits, [
+Object.assign(weapons, Extra.weapons, Arsenal.weapons, Defense.weapons, Deep.weapons, Milestones.weapons,Campaign.weapons,Blood.weapons,Grades.weapons,Weather.weapons)
+Object.assign(activeAbilities, Extra.actives, Arsenal.actives, Defense.actives, Deep.actives, Milestones.actives,Campaign.actives,Blood.actives,Grades.actives,Weather.actives)
+Object.assign(passives, Extra.passives, Arsenal.passives, Defense.passives, Deep.passives, Milestones.passives,Campaign.passives,Blood.passives,Grades.passives,Weather.passives)
+kits = kits.concat(Extra.kits, Arsenal.kits, Defense.kits, Deep.kits, Milestones.kits,Campaign.kits,Blood.kits,Grades.kits,Weather.kits, [
     { key:"starSet", weapon:"starDestroyer", active:"bloodbattery", passive:"sparebox", title:"Starlight kit",
         bonus:"Star Destroyer charges 25% faster while Infinite Ammo is active." }
 ])
@@ -461,7 +463,7 @@ var secondPerks = {
     cinder:{ burnDuration:1.35, text:"Burn duration +1.35s" }, conductor:{ arcRadius:42, text:"Electric jump range +42" },
     chainfuse:{ blastRadius:.11, text:"Death blast radius +11%" }, rewire:{ coins:30, text:"Mega coin gifts +30 gold" }
 }
-Object.assign(secondPerks, Extra.perks, Arsenal.perks, Defense.perks, Deep.perks, Milestones.perks,Campaign.perks,Blood.perks,Grades.perks)
+Object.assign(secondPerks, Extra.perks, Arsenal.perks, Defense.perks, Deep.perks, Milestones.perks,Campaign.perks,Blood.perks,Grades.perks,Weather.perks)
 
 function passiveRank(run, id) {
     const index = findSlot(run, "passive", id)
@@ -472,15 +474,35 @@ function passiveRank(run, id) {
     return 1 + (level >= 1 ? 1 : 0) + (level >= 3 ? 2 : 0) + (slotPower("passive", slot).strength || 0)
 }
 
+function environmentMatches(run,phase) {
+    if (!phase) return true
+    if (!run) return false
+    if (phase==="night") return Tarot.dark(run)
+    if (phase==="twilight") return run.skyPhase==="sunrise" || run.skyPhase==="sunset"
+    if (phase==="weather") return !!Tarot.weather(run)
+    if (phase==="clear") return !Tarot.weather(run)
+    return run.skyPhase===phase
+}
+
+var environmentNames={night:"Night or Blood Moon",twilight:"sunrise or sunset",weather:"an active weather overlay",
+    clear:"clear weather",daytime:"daylight"}
+
+function affinity(run,spec) {
+    return spec.affinity && environmentMatches(run,spec.affinity) ? 1+spec.affinityBonus : 1
+}
+
 function perk(run, stat) {
     const polish=Meta.benefits(run).passive
     let total=0
     for (const slot of run.slots.passive) {
         const item=slot.item
         if (!item) continue
-        const grade=Grades.basic[item.id]
-        if (grade && grade[stat]) total+=grade[stat]*(1+(item.level>=1 ? .35 : 0)+(item.level>=3 ? .55 : 0))
-        if (item.level>=2) total+=(secondPerks[item.id][stat] || 0)*polish
+        const basic=Grades.basic[item.id] || Weather.conditional[item.id]
+        if (basic && basic[stat] && environmentMatches(run,basic.when))
+            total+=basic[stat]*(1+(item.level>=1 ? .35 : 0)+(item.level>=3 ? .55 : 0))
+        const extra=secondPerks[item.id]
+        if (item.level>=2 && extra && extra[stat] && environmentMatches(run,extra.when))
+            total+=extra[stat]*polish
     }
     return total
 }
@@ -512,7 +534,11 @@ function weaponLevel(run, item) {
 
 function effectiveWeaponStats(run, item) {
     const stats=weaponStats(run.maxGearTime > 0 ? Object.assign({},item,{level:3}) : item)
-    stats.damage*=Meta.benefits(run).weapon
+    stats.damage*=Meta.benefits(run).weapon*affinity(run,weapons[item.id])
+    if (run.covenant && run.covenant.tarot) {
+        const omen=Tarot.stats(run)
+        stats.damage*=Tarot.weaponFactor(run,omen.hurtDamage || omen.direDamage ? maxHealth(run) : 1)
+    }
     return stats
 }
 
@@ -869,7 +895,7 @@ function counterOffer(run) {
 }
 
 function shopPrice(run, price) {
-    return Math.round(price*(1-.05*Math.max(0,passiveRank(run,"rewire")-1)))
+    return Math.round(price*(1-.05*Math.max(0,passiveRank(run,"rewire")-1)-Tarot.value(run,"shop")))
 }
 
 function replacement(run, card) {
@@ -1233,6 +1259,7 @@ function itemDetails(run,group,item) {
         lines.push("Cooldown "+(stats.cooldown*Meta.benefits(run).recovery).toFixed(1)+"s before other loadout bonuses"
             +(run?.cooldowns?.[item.id] ? " · remaining "+run.cooldowns[item.id].toFixed(1)+"s" : ""))
         lines.push("Ability damage: "+abilityDamageDescription(run,item))
+        if (spec.environment) lines.push("Requires "+environmentNames[spec.environment])
         if (spec.element) lines.push(Elements.kinds[spec.element].title+" "+stats.elementLevel)
     } else lines.push("Effective passive rank "+(run ? passiveRank(run,item.id) : 1+Number(level>=1)+Number(level>=3)*2))
     if (level) lines.push("Latest upgrade: "+upgradeText(spec,level))
@@ -1248,12 +1275,16 @@ var activeImpacts={shock:[5,1.5],sunfall:[8.25,2.3],immolate:[3.3,1],stormcall:[
     bladesweep:[7.4,2.3],blackWake:[4.2,1.25],brineFlare:[7.4,1.8],colourSpill:[5,1.5],mireCloud:[4.5,1]}
 function abilityDamageDescription(run,item,bonus) {
     const spec=activeAbilities[item.id],s=activeStats(item).strength
-    const factor=bonus ?? Meta.benefits(run).active*(1+(run?.boons?.damage || 0))
+    const factor=bonus ?? Meta.benefits(run).active*(1+(run?.boons?.damage || 0))*(run ? 1+perk(run,"activeDamage") : 1)
     const format=function(value){return Number((value*factor).toFixed(2))}
     if(spec.damage) {
         let multiplier=1
         if(run) multiplier=item.id==="lateBloom" && run.wave>20 ? 2.2 : item.id==="fieldLesson" && run.wave<=20 ? 2 : 1
         return format(spec.damage*(1+s*.22)*multiplier)+" impact per target"+(item.id==="breachOrder" ? " · ×2.5 vs Overlords" : "")
+    }
+    if (["solarCone","nightVeil","stormGlass"].includes(spec.form)) {
+        const impact=format((spec.value+s*.9)*affinity(run,spec))
+        return spec.form==="stormGlass" ? impact+" impact per shot shattered" : impact+" impact per target"
     }
     const base=activeImpacts[item.id]
     if(base)return format(base[0]+s*base[1])+" impact before build/kit bonuses"

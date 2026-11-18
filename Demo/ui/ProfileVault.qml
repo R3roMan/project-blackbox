@@ -31,6 +31,12 @@ QtObject {
         return Meta.buy(ledger,id) && replace(ledger)
     }
 
+    function turnCard(id) {
+        reload()
+        const ledger=Meta.read(JSON.stringify(state))
+        return Meta.turnCard(ledger,id) && replace(ledger)
+    }
+
     function reserve(id) {
         reload()
         const ledger=Meta.read(JSON.stringify(state))

@@ -169,6 +169,7 @@ FocusScope {
     property int seenSmokes: -1
     property var smokes: []
     readonly property var guestPet: { revision; return run.guestPet }
+    readonly property var tarotPet: { revision; return run.tarotPet }
     property var actors: []
     property var bolts: []
     property var gifts: []
@@ -805,7 +806,10 @@ FocusScope {
             Qt.callLater(giveMenuFocus)
         }
     }
-    onPausedChanged: if (!fighting) Qt.callLater(giveMenuFocus)
+    onPausedChanged: {
+        if (!paused) retireArmed=false
+        if (!fighting) Qt.callLater(giveMenuFocus)
+    }
     onUnlockedGearChanged: Rules.updateCareerUnlocks(run, unlockedGear)
     Component.onCompleted: {
         const restored = !tutorial && resumeState ? SaveData.decodeRun(resumeState,unlockedGear) : null
@@ -1053,6 +1057,18 @@ FocusScope {
             time:play.elapsed
             motion:play.motion
         }
+        Loader {
+            anchors.fill:parent
+            active:(play.fighting || !!play.outcomeKind) && !play.hypnotised && (play.location.id==="up" || play.location.id==="down")
+            opacity:(1-play.blindness)*(play.turning ? .40+.60*Math.abs(2*play.turnRatio-1) : 1)
+            sourceComponent:WallpaperAtmosphere {
+                front:play.location.id
+                clock:play.elapsed
+                night:play.sky.dark
+                motion:play.motion
+                detail:play.graphicsDetail
+            }
+        }
         SkyDome {
             anchors.fill:parent
             visible:play.phase==="combat" || !!play.outcomeKind
@@ -1116,6 +1132,7 @@ FocusScope {
             turnRatio: play.turnRatio
             flyingPet: play.flyingPet
             guestPet: play.guestPet
+            tarotPet: play.tarotPet
             blindness: play.blindness
             hypnotised: play.hypnotised
             meleeReturn: { play.revision; return Rules.meleeReturnWindow(play.run) }
@@ -1151,6 +1168,7 @@ FocusScope {
             opacity: play.turning ? Math.abs(1 - play.turnRatio * 2) : 1
             flyingPet: play.flyingPet
             guestPet: play.guestPet
+            tarotPet: play.tarotPet
             blindness: play.blindness
             hypnotised: play.hypnotised
             meleeReturn: { play.revision; return Rules.meleeReturnWindow(play.run) }
@@ -1506,6 +1524,9 @@ FocusScope {
         }
         rays: play.shotRays
         life: play.strikeLife
+        muzzleLife:play.shotFlash
+        sequence:{play.revision;return Gear.current(play.run).sequence || 0}
+        motion:play.motion
         sustained: play.sustainedFire && play.weapon.effect === "laser"
         chargedSlash: play.chargedStrike
         combo: play.combo
@@ -2681,6 +2702,15 @@ FocusScope {
     PetActionMeter {
         z:14
         pet:play.fighting && !play.hypnotised && !play.turning ? play.guestPet : null
+        world:play.worldItem
+        clock:play.elapsed
+        revision:play.revision
+        frontId:play.frontId
+        motion:play.motion
+    }
+    PetActionMeter {
+        z:14
+        pet:play.fighting && !play.hypnotised && !play.turning ? play.tarotPet : null
         world:play.worldItem
         clock:play.elapsed
         revision:play.revision

@@ -6,7 +6,7 @@ var weapons = {
         penetration:2,crit:.09,handling:"reload",signature:"unbroken",scopeZoom:3.15,
         description:"A silver-green precision rifle. Shots gain 22% damage until you lose health in the current wave."},
     kingsRansom:{id:"kingsRansom",title:"King's Ransom",category:"Weapon",rarity:"legendary",art:"kingsRansom",
-        effect:"ballistic",capacity:8,damage:14.4,delay:.43,reload:1.60,aim:23,color:"#ffe478",trace:4.7,afterglow:.24,
+        effect:"ballistic",capacity:8,damage:12.8,delay:.43,reload:1.60,aim:23,color:"#ffe478",trace:4.7,afterglow:.24,
         handling:"capacity",signature:"coinShot",coinCost:4,crit:.04,
         description:"An engraved golden handgun. Spend 4 gold to fire a heavy coin. When broke, it fires ordinary rounds for 22% damage."}
 }

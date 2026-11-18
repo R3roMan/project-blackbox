@@ -13,10 +13,11 @@ FocusScope {
     property bool motion: true
     signal backRequested()
     signal purchaseRequested(string id)
+    signal cardRequested(string id)
     property int shelf: 0
     property var selection: Meta.vows[0]
     property var preview: null
-    readonly property var speaking: preview || selection
+    readonly property var speaking: shelf===3 ? Meta.reading : preview || selection
     readonly property bool tight: width < 925 || height < 645
     readonly property var stock: shelf===0 ? Meta.vows : shelf===1 ? Meta.parcels : []
     readonly property bool eligible: !!selection && Meta.canBuy(ledger,selection)
@@ -30,9 +31,9 @@ FocusScope {
 
     Image {
         anchors.fill: parent
-        source: "../art/witch-vault.webp"
+        source: "../art/witch-vault-tarot.webp"
         fillMode: Image.PreserveAspectCrop
-        horizontalAlignment: Image.AlignLeft
+        horizontalAlignment: shop.tight ? Image.AlignHCenter : Image.AlignLeft
         asynchronous: true
         sourceSize.width: Math.min(2048, width*Screen.devicePixelRatio)
     }
@@ -90,7 +91,7 @@ FocusScope {
                 font.family:"Cormorant Garamond"
                 font.italic:true
                 font.bold:true
-                font.pixelSize:UiMetrics.text(shop.tight ? 18 : 24)
+                font.pixelSize:UiMetrics.text(shop.tight ? 16 : 24)
                 wrapMode:Text.WordWrap
                 color:"#fff0e9"
             }
@@ -138,7 +139,7 @@ FocusScope {
                 Layout.fillWidth:true
                 spacing:5
                 Repeater {
-                    model:["Permanent","Next run","Sealed shelf"]
+                    model:["Permanent","Next run","Sealed shelf","Tarot"]
                     ActionButton {
                         required property int index
                         required property string modelData
@@ -189,9 +190,13 @@ FocusScope {
                             color:listing.primary ? "#22142e" : "#f9e6ee"
                             elide:Text.ElideRight
                         }
+                        SaleSticker {
+                            sale:Meta.discount(shop.ledger,listing.modelData)
+                            visible:sale>0 && Meta.inStock(shop.ledger,listing.modelData)
+                        }
                         Text {
                             text:listing.modelData.cap ? listing.rank+" / "+listing.modelData.cap
-                                : listing.queued ? "Reserved" : "◆ "+listing.modelData.price
+                                : listing.queued ? "Reserved" : "◆ "+Meta.price(shop.ledger,listing.modelData)
                             font.family:"IBM Plex Mono"
                             font.pixelSize:UiMetrics.text(12)
                             color:listing.primary ? "#4f325c" : "#d3adc9"
@@ -199,6 +204,15 @@ FocusScope {
                         }
                     }
                 }
+            }
+            TarotReading {
+                visible:shop.shelf===3
+                Layout.fillWidth:true
+                Layout.fillHeight:true
+                ledger:shop.ledger
+                motion:shop.motion
+                onBuyRequested:shop.purchaseRequested(Meta.reading.id)
+                onTurnRequested:function(id) {shop.cardRequested(id)}
             }
             Item {
                 visible:shop.shelf===2
@@ -274,7 +288,8 @@ FocusScope {
                                 if (!item) return ""
                                 if (item.cap && Meta.level(shop.ledger,item.id)>=item.cap) return "Max rank"
                                 if (!item.cap && shop.ledger.pending[item.id]) return "Reserved"
-                                return "Buy · ◆ "+Meta.price(shop.ledger,item)
+                                const price=Meta.price(shop.ledger,item)
+                                return price ? "Buy · ◆ "+price : "Claim free"
                             }
                             onClicked:shop.purchaseRequested(shop.selection.id)
                         }

@@ -421,6 +421,7 @@ ApplicationWindow {
             motion:window.motion
             vaultOpened:window.profile.wave100Boss>0
             onPurchaseRequested:function(id) {careerVault.purchase(id)}
+            onCardRequested:function(id) {careerVault.turnCard(id)}
             onBackRequested:window.goHome()
         }
     }

@@ -140,7 +140,7 @@ Rectangle {
                             ["Unblocked hits",s.contacts],["Demons killed",s.kills],["Bosses defeated",s.bosses],["Abyss seals",s.seals],
                             ["Shield blocks",s.blocks],["Perfect parries",s.parries],["Projectiles intercepted",s.intercepts],["Shop purchases",s.purchases],
                             ["Gold earned",s.earned],["Gold spent in shops",s.spent],["Gold left",s.wallet],["Hitless waves",s.flawless],
-                            ["Items owned",s.items],["Gear and slot upgrades",s.upgrades],["Light-loadout bonus","+"+s.restraint]]
+                            ["Items owned",s.items],["Gear and slot upgrades",s.upgrades],["Light-loadout bonus","+"+s.restraint],["Wave score",s.waveScore===undefined ? "—" : s.waveScore+" / 100"]]
                     }
                     RowLayout {
                         required property var modelData

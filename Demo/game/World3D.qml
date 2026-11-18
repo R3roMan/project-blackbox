@@ -19,6 +19,7 @@ View3D {
     property var gifts: []
     property var flyingPet: null
     property var guestPet: null
+    property var tarotPet: null
     property var smokes: []
     property var bubbleBursts:[]
     property var abilityEvents:[]
@@ -321,6 +322,7 @@ View3D {
 
     WorldPet { pet: world.flyingPet }
     WorldPet { pet: world.guestPet }
+    WorldPet { pet: world.tarotPet }
 
     ActorRoster { id: enemyList; entries: world.actors }
     ActorRoster { id: boltList; entries: world.bolts }

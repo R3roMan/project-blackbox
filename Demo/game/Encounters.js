@@ -85,7 +85,7 @@ var enemyTypes = {
         description: "Her barrier protects a slow brood carrier. Every nine seconds she can release a Spartalien or High Fizzalien on her wallpaper. A brood can have three live offspring."
     },
     zadrrimus: {
-        id: "zadrrimus", title: "Zadrrimus", role: "ground", health: 24, damage: 34,
+        id: "zadrrimus", title: "Zadrrimus", role: "ground", health: 24, damage: 31,
         speed: 156, pace: "Medium", reach: 320, interval: 4.8, windup: 1.4, crit:.16,
         skin: "#5b3154", accent: "#fb76de", size: 1.42, shake: [17, 11, .48, 85],
         description: "A huge, toothy mouth telegraphs its bite. A hit distorts your view for five seconds and has a 16% critical chance."
@@ -176,7 +176,7 @@ var enemyTypes = {
     battlestar: {
         id:"battlestar",title:"Go Go Battlestar",role:"alien",battlestar:true,
         health:47,damage:3.3,speed:61,pace:"Low",reach:1180,interval:4.3,windup:1.1,
-        beam:{duration:2.75,tick:.55,warning:.85},skin:"#171522",accent:"#ff3c54",size:2.35,shake:[4,5,.24,61],
+        beam:{duration:2.75,tick:.55,warning:1.04},skin:"#171522",accent:"#ff3c54",size:2.35,shake:[4,5,.24,61],
         description:"A black and scarlet warship that slowly rises and sinks through Star Sky. Its warning line turns into a continuous long-range laser. Turn away before it fires or strike during its cooldown."
     },
     skarabatunus: {
@@ -250,7 +250,7 @@ var enemyTypes = {
     },
     crufixicatus:{
         id:"crufixicatus",title:"Crufixicatus",role:"ground",blindImmune:true,health:11,damage:12,
-        speed:289,pace:"Very high",reach:280,interval:2.17,windup:.93,
+        speed:289,pace:"Very high",reach:280,interval:2.17,windup:1.09,
         skin:"#c8bdbb",accent:"#d34b75",size:1.22,shake:[13,9,.37,91],
         description:"The tears fall upward. Its first touch brings the face too close."
     },
