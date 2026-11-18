@@ -17,7 +17,7 @@ ColumnLayout {
         text: "CHOOSE ONE STARTING WEAPON"
         color: "#f7be93"
         font.family: "IBM Plex Mono"
-        font.pixelSize: 11
+        font.pixelSize: Ui.UiMetrics.text(12)
     }
     RowLayout {
         Layout.fillWidth: true
@@ -65,14 +65,14 @@ ColumnLayout {
                             color: pick.primary ? "#181423" : "#f4e6ec"
                             elide: Text.ElideRight
                             font.family: "Inter"
-                            font.pixelSize: 12
+                            font.pixelSize: Ui.UiMetrics.text(13)
                             font.weight: Font.DemiBold
                         }
                         Text {
                             text: Gear.rarities[pick.modelData.rarity].label
                             color: pick.primary ? "#302737" : pick.accent
                             font.family: "IBM Plex Mono"
-                            font.pixelSize: 9
+                            font.pixelSize: Ui.UiMetrics.text(9)
                         }
                     }
                 }

@@ -75,7 +75,7 @@ ColumnLayout {
                         + " listings left   ·   Repeat luck " + (Gear.repeatChance(shop.run.repeatRank)*100).toFixed(1) + "%"
                 }
                 font.family: "IBM Plex Mono"
-                font.pixelSize: 11
+                font.pixelSize: Ui.UiMetrics.text(12)
                 color: "#b8a997"
             }
             Repeater {
@@ -118,14 +118,14 @@ ColumnLayout {
                             text: listing.text
                             color: listing.primary ? "#161d2e" : listing.modelData.sold ? "#a1adbf" : "#edf0fc"
                             font.family: "Inter"
-                            font.pixelSize: 12
+                            font.pixelSize: Ui.UiMetrics.text(13)
                             elide: Text.ElideRight
                         }
                         Text {
                             text: listing.modelData.sold ? "Sold" : listing.modelData.paid ? "Claim" : listing.modelData.cost
                             color: listing.primary ? "#29364d" : listing.modelData.sold ? "#a1adbf" : "#ffdf93"
                             font.family: "IBM Plex Mono"
-                            font.pixelSize: 12
+                            font.pixelSize: Ui.UiMetrics.text(13)
                         }
                     }
                 }
@@ -153,14 +153,14 @@ ColumnLayout {
                     color: "#ffe094"
                     font.family: "IBM Plex Mono"
                     font.weight: Font.Bold
-                    font.pixelSize: 13
+                    font.pixelSize: Ui.UiMetrics.text(14)
                 }
                 Text {
                     Layout.fillWidth: true
                     text: shop.selected ? shop.selected.title : "Select a listing"
                     color: shop.rarityTone
                     font.family: "Inter"
-                    font.pixelSize: 18
+                    font.pixelSize: Ui.UiMetrics.text(18)
                     font.weight: Font.Bold
                     wrapMode: Text.WordWrap
                     GearDrag {
@@ -177,7 +177,7 @@ ColumnLayout {
                     wrapMode: Text.WordWrap
                     color: "#d5e0f0"
                     font.family: "Inter"
-                    font.pixelSize: 12
+                    font.pixelSize: Ui.UiMetrics.text(13)
                 }
                 Text {
                     Layout.fillWidth: true
@@ -202,7 +202,7 @@ ColumnLayout {
                     wrapMode: Text.WordWrap
                     color: "#aebed8"
                     font.family: "Inter"
-                    font.pixelSize: 11
+                    font.pixelSize: Ui.UiMetrics.text(12)
                 }
                 LoadoutGrid {
                     Layout.fillWidth: true

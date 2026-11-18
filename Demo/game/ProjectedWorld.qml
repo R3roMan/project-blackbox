@@ -667,6 +667,21 @@ Item {
                             polygon(ctx,[.5+side*.24,.68,.5+side*.46,.34-strike*.16,.5+side*.37,.70],
                                 "#958f98","#f3d0a6")
                     }
+                    if (creature.origin==="Hellborne" && !["gigafinterus","nindumipus"].includes(enemy.type)) {
+                        for (const sign of [-1,1]) {
+                            ctx.save();ctx.translate(.5+sign*.224,.54);ctx.scale(sign,1)
+                            ctx.rotate(.21-Math.max(0,strike)*.22)
+                            oval(ctx,-.046,-.064,.115,.20,Qt.lighter(skin,1.10),Qt.darker(skin,1.36))
+                            oval(ctx,.022,.051,.086,.16,skin,Qt.darker(skin,1.40))
+                            oval(ctx,.034,.155,.084,.073,Qt.lighter(skin,1.14),"")
+                            for (let i=0;i<3;i++) {
+                                const x=.043+i*.024
+                                oval(ctx,x,.184,.018,.043,Qt.darker(skin,1.24),"")
+                                polygon(ctx,[x,.222,x+.018,.219,x+.011,.248],"#cdb694","")
+                            }
+                            ctx.restore()
+                        }
+                    }
                     oval(ctx,.347,.289,.306,.186,eye,"")
                     oval(ctx,.464,.308,.073,.145,"#20151f","")
                     if (enemy.type === "gigafinterus") {
@@ -690,21 +705,31 @@ Item {
                         ctx.fillRect(.38, .477, .052, .043)
                         ctx.fillRect(.57, .477, .052, .043)
                     } else {
-                        ctx.save()
-                        if (Livery.bellyMaws.includes(enemy.type)) {
-                            ctx.translate(.5,.71)
-                            ctx.scale(1.48,1.38)
-                            ctx.translate(-.5,-.50)
-                        }
                         const gape = Math.max(0,strike)*pose[3]
-                        oval(ctx,.351,.50,.298,.063+gape*.72,"#28131d","#c6937c")
-                        oval(ctx,.342,.56+gape*.55,.32,.052,Qt.lighter(skin,1.20),"#c6937c")
-                        ctx.fillStyle = ghost ? "#c5c6cc" : "#f8debe"
-                        for (let i=0; i<4; ++i) {
-                            ctx.fillRect(.388+i*.056,.505,.027,.030)
-                            ctx.fillRect(.385+i*.057,.56+gape*.55,.027,.029)
+                        if (Livery.bellyMaws.includes(enemy.type)) {
+                            const cx=.50,cy=.679,rx=.19,ry=.147+gape*.13
+                            oval(ctx,cx-rx-.015,cy-ry-.013,(rx+.015)*2,(ry+.013)*2,Qt.darker(skin,1.47),"#a95257")
+                            oval(ctx,cx-rx,cy-ry,rx*2,ry*2,"#211018","")
+                            for(let i=0;i<23;i++) {
+                                const phase=i*Math.PI*2/23
+                                const x=Math.cos(phase),y=Math.sin(phase),inset=i%2 ? .85 : .88
+                                polygon(ctx,[cx+rx*x+.007*y,cy+ry*y-.007*x,
+                                    cx+rx*x-.007*y,cy+ry*y+.007*x,cx+rx*x*inset,cy+ry*y*inset],"#f0d7b1","")
+                            }
+                            const tongueX=cx+Math.sin(clock*5.4)*.033
+                            ctx.beginPath(); ctx.moveTo(cx-.047,cy+ry*.64)
+                            ctx.quadraticCurveTo(tongueX-.061,cy-ry*.37,tongueX,cy-ry*.36)
+                            ctx.quadraticCurveTo(tongueX+.061,cy-ry*.35,cx+.047,cy+ry*.64)
+                            ctx.fillStyle="#d34b6c";ctx.fill()
+                        } else {
+                            const bottom=.571+gape*.53
+                            oval(ctx,.328,.49,.344,.09+gape*.63,"#28131d","#c6937c")
+                            for(let i=0;i<8;i++) {
+                                const x=.355+i*.036
+                                const y=i%2 ? bottom : .505
+                                polygon(ctx,[x,y,x+.019,y,x+.010,y+(i%2 ? -.026 : .027)],"#f5dfba","")
+                            }
                         }
-                        ctx.restore()
                     }
                 }
 

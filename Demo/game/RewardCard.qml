@@ -49,7 +49,7 @@ Ui.ActionButton {
         Text {
             anchors.centerIn: parent
             text: "⠿"
-            font.pixelSize: 15
+            font.pixelSize: Ui.UiMetrics.text(15)
             color: "#fbecfa"
         }
         GearDrag {
@@ -80,7 +80,7 @@ Ui.ActionButton {
                 + (card.offer.cooldown ? "  /  " + card.offer.cooldown + "s" : "")
             color: card.tint
             font.family: "IBM Plex Mono"
-            font.pixelSize: 11
+            font.pixelSize: Ui.UiMetrics.text(12)
             font.weight: Font.DemiBold
             elide: Text.ElideRight
         }
@@ -110,7 +110,7 @@ Ui.ActionButton {
             text: card.offer.upgradeLevel ? "↑ UPGRADE TO LV " + card.offer.upgradeLevel + " / 3 · " + card.offer.upgradeEffect : ""
             color: "#a3edc4"
             font.family: "IBM Plex Mono"
-            font.pixelSize: 11
+            font.pixelSize: Ui.UiMetrics.text(12)
             font.weight: Font.Bold
         }
         Text {
@@ -121,7 +121,7 @@ Ui.ActionButton {
             elide: Text.ElideRight
             color: "#e4d6e1"
             font.family: "Inter"
-            font.pixelSize: 12
+            font.pixelSize: Ui.UiMetrics.text(13)
         }
         Text {
             Layout.fillWidth: true
@@ -129,7 +129,7 @@ Ui.ActionButton {
             text: card.offer.hint || ""
             color: card.tint
             font.family: "IBM Plex Mono"
-            font.pixelSize: 10
+            font.pixelSize: Ui.UiMetrics.text(10)
             elide: Text.ElideRight
         }
     }

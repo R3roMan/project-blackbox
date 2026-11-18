@@ -552,7 +552,7 @@ FocusScope {
     }
 
     function turnView(direction) {
-        if (!fighting || trainingBlocked || stunned || turnLocked || play.turning || lunging)
+        if (!fighting || bookVisible || trainingBlocked || stunned || turnLocked || play.turning || lunging)
             return
         keyTarget.forceActiveFocus()
         direction = Rules.turnInput(run,direction)
@@ -592,7 +592,7 @@ FocusScope {
     }
 
     function fire(x, y, continuation) {
-        if (!fighting || trainingBlocked || stunned || constricted || play.turning || lunging || fieldGuard.raised || !worldItem
+        if (!fighting || bookVisible || trainingBlocked || stunned || constricted || play.turning || lunging || fieldGuard.raised || !worldItem
             || (!continuation && shotTime > 0) || reloadTime || prepTime || cooling)
             return
         const rays = weapon.spread || [[0, 0]]
@@ -1377,7 +1377,7 @@ FocusScope {
                 rotation: -indicator.rotation
                 text: "!"
                 color: "#1a1405"
-                font.pixelSize: 26
+                font.pixelSize: Ui.UiMetrics.text(26)
                 font.weight: Font.Black
             }
         }
@@ -1398,7 +1398,7 @@ FocusScope {
             text: "STUNNED  ·  " + play.stunLeft.toFixed(1) + " s"
             color: "#ffe1e7"
             font.family: "IBM Plex Mono"
-            font.pixelSize: 15
+            font.pixelSize: Ui.UiMetrics.text(15)
         }
     }
 
@@ -1423,14 +1423,14 @@ FocusScope {
             text: play.lab ? "AFTER WAVE " + play.wave : "PROJECT BLACKBOX"
             color: play.location.color
             font.family: "IBM Plex Mono"
-            font.pixelSize: 12
+            font.pixelSize: Ui.UiMetrics.text(12)
             font.letterSpacing: 2
         }
         Text {
             text: play.phase === "shop" ? "Supply room" : play.lab ? "Droid Lab" : play.location.title
             color: "#fff2e9"
             font.family: "Inter"
-            font.pixelSize: 25
+            font.pixelSize: Ui.UiMetrics.text(25)
             font.weight: Font.Bold
         }
     }
@@ -1454,7 +1454,7 @@ FocusScope {
                 Ui.BloodNumber {value:play.remaining}
             }
             Accessible.name: text + ". Open Waves"
-            font.pixelSize: 14
+            font.pixelSize: Ui.UiMetrics.text(14)
             hintText:"Open Waves"
             onClicked: play.pauseRun("waves")
         }
@@ -1465,7 +1465,7 @@ FocusScope {
             horizontalAlignment: Text.AlignHCenter
             color: "#ffe08a"
             font.family: "IBM Plex Mono"
-            font.pixelSize: 11
+            font.pixelSize: Ui.UiMetrics.text(11)
         }
         Text {
             width: parent.width
@@ -1480,7 +1480,7 @@ FocusScope {
             elide: Text.ElideRight
             color: Pets.uniqueColor
             font.family: "IBM Plex Mono"
-            font.pixelSize: 10
+            font.pixelSize: Ui.UiMetrics.text(10)
         }
         Rectangle {
             visible: play.boss !== null
@@ -1540,7 +1540,7 @@ FocusScope {
             text: { play.revision; return "DEATH COINS " + Math.min(5,play.run.deathCoins) + " / 5" }
             color: "#f6ca78"
             font.family: "IBM Plex Mono"
-            font.pixelSize: 12
+            font.pixelSize: Ui.UiMetrics.text(12)
         }
 
         Text {
@@ -1551,7 +1551,7 @@ FocusScope {
             style: Text.Outline
             styleColor: "#26152d"
             font.family: "IBM Plex Mono"
-            font.pixelSize: 12
+            font.pixelSize: Ui.UiMetrics.text(12)
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -1583,7 +1583,7 @@ FocusScope {
             style: Text.Outline
             styleColor: "#291922"
             font.family: "IBM Plex Mono"
-            font.pixelSize: 12
+            font.pixelSize: Ui.UiMetrics.text(12)
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -1600,7 +1600,7 @@ FocusScope {
             style: Text.Outline
             styleColor: "#263a16"
             font.family: "IBM Plex Mono"
-            font.pixelSize: 12
+            font.pixelSize: Ui.UiMetrics.text(12)
         }
         Rectangle {
             objectName: "stickyNotice"
@@ -1622,7 +1622,7 @@ FocusScope {
                 color: "#edffac"
                 font.family: "IBM Plex Mono"
                 font.weight: Font.Bold
-                font.pixelSize: 12
+                font.pixelSize: Ui.UiMetrics.text(12)
             }
         }
         Text {
@@ -1637,13 +1637,13 @@ FocusScope {
             style: Text.Outline
             styleColor: "#432133"
             font.family: "IBM Plex Mono"
-            font.pixelSize: 14
+            font.pixelSize: Ui.UiMetrics.text(14)
             font.weight: Font.Bold
         }
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             width: Math.min(play.width - 36, alert.implicitWidth + 22)
-            height: 28
+            height: Math.max(28,Ui.UiMetrics.text(20))
             radius: 4
             border.color: "#6d536a"
             color: "#e51e1423"
@@ -1657,13 +1657,13 @@ FocusScope {
                 }
                 color: "#fff2e9"
                 font.family: "Inter"
-                font.pixelSize: 13
+                font.pixelSize: Ui.UiMetrics.text(13)
             }
         }
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 228
-            height: 45
+            width: Math.max(228,Ui.UiMetrics.text(214))
+            height: Math.max(45,Ui.UiMetrics.text(37))
             radius: 5
             color: "#eb25162f"
             border.color: play.sealClosed ? "#81d5be" : "#d5a3f5"
@@ -1753,7 +1753,7 @@ FocusScope {
                     text: Defense.modes[play.fieldGuard.mode].title.toUpperCase()
                     color: play.fieldGuard.tint
                     font.family: "IBM Plex Mono"
-                    font.pixelSize: 10
+                    font.pixelSize: Ui.UiMetrics.text(10)
                     fontSizeMode: Text.HorizontalFit
                     minimumPixelSize: 8
                     elide: Text.ElideRight
@@ -1769,7 +1769,7 @@ FocusScope {
                         text: "SPACE"
                         color: "#d8efff"
                         font.family: "IBM Plex Mono"
-                        font.pixelSize: 9
+                        font.pixelSize: Ui.UiMetrics.text(9)
                     }
                 }
             }
@@ -1793,7 +1793,7 @@ FocusScope {
                     + (play.fieldGuard.level ? "  ·  Lv " + play.fieldGuard.level : "")
                 color: "#c9ccdd"
                 font.family: "IBM Plex Mono"
-                font.pixelSize: 9
+                font.pixelSize: Ui.UiMetrics.text(9)
             }
         }
     }
@@ -1850,7 +1850,7 @@ FocusScope {
                 elide: Text.ElideRight
                 color: "#cfbecf"
                 font.family: "IBM Plex Mono"
-                font.pixelSize: 10
+                font.pixelSize: Ui.UiMetrics.text(10)
             }
             Rectangle {
                 objectName: "weaponCycleMeter"
@@ -1883,7 +1883,7 @@ FocusScope {
                     : play.weapon.melee && !play.primed ? "READY · R TO PRIME" : "READY"
                 color: "#ffd0a9"
                 font.family: "IBM Plex Mono"
-                font.pixelSize: 10
+                font.pixelSize: Ui.UiMetrics.text(10)
             }
         }
     }
@@ -2027,7 +2027,7 @@ FocusScope {
                 }
                 color: "#d3c2d0"
                 font.family: "Inter"
-                font.pixelSize: 14
+                font.pixelSize: Ui.UiMetrics.text(14)
                 wrapMode: Text.WordWrap
             }
             RunSetup {
@@ -2098,7 +2098,7 @@ FocusScope {
                 wrapMode: Text.WordWrap
                 color: "#ffd0a9"
                 font.family: "IBM Plex Mono"
-                font.pixelSize: 12
+                font.pixelSize: Ui.UiMetrics.text(12)
             }
             Loader {
                 Layout.fillWidth: true
@@ -2347,7 +2347,7 @@ FocusScope {
     Rectangle {
         objectName: "achievementNotice"
         width: achievementLabel.implicitWidth + 28
-        height: 32
+        height: Math.max(32,Ui.UiMetrics.text(22))
         x: play.fighting ? 24 : (play.width - width) / 2
         y: play.fighting ? 114 : play.height - height - 20
         radius: 5
@@ -2360,7 +2360,7 @@ FocusScope {
             text: play.achievementText
             color: Pets.uniqueColor
             font.family: "Inter"
-            font.pixelSize: 13
+            font.pixelSize: Ui.UiMetrics.text(13)
         }
     }
 

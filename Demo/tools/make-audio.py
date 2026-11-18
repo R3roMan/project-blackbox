@@ -37,6 +37,7 @@ write("roar", 1.0, lambda t: min(1, t * 24) * exp(-t * 3.6)
 # during its reload. These are original synths, including all unlock weapons.
 GUNS = {
     "twinSmgs":("ballistic",214,.11,.67,(.10,.22,.47,.73,.94)),
+    "veinDrinker":("rail",101,.29,.92,(.09,.26,.55,.72,.95)),
     "rimeBell":("pump",129,.28,.79,(.11,.43,.59,.92)),
     "furnaceDoor":("pump",52,.42,1.04,(.10,.31,.58,.80,.97)),
     "twinShotguns":("pump",73,.34,.78,(.08,.27,.48,.72,.96)),
@@ -514,3 +515,8 @@ wet_impact("tutorial-molt",3.6,58,1.1)
 wet_impact("spray",1.2,134,.62)
 far_cry("cough",.60,149)
 cue("summon-oblogabgalus",1.55,71,.72,.1,.2)
+
+cue("blood-moon-arrival",1.75,89,.64,.045,.22)
+wet_impact("blood-bolt",.44,163,.48)
+cue("blood-drain",.79,172,.78,.025,.3)
+cue("stone-break",.98,67,2.12,.25,.04)

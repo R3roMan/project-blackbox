@@ -67,7 +67,7 @@ ColumnLayout {
     component Detail: Text {
         color: "#d7c6d9"
         font.family: "Inter"
-        font.pixelSize: 13
+        font.pixelSize: Ui.UiMetrics.text(14)
         wrapMode: Text.WordWrap
         Layout.fillWidth: true
     }
@@ -92,13 +92,13 @@ ColumnLayout {
                 text: tile.label
                 color: "#c7abc9"
                 font.family: "IBM Plex Mono"
-                font.pixelSize: 10
+                font.pixelSize: Ui.UiMetrics.text(10)
             }
             Text {
                 text: tile.value
                 color: tile.tint
                 font.family: "Inter"
-                font.pixelSize: 21
+                font.pixelSize: Ui.UiMetrics.text(21)
                 maximumLineCount: 1
                 width: tile.width - 22
                 elide: Text.ElideRight
@@ -280,7 +280,7 @@ ColumnLayout {
                                 + Gear.passives[modelData.passive].title + " + " + Gear.activeAbilities[modelData.active].title
                                 + "\nFull kit bonus: " + modelData.bonus
                         color: complete ? "#ffe47b" : "#bdafc6"
-                        font.pixelSize: 11
+                        font.pixelSize: Ui.UiMetrics.text(12)
                     }
                 }
             }

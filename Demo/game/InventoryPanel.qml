@@ -59,7 +59,7 @@ ColumnLayout {
             return "Inventory · " + inventory.run.inventory.filter(Boolean).length + " / " + inventory.run.inventory.length
         }
         font.family: "Inter"
-        font.pixelSize: 15
+        font.pixelSize: Ui.UiMetrics.text(15)
         font.weight: Font.DemiBold
         color: "#ffe9cf"
     }
@@ -112,7 +112,7 @@ ColumnLayout {
                         text: { inventory.revision; return storage.entry ? "Lv " + storage.entry.item.level : String(storage.index + 1) }
                         color: storage.primary ? "#211827" : storage.accent
                         font.family: "IBM Plex Mono"
-                        font.pixelSize: 10
+                        font.pixelSize: Ui.UiMetrics.text(10)
                     }
                     Text {
                         Layout.fillHeight: true
@@ -124,7 +124,7 @@ ColumnLayout {
                         wrapMode: Text.WordWrap
                         elide: Text.ElideRight
                         font.family: "Inter"
-                        font.pixelSize: 11
+                        font.pixelSize: Ui.UiMetrics.text(12)
                     }
                     Loader {
                         Layout.fillHeight: true
@@ -212,7 +212,7 @@ ColumnLayout {
         }
         color: inventory.selectedCell >= 0 || equipped.selectedIndex >= 0 ? "#9deee4" : "#d7c6d9"
         font.family: "Inter"
-        font.pixelSize: 13
+        font.pixelSize: Ui.UiMetrics.text(14)
         wrapMode: Text.WordWrap
     }
 }

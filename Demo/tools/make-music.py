@@ -26,7 +26,7 @@ class Track:
 
 
 TRACKS = [
-    Track("book",67,40,(0,-1,5,1),(0,),(12,),12,.12),
+    Track("book",72,43,(0,5,10,3,8,2,7,0),(),(),16,.10),
     Track("oblogabgalus",116,33,(0,3,-1,5),(0,4,8,11,14),(4,12),12,.55),
     Track("home", 71, 33, (0, -1, 5, -2), (0, 11), (12,), 14, .18),
     Track("frontier", 104, 34, (0, 3, -2, 6), (0, 4, 8, 11, 14), (4, 12), 12, .52),
@@ -122,7 +122,63 @@ def deep_pattern(mix, start, beat, root, bar, quiet):
         add(mix, when + beat * .64, sonar, .061, -.48 if i % 2 else .52)
 
 
+def jazz_voice(note, length, bass=False):
+    t = timeline(length)
+    angle = TAU * frequency(note) * t
+    if bass:
+        sound = np.sin(angle) + .34*np.sin(2*angle)*np.exp(-t*5) + .16*np.sin(3*angle)*np.exp(-t*8)
+        attack = .013
+    else:
+        tremolo = .91 + .09*np.sin(TAU*4.2*t)
+        sound = tremolo*(np.sin(angle+.16*np.sin(angle*2.003)*np.exp(-t*4))
+            + .22*np.sin(angle*2.015)*np.exp(-t*4.2) + .09*np.sin(angle*4.047)*np.exp(-t*13))
+        attack = .020
+    return sound * env(t, attack, min(.19,length*.35), length) * np.exp(-t*(2.5 if bass else 1.18))
+
+
+def jazz_comp(mix, start, beat, root, bar, amount, book=False):
+    # Soft minor ninths and dominant sevenths under an original swung phrase.
+    changes = [(3,7,10,14),(4,9,10,14),(4,7,11,14),(4,7,10,15)]
+    voicing = changes[(bar//2)%len(changes)]
+    for offset in (0.15,2.63):
+        for note in voicing:
+            add(mix, start+beat*offset, jazz_voice(root+12+note,beat*1.37),
+                amount*.35, -.21+note*.025)
+    if book:
+        walk = (0,7,10,11) if bar%4<2 else (0,5,7,-1)
+        for i,note in enumerate(walk):
+            add(mix,start+beat*i,jazz_voice(root-12+note,beat*.87,True),.118,-.1)
+        melody = ((.65,17),(1.61,15),(2.38,12),(3.67,10)) if bar%2==0 else ((.13,14),(1.65,19),(3.19,17))
+        for place,note in melody:
+            add(mix,start+beat*place,jazz_voice(root+24+note,beat*(.50 if place>3.3 else .94)),amount*.77,.26)
+    elif bar%2==1:
+        add(mix,start+beat*3.62,jazz_voice(root+31,beat*.32),amount*.33,.23)
+
+
+def gallery_score(track, quiet):
+    beat = 60 / track.bpm
+    frames = round(beat*4*track.bars*RATE)
+    mix = np.zeros((frames,2),dtype=np.float32)
+    rng = np.random.default_rng(3217)
+    for bar in range(track.bars):
+        start=bar*beat*4
+        root=track.root+track.progression[(bar//2)%len(track.progression)]
+        jazz_comp(mix,start,beat,root,bar,.10,book=True)
+        for place in (1.07,2.65,3.08):
+            t=timeline(.16)
+            noise=rng.normal(0,1,len(t))
+            brush=np.convolve(noise,np.ones(27)/27,mode="same")
+            brush*=env(t,.015,.099,.16)*np.exp(-t*6)
+            add(mix,start+beat*place,brush,.061,-.29 if place<2 else .29)
+    tail=round(.13*RATE)
+    mix[:tail]*=np.linspace(0,1,tail)[:,None]
+    mix[-tail:]*=np.linspace(1,0,tail)[:,None]
+    return mix*(.76 if quiet else 1)
+
+
 def arrange(track, quiet=False, variation=""):
+    if track.name == "book":
+        return gallery_score(track,quiet)
     pressure = variation == "pressure"
     climax = variation == "climax"
     beat = 60 / track.bpm / (.66 if quiet else .92 if pressure else 1.09 if climax else 1)
@@ -138,6 +194,8 @@ def arrange(track, quiet=False, variation=""):
         if track.name == "shop":
             shop_pattern(mix, start, beat, root, bar, quiet, (kick, snare, hat))
             continue
+        if variation:
+            jazz_comp(mix,start,beat,root,bar,.077 if pressure else .059)
         if track.name == "reapfast":
             deep_pattern(mix, start, beat, root, bar, quiet)
         add(mix, start, chord(root, voicing, beat * 4 + .42, quiet), .27 * climb if quiet else .24 * climb, -.13)
@@ -190,17 +248,19 @@ def encode(name, audio):
 
 if __name__ == "__main__":
     import sys
-    selected = set(sys.argv[1:])
+    args = set(sys.argv[1:])
+    variations_only = "--variations-only" in args
+    selected = args - {"--variations-only"}
     if selected - {track.name for track in TRACKS}:
         raise SystemExit("Unknown track name")
     for item in TRACKS:
         if selected and item.name not in selected:
             continue
-        encode(item.name, arrange(item))
-        if item.name != "home":
-            encode(item.name + "-pause", arrange(item, quiet=True))
-            if item.name == "shop":
-                continue
+        if not variations_only:
+            encode(item.name, arrange(item))
+            if item.name != "home":
+                encode(item.name + "-pause", arrange(item, quiet=True))
+        if item.name not in ("home","shop","book"):
             encode(item.name + "-pressure", arrange(item, variation="pressure"))
             if item.name not in ("frontier", "fracture", "embers"):
                 encode(item.name + "-climax", arrange(item, variation="climax"))

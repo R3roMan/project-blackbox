@@ -1,4 +1,5 @@
 import QtQuick
+import "../ui" as Ui
 import "Loadout.js" as Gear
 
 Rectangle {
@@ -28,7 +29,7 @@ Rectangle {
         text: tile.shortcut
         font.family: "IBM Plex Mono"
         font.weight: Font.Bold
-        font.pixelSize: 20
+        font.pixelSize: Ui.UiMetrics.text(20)
         color: "#f1eff9"
     }
     Text {
@@ -37,7 +38,7 @@ Rectangle {
         anchors.margins: 9
         text: tile.abilityState.cooldown > 0 ? Math.ceil(tile.abilityState.cooldown) + "s"
             : tile.ability ? "Lv " + tile.abilityState.level : ""
-        font.pixelSize: 12
+        font.pixelSize: Ui.UiMetrics.text(13)
         font.family: "IBM Plex Mono"
         color: "#ffffff"
     }
@@ -51,7 +52,7 @@ Rectangle {
         elide: Text.ElideRight
         color: tile.ability ? "#f5eaf9" : "#b7b2c4"
         font.family: "Inter"
-        font.pixelSize: 13
+        font.pixelSize: Ui.UiMetrics.text(14)
     }
     Rectangle {
         anchors.left: parent.left

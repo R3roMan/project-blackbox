@@ -17,7 +17,7 @@ ColumnLayout {
         text: "CHOOSE ONE COMPANION"
         color: Pets.uniqueColor
         font.family: "IBM Plex Mono"
-        font.pixelSize: 11
+        font.pixelSize: Ui.UiMetrics.text(12)
     }
 
     RowLayout {
@@ -48,6 +48,6 @@ ColumnLayout {
         wrapMode: Text.WordWrap
         color: "#d2dee5"
         font.family: "Inter"
-        font.pixelSize: 13
+        font.pixelSize: Ui.UiMetrics.text(14)
     }
 }

@@ -67,7 +67,7 @@ RowLayout {
                 text: Gear.groupLabels[track.group]
                 color: "#d7c5d7"
                 font.family: "IBM Plex Mono"
-                font.pixelSize: 11
+                font.pixelSize: Ui.UiMetrics.text(12)
             }
             GridLayout {
                 columns: Math.min(4, Gear.limits[track.group])
@@ -124,7 +124,7 @@ RowLayout {
                                 color: slotTile.primary ? "#191423" : slotTile.tierColor
                                 text: { grid.revision; return slotTile.number + (slotTile.item ? " · Lv " + slotTile.item.level : "") }
                                 font.family: "IBM Plex Mono"
-                                font.pixelSize: 10
+                                font.pixelSize: Ui.UiMetrics.text(10)
                             }
                             Text {
                                 Layout.fillWidth: true
@@ -136,7 +136,7 @@ RowLayout {
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideRight
                                 font.family: "Inter"
-                                font.pixelSize: 11
+                                font.pixelSize: Ui.UiMetrics.text(12)
                             }
                             Loader {
                                 Layout.fillWidth: true
@@ -158,7 +158,7 @@ RowLayout {
                                 elide: Text.ElideRight
                                 color: slotTile.primary ? "#191423" : slotTile.upgradeColor
                                 font.family: "Inter"
-                                font.pixelSize: 9
+                                font.pixelSize: Ui.UiMetrics.text(9)
                             }
                         }
                         background: Rectangle {

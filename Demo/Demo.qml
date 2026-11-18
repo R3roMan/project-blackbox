@@ -288,7 +288,7 @@ ApplicationWindow {
                     text: "HOME SHRINE"
                     color: "#ffc295"
                     font.family: "IBM Plex Mono"
-                    font.pixelSize: 14
+                    font.pixelSize: Ui.UiMetrics.text(14)
                     font.letterSpacing: 4
                 }
                 Text {
@@ -306,14 +306,14 @@ ApplicationWindow {
                     color: "#f1d8d2"
                     wrapMode: Text.WordWrap
                     font.family: "Inter"
-                    font.pixelSize: 18
+                    font.pixelSize: Ui.UiMetrics.text(18)
                 }
                 Text {
                     objectName: "bestWaveRecord"
                     text: "BEST WAVE   " + (window.profile.bestWave || "—")
                     color: "#f3bc94"
                     font.family: "IBM Plex Mono"
-                    font.pixelSize: 13
+                    font.pixelSize: Ui.UiMetrics.text(13)
                 }
                 Row {
                     spacing:8
@@ -323,16 +323,16 @@ ApplicationWindow {
                         Accessible.description:window.continueSummary
                         text:"Continue"
                         primary:true
-                        implicitWidth:144
-                        implicitHeight:47
+                        implicitWidth:Math.max(144,implicitContentWidth+24)
+                        implicitHeight:Math.max(47,Ui.UiMetrics.text(16)+22)
                         onClicked:window.beginGame(true)
                     }
                     Ui.ActionButton {
                         objectName:"openPlay"
                         text:"New game"
                         primary:!window.continuedRun
-                        implicitWidth:174
-                        implicitHeight:47
+                        implicitWidth:Math.max(174,implicitContentWidth+24)
+                        implicitHeight:Math.max(47,Ui.UiMetrics.text(16)+22)
                         onClicked:window.beginGame(false)
                     }
                 }

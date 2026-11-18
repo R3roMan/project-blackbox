@@ -31,7 +31,7 @@ Item {
         source: music.score.length ? Qt.resolvedUrl("../audio/music/" + music.score + ".ogg") : ""
         loops: MediaPlayer.Infinite
         audioOutput: AudioOutput {
-            volume: music.quiet ? .12 : music.track === "home" ? .38 : .32
+            volume: music.track === "book" ? .21 : music.quiet ? .12 : music.track === "home" ? .38 : .32
             Behavior on volume { NumberAnimation { duration: 220 } }
         }
         onMediaStatusChanged: {

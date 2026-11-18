@@ -168,14 +168,14 @@ Node {
                     model: beast.skull ? 0 : beast.leviathan ? 16 : beast.eel ? 13 : 9
                     delegate: Model {
                         required property int index
-                        readonly property real angle: index/(beast.leviathan ? 15 : beast.eel ? 12 : 8)*Math.PI
+                        readonly property real angle: (index+(beast.leviathan || jawRow.side>0 ? 0 : .49))/(beast.leviathan ? 15 : beast.eel ? 12 : 8.5)*Math.PI
                         visible: !beast.leviathan || jawRow.side < 0 || ![6,8,10].includes(index)
                         source:"#Cone"
                         x: Math.cos(angle)*maw.breadth*49
                         z: Math.sin(angle)*37
                         y: -jawRow.side*5
                         eulerRotation.z: jawRow.side > 0 ? 180 : 0
-                        scale: Qt.vector3d(.074, .13+index%3*.034+beast.jaw*.09,.078)
+                        scale: Qt.vector3d(.074, .095+index%3*.027+beast.jaw*.082,.078)
                         materials:[pale]
                     }
                 }

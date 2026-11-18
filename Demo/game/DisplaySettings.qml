@@ -36,6 +36,7 @@ GridLayout {
 
     SettingLabel { text: "Wallpaper framing" }
     ComboBox {
+        font.pixelSize:Ui.UiMetrics.text(13)
         objectName: "wallpaperFit"
         Layout.fillWidth: true
         model: ["Fill screen", "Fit entire image", "Stretch"]
@@ -45,9 +46,10 @@ GridLayout {
     }
     SettingLabel { text: "Render resolution cap" }
     ComboBox {
+        font.pixelSize:Ui.UiMetrics.text(13)
         objectName: "wallpaperQuality"
         Layout.fillWidth: true
-        model: ["Auto · 1440p scene / native wallpaper", "2160p", "1440p", "1080p"]
+        model: ["Auto", "2160p", "1440p", "1080p"]
         readonly property var resolutions: [0, 2160, 1440, 1080]
         currentIndex: Math.max(0, resolutions.indexOf(settings.quality))
         onActivated: settings.qualityChangedByUser(resolutions[currentIndex])
@@ -64,6 +66,7 @@ GridLayout {
     }
     SettingLabel {text:"3D lighting and detail"}
     ComboBox {
+        font.pixelSize:Ui.UiMetrics.text(13)
         objectName:"graphicsDetail"
         Layout.fillWidth:true
         model:["Low","Standard","High · shadows and light"]
@@ -72,6 +75,7 @@ GridLayout {
     }
     SettingLabel {text:"Screen transitions"}
     ComboBox {
+        font.pixelSize:Ui.UiMetrics.text(13)
         objectName:"transitionStyle"
         Layout.fillWidth:true
         model:["Cinematic 3D","Soft dissolve"]
@@ -92,8 +96,8 @@ GridLayout {
 
     SettingLabel { text:"Text size" }
     ComboBox {
-        objectName:"textSizeSetting"
         font.pixelSize:Ui.UiMetrics.text(13)
+        objectName:"textSizeSetting"
         Layout.fillWidth:true
         model:["100%","115%","130%","145%"]
         readonly property var scales:[1,1.15,1.3,1.45]
