@@ -7,6 +7,12 @@ Canvas {
     property bool onPaper:false
     readonly property bool activeAbility:entry?.category === "Active"
     readonly property bool passiveAbility:entry?.category === "Passive"
+    readonly property color pigment:({
+        blood:"#a8294c", frost:"#237da7", bolt:"#6a3ac3", flame:"#b24224",
+        shield:"#25738a", cross:"#3d8067", cache:"#987016", target:"#b43259",
+        stride:"#177658", burst:"#a3432f", eclipse:"#563478", vial:"#4e771e",
+        weave:"#5a627e"
+    })[motif]
     readonly property string motif: {
         const title = ((entry?.id || "")+" "+(entry?.title || "")).toLowerCase()
         if (/blood|sanguin|hematic|vampir|heart|siphon/.test(title)) return "blood"
@@ -43,12 +49,12 @@ Canvas {
         ctx.reset()
         const unit = Math.min(width,height)/88
         if (unit <= 0) return
-        const border = onPaper ? "#753331" : tint
+        const border = onPaper ? Qt.darker(tint,1.48) : tint
         ctx.translate(width/2,height/2)
         ctx.scale(unit,unit)
         ctx.strokeStyle=border
         ctx.lineWidth=2.3
-        ctx.fillStyle=onPaper ? "rgba(110,48,44,.12)" : activeAbility ? "#452834" : "#243342"
+        ctx.fillStyle=onPaper ? Qt.rgba(pigment.r,pigment.g,pigment.b,.16) : activeAbility ? "#452834" : "#243342"
         ctx.lineJoin="round"
         ctx.lineCap="round"
         if (activeAbility) {
@@ -72,7 +78,7 @@ Canvas {
             ctx.moveTo(-17,24);ctx.lineTo(0,32);ctx.lineTo(17,24)
             ctx.stroke()
         }
-        ctx.fillStyle=onPaper ? "#742c32" : "#ffe8d3"
+        ctx.fillStyle=onPaper ? pigment : "#ffe8d3"
         ctx.strokeStyle=ctx.fillStyle
         ctx.lineWidth=2.6
         switch (motif) {

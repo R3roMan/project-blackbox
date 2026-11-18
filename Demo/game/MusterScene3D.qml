@@ -10,6 +10,14 @@ View3D {
     property bool motion: true
     property real clock: 0
     property int revision: 0
+    function indexAt(x,y) {
+        for (const hit of pickAll(x,y)) {
+            const index=Number(hit.objectHit?.objectName)-1
+            if (index >= 0 && index < company.length)
+                return index
+        }
+        return -1
+    }
     readonly property real radius:Muster.radius(company,placements,width/Math.max(1,height))
     explicitTextureWidth: Math.max(1,Math.round(Math.min(2560,width*Screen.devicePixelRatio)))
     explicitTextureHeight: Math.max(1,Math.round(explicitTextureWidth*height/Math.max(1,width)))
@@ -41,7 +49,11 @@ View3D {
             id:figure
             required property var modelData
             required property int index
-            property var enemy:Muster.actor(modelData.type)
+            property var enemy:{
+                const actor=Muster.actor(modelData.type)
+                actor.id=index+1
+                return actor
+            }
             readonly property var spot:scene.placements[index] || {x:.5,y:.5}
             x:(spot.x-.5)*2*scene.radius*scene.width/Math.max(1,scene.height)
             y:(.5-spot.y)*2*scene.radius+Math.sin(scene.clock*1.7+index*1.2)*5

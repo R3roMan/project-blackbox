@@ -15,22 +15,22 @@ Node {
         model:[-1,1]
         Node {
             required property int modelData
-            x:49*modelData
-            y:12
-            z:4
+            x:43*modelData
+            y:15
+            z:18
             scale:Qt.vector3d(modelData,1,1)
-            eulerRotation.z:21+Math.sin(arms.clock*5+.9*modelData)*6
+            eulerRotation.z:5+Math.sin(arms.clock*5)*4
             eulerRotation.x:-Math.max(0,arms.strike)*46+Math.min(0,arms.strike)*20
             Model {source:"#Sphere"; scale:Qt.vector3d(.25,.30,.26); materials:[flesh]}
             Model {
-                source:"#Sphere"; x:7; y:-12; eulerRotation.z:24
-                scale:Qt.vector3d(.19,.34,.19); materials:[flesh]
+                source:"#Sphere"; x:4; y:-13; eulerRotation.z:11
+                scale:Qt.vector3d(.19,.35,.19); materials:[flesh]
             }
             Node {
-                x:11; y:-23; z:5
+                x:6; y:-25; z:5
                 eulerRotation.x:-19-arms.strike*37
                 Model {
-                    source:"#Sphere"; y:-8; z:3; eulerRotation.z:-19
+                    source:"#Sphere"; y:-8; z:3; eulerRotation.z:-8
                     scale:Qt.vector3d(.151,.29,.17); materials:[knuckle]
                 }
                 Model {source:"#Sphere"; y:-20; z:7; scale:Qt.vector3d(.187,.15,.15); materials:[flesh]}

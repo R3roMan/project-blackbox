@@ -13,6 +13,29 @@ import "../Demo/game/SaveData.js" as SaveData
 Item {
     id:host
     objectName:"blackboxDesktopHost"
+    function sampleControl(node,wanted) {
+        if (node.objectName===wanted) return node
+        for (const child of node.children) {
+            const seen=sampleControl(child,wanted)
+            if (seen) return seen
+        }
+        return null
+    }
+    Timer {
+        interval:450; repeat:true; running:host.claimed
+        onTriggered: {
+            const rows={}
+            for (const name of ["enableDebug","debugStart","debugBuild-star","primaryPlayAction","pausePlay"]) {
+                const item=host.sampleControl(host,name)
+                if (!item || !item.visible) continue
+                const box=item.mapToItem(null,0,0)
+                rows[name]=[box.x,box.y,item.width,item.height,item.enabled]
+            }
+            console.warn("BLACKBOX QA",JSON.stringify({home:host.home,area:host.workArea,controls:rows,
+                phase:battle.item?.phase,debug:battle.item?.run.debug,paused:battle.item?.paused}))
+        }
+    }
+    Timer { interval: 2400; running: host.claimed; onTriggered: host.grabToImage(function(result) { result.saveToFile("/tmp/blackbox-refit/nested-setup.png") }) }
     property string screenName:Screen.name
     property bool claimed:false
     property bool useWorkArea:false

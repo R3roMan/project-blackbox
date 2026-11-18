@@ -205,7 +205,7 @@ var enemyTypes = {
         description:"This angel drifts sideways and vertically for 15 seconds. It then sets off a level 3 explosion. Its chest timer and level 1 Dodge make it a priority target."
     },
     stinkaturumus: {
-        id:"stinkaturumus", title:"Stinkaturumus", role:"boss", slime:true, poisonImmune:true, health:168, damage:12,
+        id:"stinkaturumus", title:"Stinkaturumus", role:"boss", slime:true, poisonImmune:true, health:187, damage:12,
         speed:207, pace:"High", reach:640, interval:5.4, windup:1.65,
         skin:"#48672a", accent:"#d9ed46", size:2.50, shake:[11,13,.48,39],
         description:"First appears on wave 60. It exhales a green cloud of level 3 Poison on its wallpaper. Hitting it can call Saslimigus. It slips to a neighbouring view when a peon sticks you."
@@ -535,7 +535,7 @@ function planWave(wave, seed, preset, resonance, forcedWeather) {
     if (condition === "bloodMoon") {
         const rank = ranks.Nightmare > 0 ? "Nightmare" : ranks.Ascended > 0 ? "Ascended" : "Normal"
         ranks[rank] -= 1
-        groups.push({type:"blandromedus",count:1,front:"front",fresh:true})
+        groups.push({type:"blandromedus",count:1,front:"front",late:true})
         reserved.add("blandromedus")
     }
     if ((wave >= 21 && Conditions.roll(wave,seed,0x46e158d3)<.94 || condition === "incursion")
@@ -616,8 +616,8 @@ function planWave(wave, seed, preset, resonance, forcedWeather) {
         }
     }
     const order = []
-    const remaining = groups.map(function(group) { return group.count })
-    const opener = groups.findIndex(function(group) { return !group.fresh && !enemyTypes[group.type].abyss && tier(group.type) === "Normal" })
+    const remaining = groups.map(function(group) { return group.late ? 0 : group.count })
+    const opener = groups.findIndex(function(group) { return !group.late && !group.fresh && !enemyTypes[group.type].abyss && tier(group.type) === "Normal" })
     function add(index) {
         const group = groups[index]
         const units = enemyTypes[group.type].triad ? 3 : 1
@@ -651,6 +651,8 @@ function planWave(wave, seed, preset, resonance, forcedWeather) {
         }
         add(next)
     }
+    for (const group of groups.filter(function(entry) { return entry.late }))
+        order.splice(Math.min(order.length,Math.ceil(order.length*.82)),0,Object.assign({},group,{units:1}))
     const chosen = []
     let at = .42
     let voidSent = 0
@@ -660,7 +662,7 @@ function planWave(wave, seed, preset, resonance, forcedWeather) {
         if (enemyTypes[group.type].abyss && condition === "incursion") {
             const possible = voidSent++ === 0 ? fronts.filter(function(place) { return place.id !== "down" }) : fronts
             home = possible[Math.floor(random()*possible.length)].id
-        } else if (groundFronts.includes(home) && !group.fresh && index > 0 && wave > 1)
+        } else if (groundFronts.includes(home) && !group.late && !group.fresh && index > 0 && wave > 1)
             home = groundFronts[Math.floor(random()*groundFronts.length)]
         if (index === 1 && wave === 2)
             home = "right"

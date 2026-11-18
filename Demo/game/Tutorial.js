@@ -10,8 +10,10 @@ var lessons=[
     {title:"Catch the warning",text:"This time he will spit. Hold Space before the projectile reaches you. You can also shoot hostile projectiles in ordinary battles.",goal:"Block the incoming projectile.",kind:"projectile",front:"front"},
     {title:"Thin the crowd",text:"Shoot the small demon beside him. These practice targets will wait for you.",goal:"Defeat the stationary peon.",kind:"peon",front:"front"},
     {title:"A threat to the left",text:"Tap A or the left arrow, or move your mouse to the left edge. Find and shoot the peon. Return with D or the right edge.",goal:"Look left and defeat the peon.",kind:"peon",front:"left"},
-    {title:"Watch both sides",text:"Return through the shrine to the right-hand laboratory. Defeat the final practice peon. Shift holds your scope and prevents edge turning.",goal:"Look right and defeat the peon.",kind:"peon",front:"right"}
+    {title:"Watch both sides",text:"Reach the right-hand laboratory. Hold Shift to aim down the sights, then shoot the final practice peon while scoped. Release Shift before turning.",goal:"Look right. Hold Shift and shoot the peon.",kind:"peon",front:"right",scope:true}
 ]
+
+var moltDuration=4.2
 
 function create(seed,unlocks) {
     const run=Rules.create(seed,unlocks)
@@ -48,7 +50,15 @@ function text(run) {
 function prompt(run) {
     const mode=run.training.mode
     return mode==="lesson" ? lessons[run.training.step].goal : mode==="activeLesson" ? "Press Q to use Shock pulse." : mode==="phase1" ? "Try it on your own. Defeat Oblogabgalus."
-        : mode==="phase2" ? "Phase II · Follow him. Block the charge. Use Q." : mode==="molt" ? "Something is changing…" : ""
+        : mode==="phase2" ? "Phase II · Follow him. Block the charge. Use Q." : mode==="molt" ? "Oblogabgalus is molting…" : ""
+}
+
+function readyToFire(run,scoped) {
+    const t=run.training
+    if (!t || t.mode!=="lesson" || !lessons[t.step].scope || scoped)
+        return true
+    Rules.announce(run,"Hold Shift, then shoot the practice demon.")
+    return false
 }
 
 function resetLesson(run) {
@@ -112,8 +122,8 @@ function update(run,dt,sealing,firing,aim,viewReady) {
             e.age+=dt;e.warp=Math.max(0,e.warp-dt)
         }
         if (t.mode==="rewind" && t.age>=1.15) resetLesson(run)
-        if (t.mode==="molt" && b) b.trainingMolt=Math.min(1,t.age/6)
-        if (t.mode==="molt" && t.age>=6) {
+        if (t.mode==="molt" && b) b.trainingMolt=Math.min(1,t.age/moltDuration)
+        if (t.mode==="molt" && t.age>=moltDuration) {
             t.mode="activeDialogue";t.age=0;t.phase=2
             b.anger=true;b.hp=b.maxHp=b.baseHp=82
         }

@@ -64,6 +64,9 @@ View3D {
         antialiasingMode:world.detail > 0 && world.explicitTextureWidth <= (world.detail === 2 ? 3840 : 2688) ? SceneEnvironment.MSAA : SceneEnvironment.NoAA
         antialiasingQuality:world.detail === 2 ? SceneEnvironment.High : SceneEnvironment.Medium
         aoEnabled:world.detail === 2
+        aoStrength:56
+        aoDistance:72
+        aoBias:1.4
     }
 
     function pickTarget(x, y) {
@@ -172,9 +175,14 @@ View3D {
 
     DirectionalLight {
         eulerRotation: Qt.vector3d(-28, -38, 0)
-        color: "#ffc4a4"
-        ambientColor: "#70617e"
-        brightness: 1.8
+        color: world.detail === 2 ? "#ffb178" : "#ffc4a4"
+        ambientColor: world.detail === 2 ? "#514765" : "#70617e"
+        brightness: world.detail === 2 ? 2.15 : 1.8
+        castsShadow:world.detail === 2
+        shadowMapQuality:Light.ShadowMapQualityMedium
+        shadowFactor:.69
+        shadowMapFar:3800
+        softShadowQuality:Light.PCF4
     }
     DirectionalLight {
         eulerRotation: Qt.vector3d(38, 130, 0)
@@ -185,6 +193,16 @@ View3D {
         eulerRotation: Qt.vector3d(12, 100, 0)
         color: "#f6a168"
         brightness: 0.85
+    }
+    Loader3D {
+        parent:frontFrame
+        active:world.detail === 2
+        sourceComponent:PointLight {
+            position:Qt.vector3d(-280,240,-480)
+            color:"#ff8059"
+            brightness:1.65
+            quadraticFade:.19
+        }
     }
 
     Repeater3D {

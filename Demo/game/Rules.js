@@ -1484,6 +1484,9 @@ function hitShip(run, enemy, part, damage, critical, weaponId) {
     if (weaponId)
         enemy.weaponSource = weaponId
     const value = bankDamage(run, enemy, damage * (critical || 1))
+    const hullBefore = part ? part.hp : enemy.coreHp
+    if (weaponId === "veinDrinker" && value > 0)
+        feedVeinDrinker(run, Math.min(hullBefore, value))
     if (value > 0)
         blood(run, enemy, "ship", false)
     if (part) {
@@ -5235,7 +5238,8 @@ function charging(enemy) {
     if (creature.soulDrain)
         return enemy.depth <= creature.reach
     const ranged = creature.rangedInterval && enemy.depth > creature.reach && enemy.depth <= 1380 && enemy.ranged <= .83
-    const approaching = enemy.firstStrike && !creature.ship && enemy.depth - creature.reach < (creature.chargeDistance || enemy.travelSpeed*.95)
+    const approaching = (enemy.firstStrike || creature.chargeSpeed && enemy.attack <= creature.windup)
+        && !creature.ship && enemy.depth - creature.reach < (creature.chargeDistance || enemy.travelSpeed*.95)
     return !!enemy.special || enemy.attackFlash > 0 || enemy.beamWarning > 0 || ranged || approaching
         || enemy.depth <= creature.reach && enemy.attack <= creature.windup
 }
@@ -5252,8 +5256,8 @@ function warningProgress(enemy) {
         return Math.max(.18,1 - enemy.beamWarning / (creature.beam ? creature.beam.warning : .77))
     if (creature.rangedInterval && enemy.depth > creature.reach && enemy.depth <= 1380 && enemy.ranged <= .83)
         return Math.max(.12,1 - enemy.ranged/.83)
-    if (enemy.firstStrike && enemy.depth > creature.reach && !creature.ship)
-        return Math.max(.12,1 - (enemy.depth - creature.reach)/(enemy.travelSpeed*.95))
+    if ((enemy.firstStrike || creature.chargeSpeed) && enemy.depth > creature.reach && !creature.ship)
+        return Math.max(.12,1 - (enemy.depth - creature.reach)/(creature.chargeDistance || enemy.travelSpeed*.95))
     return Math.max(.12,Math.min(1,1 - enemy.attack/creature.windup))
 }
 

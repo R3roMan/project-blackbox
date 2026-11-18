@@ -330,6 +330,7 @@ Item {
         objectName: "heldStaffSprite"
         anchors.fill: parent
         visible: sprite.staff
+        catalogue:sprite.catalogue
         kind: sprite.weapon.staff ? sprite.weapon.staff.kind : ""
         tint: sprite.accent
         charge: sprite.staffCharge

@@ -28,6 +28,7 @@ Node {
     readonly property real strike: { revision; return Attacks.amount(enemy, warning, animate) }
     opacity: shade || creature.voidBoss ? 1 : 1 - blindness * .94
     readonly property bool alien: creature.role === "alien"
+    readonly property bool fighter: ["spartalien","fizzalien","mothergalian"].includes(enemy.type)
     readonly property var details: Livery.details[enemy.type]
     readonly property bool crawler: creature.role === "void"
     readonly property bool abyssRig: creature.abyss && !shade && !creature.voidBoss
@@ -111,18 +112,21 @@ Node {
 
         Node {
             id: body
-            opacity: actor.arrival * (actor.ghost ? .32 : 1)
+            readonly property real crumble: {actor.revision;return actor.enemy.crumble || 0}
+            opacity: actor.arrival * (actor.ghost ? .32 : 1) * (1-crumble*.65)
             z: actor.pose[2] * actor.strike
+            y: -crumble*34
             eulerRotation.x: actor.pose[0] * actor.strike
             eulerRotation.z: (actor.spinner && actor.animate && !actor.preview ? actor.age * 165 : actor.crawler ? 0 : actor.flap * 2.5)
-                + actor.pose[1] * actor.strike + actor.dodgeLean + (actor.animate ? Math.sin(actor.age*61)*actor.hurtFace*5 : 0)
+                + actor.pose[1] * actor.strike + actor.dodgeLean + (actor.animate ? Math.sin(actor.age*61)*(actor.hurtFace*5+crumble*12) : 0)
             eulerRotation.y: {
                 actor.revision
                 return actor.spinner && actor.animate && !actor.preview ? actor.age * 255 : actor.enemy.feedYaw || 0
             }
 
             Loader3D {
-                active: actor.creature.origin === "Hellborne" && !actor.creature.vampire && actor.enemy.type !== "saslimigus"
+                active: actor.creature.origin === "Hellborne" && !actor.creature.vampire
+                    && !actor.angel && actor.enemy.type!=="skorochiyus" && actor.enemy.type!=="crufixicatus"
                 sourceComponent: Node {
                     SickleHornGeometry { id: hornShape }
                     ScallopedWingGeometry { id: wingShape }
@@ -133,10 +137,20 @@ Node {
                         Node {
                             required property int modelData
                             scale:Qt.vector3d(modelData,1,1)
-                            Model {geometry:hornShape;position:Qt.vector3d(22,60,18);materials:[hornIvory]}
                             Model {
+                                geometry:hornShape
+                                visible:actor.enemy.type!=="saslimigus" && !actor.creature.skeleton
+                                    && !actor.creature.serpent && !actor.creature.slime
+                                position:actor.fatRig ? Qt.vector3d(30,49,20) : actor.dragon
+                                    ? Qt.vector3d(22,53,50) : Qt.vector3d(23,58,25)
+                                scale:actor.fatRig ? Qt.vector3d(.78,.75,.85) : Qt.vector3d(1,1,1)
+                                materials:[hornIvory]
+                            }
+                            Model {
+                                objectName:String(actor.enemy.id)
+                                pickable:actor.preview
                                 geometry:wingShape
-                                position:Qt.vector3d(38,10,-24)
+                                position:actor.fatRig ? Qt.vector3d(51,11,-28) : Qt.vector3d(38,10,-24)
                                 eulerRotation.y:14+actor.flap*24
                                 scale:actor.creature.devour ? Qt.vector3d(.52,.52,.52) : Qt.vector3d(1,1,1)
                                 materials:[wingHide]
@@ -144,6 +158,10 @@ Node {
                         }
                     }
                 }
+            }
+            Loader3D {
+                active:actor.fighter
+                sourceComponent:AlienFighterRig {enemy:actor.enemy; spec:actor.creature; live:actor.warp<=0; strike:actor.strike}
             }
             Loader3D {
                 active:!!actor.creature.vampire
@@ -309,7 +327,7 @@ Node {
                 }
             }
             Node {
-                visible: !actor.creature.vampire && !actor.fatRig && !actor.angel && !actor.shade && !actor.meteor && !actor.saucer && !actor.creature.slime
+                visible: !actor.fighter && !actor.creature.vampire && !actor.fatRig && !actor.angel && !actor.shade && !actor.meteor && !actor.saucer && !actor.creature.slime
                     && !actor.creature.battlestar && !actor.creature.skeleton && !actor.creature.triad && !actor.creature.serpent
                     && !actor.creature.sniper && !actor.creature.devour && !actor.creature.voidBoss && !actor.abyssRig
 

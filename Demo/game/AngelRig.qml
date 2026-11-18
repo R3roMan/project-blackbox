@@ -25,6 +25,10 @@ Node {
     PrincipledMaterial { id: tears; baseColor: "#86b2cc"; metalness: .27; roughness: .20 }
     PrincipledMaterial { id: haloEdge; baseColor: figure.fallenBoss ? "#ce785d" : "#8e83a1"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: haloBlack; baseColor: "#171019"; lighting: PrincipledMaterial.NoLighting }
+    SickleHornGeometry {id:horn}
+    ScallopedWingGeometry {id:wing}
+    PrincipledMaterial {id:membrane; baseColor:figure.fallenBoss ? "#631d32" : "#362d41"; roughness:.72; cullMode:Material.NoCulling }
+    PrincipledMaterial {id:ivory; baseColor:figure.fallenBoss ? "#cd6143" : "#a29ba6"; roughness:.65; cullMode:Material.NoCulling }
 
     Model {
         objectName: String(figure.targetId)
@@ -93,6 +97,11 @@ Node {
             required property int modelData
             readonly property int sign: modelData
             Model {
+                geometry:horn; x:side.sign*19; y:89; z:16
+                scale:Qt.vector3d(side.sign*.65,.62,.62)
+                materials:[ivory]
+            }
+            Model {
                 visible: !figure.cover
                 source: "#Sphere"
                 x: side.sign * 13
@@ -113,13 +122,11 @@ Node {
             Model {
                 objectName: String(figure.targetId)
                 pickable: figure.live
-                source: "#Cone"
-                x: side.sign * 105
-                y: 40
-                z: -26
-                eulerRotation.z: side.sign * (-57 + figure.strike * 29)
-                scale: Qt.vector3d(.65, 1.19, .11)
-                materials: [side.sign === 1 ? seam : carbon]
+                geometry:wing
+                x:side.sign*49; y:33; z:-27
+                eulerRotation.y:side.sign*(12+figure.strike*24)
+                scale:Qt.vector3d(side.sign*1.1,1.14,1.04)
+                materials:[membrane]
             }
             Model {
                 objectName: String(figure.targetId)

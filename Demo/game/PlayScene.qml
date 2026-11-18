@@ -595,6 +595,11 @@ FocusScope {
         if (!fighting || bookVisible || trainingBlocked || stunned || constricted || play.turning || lunging || fieldGuard.raised || !worldItem
             || (!continuation && shotTime > 0) || reloadTime || prepTime || cooling)
             return
+        if (!Tutorial.readyToFire(run,scopeHeld)) {
+            fireHeld=false
+            publish()
+            return
+        }
         const rays = weapon.spread || [[0, 0]]
         const pattern = Rules.spread(run) * accuracy
         const shipShots = weapon.penetration ? new Set(run.bolts.filter(function(bolt) {
@@ -941,6 +946,20 @@ FocusScope {
             asynchronous: true
         }
         Rectangle { anchors.fill: parent; color: play.lab && play.phase !== "shop" ? "#9930192e" : "#250b080e" }
+        LunarDisc {
+            visible:play.fighting && play.frontId==="up" && Conditions.isNight(play.weather)
+            opacity:1-play.blindness
+            redNight:play.weather==="bloodMoon"
+        }
+        Loader {
+            anchors.fill:parent
+            active:play.fighting && play.graphicsDetail===2 && !play.hypnotised
+            sourceComponent:Atmosphere {
+                clock:play.elapsed
+                motion:play.motion
+                tint:play.weather==="bloodMoon" ? "#f66874" : play.location.color
+            }
+        }
         Loader {
             id: worldLoader
             objectName: "worldLoader"
@@ -1035,7 +1054,6 @@ FocusScope {
     }
     WeatherFX {
         anchors.fill: parent
-        starSky:play.frontId === "up"
         condition: play.fighting && (play.weather !== "meteor" || play.frontId === "up") ? play.weather : "clear"
         gust: { play.revision; return play.run.gustLeft }
         opacity: 1 - play.blindness
@@ -1436,6 +1454,7 @@ FocusScope {
     }
 
     Column {
+        id: waveReadout
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: 18
@@ -1529,8 +1548,9 @@ FocusScope {
     }
 
     Column {
+        id: combatMessages
         anchors.top: parent.top
-        anchors.topMargin: play.boss ? 157 : 111
+        anchors.topMargin: Math.max(111,waveReadout.y+waveReadout.height+12)
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: 6
         visible: play.fighting
@@ -1651,6 +1671,8 @@ FocusScope {
             Text {
                 id: alert
                 anchors.centerIn: parent
+                width:Math.min(implicitWidth,parent.width-16)
+                elide:Text.ElideRight
                 text: {
                     play.revision
                     return play.run.note && play.run.time < play.run.noteUntil ? play.run.note : ""
@@ -2455,16 +2477,32 @@ FocusScope {
                 onClicked: {if (play.run.training.mode==="won") play.exitRequested();else {Tutorial.advance(play.run);play.publish();play.keyTargetFocus()}}}
         }
     }
-    Text {
+    Column {
         visible:play.fighting && !!play.run.training && !play.trainingDialogue
-        anchors.horizontalCenter:parent.horizontalCenter;anchors.top:parent.top;anchors.topMargin:86;z:24
-        text:{play.revision;return play.run.training ? Tutorial.prompt(play.run) : ""}
-        color:"#fff0d4";font.pixelSize:17;style:Text.Outline;styleColor:"#1b1120"
+        z:24
+        spacing:5
+        anchors.horizontalCenter:parent.horizontalCenter
+        anchors.top:combatMessages.bottom
+        anchors.topMargin:8
+        Text {
+            anchors.horizontalCenter:parent.horizontalCenter
+            text:{play.revision;return play.run.training ? Tutorial.prompt(play.run) : ""}
+            color:"#fff0d4";font.pixelSize:Ui.UiMetrics.text(16);style:Text.Outline;styleColor:"#1b1120"
+        }
+        Rectangle {
+            anchors.horizontalCenter:parent.horizontalCenter
+            visible:{play.revision;return play.run.training?.mode==="molt"}
+            width:190; height:4; radius:2; color:"#502a3e"
+            Rectangle {
+                width:{play.revision;return parent.width*Math.min(1,(play.run.training?.age || 0)/Tutorial.moltDuration)}
+                height:4; radius:2; color:"#cfdd70"
+            }
+        }
     }
 
     Rectangle {
         visible:play.fighting && !!play.run.desktop && play.run.desktop.cpuMode
-        anchors.top:parent.top;anchors.horizontalCenter:parent.horizontalCenter;anchors.topMargin:45
+        anchors.top:combatMessages.bottom;anchors.horizontalCenter:parent.horizontalCenter;anchors.topMargin:6
         z:28;width:220;height:27;color:"#de1d1624";border.color:play.run.desktop && play.run.desktop.locked ? "#ff6782" : "#a0bce3";radius:5
         Text {anchors.centerIn:parent;text:{play.revision;return play.run.desktop ? (play.run.desktop.locked ? "COOLING · " : "CPU HEAT · ")+Math.round(play.run.desktop.heat)+"%" : ""}
         color:"#fff2de";font.family:"monospace";font.pixelSize:11}

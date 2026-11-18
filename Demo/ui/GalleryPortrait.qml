@@ -13,6 +13,7 @@ Rectangle {
         : entry.category || !entry.form ? "ability" : "pet"
     property bool engraved:false
     property color tint: "#a8c4f0"
+    readonly property color itemTint: Gear.rarities[entry.rarity]?.color || tint
     property string enemyTier: ""
     property real ember: 0
     color: engraved ? "transparent" : "#141b2b"
@@ -117,6 +118,6 @@ Rectangle {
     }
     Component {
         id:abilityArt
-        AbilityGlyph { entry:portrait.entry; tint:portrait.tint; onPaper:portrait.engraved }
+        AbilityGlyph { entry:portrait.entry; tint:portrait.itemTint; onPaper:portrait.engraved }
     }
 }

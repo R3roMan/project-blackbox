@@ -4,6 +4,8 @@ import QtQuick.Layouts
 import "Encounters.js" as Mission
 import "EnemyLore.js" as Lore
 import "MusterData.js" as Muster
+import "Conditions.js" as Weather
+import "../ui" as Ui
 
 Item {
     id: muster
@@ -15,6 +17,7 @@ Item {
     property bool motion: true
     property bool compact: false
     property real paradeHeight: 160
+    property int hoveredMember:-1
     readonly property var company: stage.groups.filter(function(group) { return group.rank !== "Overlord" })
     readonly property string overlord: Mission.boss(stage.wave) || Mission.boss(stage.wave+1)
     readonly property var placements:Muster.placements(company,stage.wave*7919,overlord.length>0)
@@ -24,17 +27,32 @@ Item {
         anchors.left:parent.left
         anchors.right:parent.right
         anchors.bottom:parent.bottom
-        height:30
+        height:Math.max(30,Ui.UiMetrics.text(23))
         color:"#ed211823"
         border.color:"#91637a"
         radius:4
-        Text {
-            objectName:"musterTotal"
-            anchors.centerIn:parent
-            text:"WAVE "+muster.stage.wave+"   ·   SCALING ×"+(1+Math.floor(muster.stage.wave/10)*Mission.difficulty(muster.stage.difficulty).scale).toFixed(2)
-            color:"#ffe0bc"
-            font.family:"IBM Plex Mono"
-            font.pixelSize:muster.compact ? 12 : 15
+        RowLayout {
+            anchors.fill:parent
+            anchors.leftMargin:12
+            anchors.rightMargin:12
+            spacing:12
+            Text {
+                objectName:"musterTotal"
+                Layout.fillWidth:true
+                text:"Wave "+muster.stage.wave+"  ·  Scaling ×"+(1+Math.floor(muster.stage.wave/10)*Mission.difficulty(muster.stage.difficulty).scale).toFixed(2)
+                color:"#ffe0bc"
+                font.family:"IBM Plex Mono"
+                font.pixelSize:Ui.UiMetrics.text(muster.compact ? 12 : 15)
+                elide:Text.ElideRight
+            }
+            Text {
+                readonly property var weather:Weather.entries[muster.stage.weather] || Weather.entries.clear
+                visible:weather.id !== "clear"
+                text:weather.glyph+" "+weather.title
+                color:weather.tint
+                font.family:"Inter"
+                font.pixelSize:Ui.UiMetrics.text(muster.compact ? 12 : 15)
+            }
         }
     }
     Item {
@@ -81,16 +99,30 @@ Item {
             visible: looming.active
             hoverEnabled:true
             EnemyHint {
-                anchorItem:parent; hovered:parent.containsMouse
+                anchorItem:parent; hovered:parent.containsMouse && muster.hoveredMember < 0
                 enemyType:muster.overlord; discoveries:muster.discoveries
                 onEntryRequested:function(chapter,id) { muster.entryRequested(chapter,id) }
             }
         }
         Loader {
+            id:nativeParade
             anchors.fill:parent
             anchors.margins:6
             active:!muster.software
             sourceComponent:MusterScene3D {company:muster.company; placements:muster.placements; motion:muster.motion}
+        }
+        HoverHandler {
+            id:paradeHover
+            enabled:!!nativeParade.item
+            onPointChanged: {
+                if (!hovered || !nativeParade.item) {
+                    muster.hoveredMember=-1
+                    return
+                }
+                const local=nativeParade.mapFromItem(parade,point.position)
+                muster.hoveredMember=nativeParade.item.indexAt(local.x,local.y)
+            }
+            onHoveredChanged:if (!hovered) muster.hoveredMember=-1
         }
         Item {
             id: army
@@ -139,10 +171,10 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         acceptedButtons:Qt.NoButton
-                        hoverEnabled:true
+                        hoverEnabled:muster.software
                         Accessible.name: Muster.tooltip(member.modelData,muster.discoveries)
                         EnemyHint {
-                            anchorItem:parent; hovered:parent.containsMouse
+                            anchorItem:parent; hovered:muster.software ? parent.containsMouse : muster.hoveredMember===member.index
                             enemyType:member.modelData.type; discoveries:muster.discoveries
                             onEntryRequested:function(chapter,id) { muster.entryRequested(chapter,id) }
                         }

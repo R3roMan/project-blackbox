@@ -9,11 +9,13 @@ Canvas {
     onCastChanged:requestPaint()
     property real clock: 0
     property real attack: 0
+    property bool catalogue: false
     onKindChanged: requestPaint()
     onTintChanged: requestPaint()
     onChargeChanged: requestPaint()
     onClockChanged: requestPaint()
     onAttackChanged: requestPaint()
+    onCatalogueChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
 
@@ -22,8 +24,14 @@ Canvas {
         ctx.reset()
         ctx.clearRect(0,0,width,height)
         ctx.scale(width / 336, height / 170)
-        ctx.translate(92 + attack*22,46 + attack*8)
-        ctx.rotate(.23 + attack*.087-Math.sin(cast*Math.PI)*.22)
+        if (catalogue) {
+            ctx.translate(78,91)
+            ctx.rotate(-Math.PI*.48)
+            ctx.scale(1.47,1.47)
+        } else {
+            ctx.translate(92 + attack*22,46 + attack*8)
+            ctx.rotate(.23 + attack*.087-Math.sin(cast*Math.PI)*.22)
+        }
         ctx.fillStyle = "#262630"
         ctx.fillRect(-7,0,15,151)
         ctx.fillStyle = "#847d8c"

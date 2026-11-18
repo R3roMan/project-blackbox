@@ -52,15 +52,6 @@ Node {
         Model {source:"#Sphere";y:-20;z:7;scale:Qt.vector3d(.52,rig.spraying ? .37 : .065,.05);materials:[black]}
     }
     Repeater3D {
-        model:[-1,1]
-        Node {
-            required property int modelData
-            x:modelData*73;y:8;z:-13
-            eulerRotation.z:modelData*(54+Math.sin(rig.clock*9)*15)
-            Model {source:"#Cone";scale:Qt.vector3d(.36,.91,.10);materials:[fold]}
-        }
-    }
-    Repeater3D {
         model:rig.spraying ? 19 : 0
         Model {
             required property int index
