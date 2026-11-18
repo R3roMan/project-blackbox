@@ -120,6 +120,30 @@ Node {
             }
 
             Loader3D {
+                active: actor.creature.origin === "Hellborne" && actor.enemy.type !== "saslimigus"
+                sourceComponent: Node {
+                    SickleHornGeometry { id: hornShape }
+                    ScallopedWingGeometry { id: wingShape }
+                    PrincipledMaterial { id: hornIvory; baseColor: Qt.lighter(actor.creature.skin,1.65); roughness:.65; cullMode:Material.NoCulling }
+                    PrincipledMaterial { id: wingHide; baseColor:Qt.darker(actor.creature.skin,1.35); roughness:.72; cullMode:Material.NoCulling }
+                    Repeater3D {
+                        model:[-1,1]
+                        Node {
+                            required property int modelData
+                            scale:Qt.vector3d(modelData,1,1)
+                            Model {geometry:hornShape;position:Qt.vector3d(22,60,18);materials:[hornIvory]}
+                            Model {
+                                geometry:wingShape
+                                position:Qt.vector3d(38,10,-24)
+                                eulerRotation.y:14+actor.flap*24
+                                scale:actor.creature.devour ? Qt.vector3d(.52,.52,.52) : Qt.vector3d(1,1,1)
+                                materials:[wingHide]
+                            }
+                        }
+                    }
+                }
+            }
+            Loader3D {
                 objectName:"fatDemonLoader"
                 active:actor.fatRig
                 sourceComponent:FatDemonRig {
@@ -460,7 +484,7 @@ Node {
                     delegate: Model {
                         required property int modelData
                         objectName: String(actor.enemy.id)
-                        visible: !actor.alien
+                        visible: !actor.alien && actor.creature.origin !== "Hellborne"
                         source: "#Cone"
                         x: modelData * (actor.crawler ? 52 : 28)
                         y: actor.crawler ? -12 : 73
@@ -486,6 +510,7 @@ Node {
                         Model {
                             objectName: String(actor.enemy.id)
                             source: "#Cone"
+                            visible: actor.creature.origin !== "Hellborne"
                             x: modelData * 48
                             y: 16
                             eulerRotation.z: modelData * -63

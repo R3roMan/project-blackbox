@@ -343,6 +343,20 @@ Item {
                     polygon(ctx, points, Qt.darker(skin, 1.34), accent)
                     polygon(ctx, mirror, Qt.darker(skin, 1.34), accent)
                 }
+                if (creature.origin === "Hellborne" && enemy.type !== "saslimigus") {
+                    for (const side of [-1,1]) {
+                        ctx.save()
+                        ctx.translate(.5,0)
+                        ctx.scale(side,1)
+                        ctx.beginPath()
+                        ctx.moveTo(.095,.32)
+                        ctx.bezierCurveTo(.18,.22,.24,.10,.14,.025)
+                        ctx.bezierCurveTo(.16,.15,.12,.21,.065,.27)
+                        ctx.fillStyle=Qt.lighter(skin,1.6)
+                        ctx.fill()
+                        ctx.restore()
+                    }
+                }
                 if (creature.trainer || creature.sprayer) {
                     const teacher=!!creature.trainer
                     const hide=teacher ? (angry ? "#bc982d" : "#bdb059") : "#7d777d"
