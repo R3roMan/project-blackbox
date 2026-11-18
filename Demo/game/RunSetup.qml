@@ -13,7 +13,7 @@ ColumnLayout {
     signal practiceWeatherRequested(bool enabled)
     signal unlocksRequested(bool enabled)
     signal configurationChanged(string difficulty, int startAt, string build)
-    property bool debugEnabled: false
+    readonly property bool debugEnabled: startAt > 1
     spacing: 7
 
     RowLayout {
@@ -30,16 +30,13 @@ ColumnLayout {
             }
         }
         Item { Layout.fillWidth: true }
-        CheckBox {
-            palette.windowText:"#e4d5e0"
-            palette.text:"#e4d5e0"
+        Ui.ActionButton {
             objectName: "enableDebug"
             text: "Debug"
+            primary: setup.debugEnabled
+            checkable: true
             checked: setup.debugEnabled
-            onToggled: {
-                setup.debugEnabled = checked
-                setup.configurationChanged(setup.difficulty, checked ? 10 : 1, "standard")
-            }
+            onClicked: setup.configurationChanged(setup.difficulty, setup.debugEnabled ? 1 : 10, "standard")
         }
         Label {color:"#e4d5e0"; text: "Wave"; visible: setup.debugEnabled }
         SpinBox {

@@ -21,6 +21,7 @@ Item {
         }
         return null
     }
+    HoverHandler { id: previewProbe }
     function inputSample() {
         const rows={}
         for (const name of ["enableDebug","debugStart","debugBuild-star","primaryPlayAction","pausePlay"]) {
@@ -29,7 +30,7 @@ Item {
             const box=item.mapToItem(null,0,0)
             rows[name]=[box.x,box.y,item.width,item.height,item.enabled]
         }
-        return {size:[width,height],panelArea:[workArea.x,workArea.y,workArea.width,workArea.height],controls:rows}
+        return {pointer:[previewProbe.hovered,previewProbe.point.position.x,previewProbe.point.position.y],parentZ:host.parent.parent.z,size:[width,height],panelArea:[workArea.x,workArea.y,workArea.width,workArea.height],controls:rows}
     }
     Timer {
         interval: 2400

@@ -2,6 +2,9 @@ import QtQuick
 import org.kde.plasma.plasmoid
 WallpaperItem {
     id:wallpaper
+    // During Play the interactive surface needs to be above the containment's
+    // desktop click area. The real panels are separate Plasma windows.
+    z:runtime.item?.mode==="play" && runtime.item.home && runtime.item.claimed ? 1 : -1
 
     // The WallpaperItem paints behind Plasma's real panels. Use the
     // containment's available rectangle for the interactive HUD and menus.

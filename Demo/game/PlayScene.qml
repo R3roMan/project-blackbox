@@ -1873,11 +1873,12 @@ FocusScope {
             spacing: 5
             HoverHandler {id:gunHover; enabled:play.fighting && !play.weapon.debugOnly}
             Ui.FieldHint {
+                id:gunHint
                 anchorItem:ammoReadout
                 hovered:gunHover.hovered
                 chapter:"weapons"
                 entryId:play.weapon.id
-                details:{play.revision;return gunHover.hovered ? Gear.itemDetails(play.run,"weapon",Gear.current(play.run)) : play.weapon.title}
+                details:{play.revision;return gunHover.hovered || gunHint.visible ? Gear.itemDetails(play.run,"weapon",Gear.current(play.run)) : play.weapon.title}
                 onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
             }
             Text {
