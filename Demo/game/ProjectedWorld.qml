@@ -616,18 +616,21 @@ Item {
                     oval(ctx,.348,.335,.304,.25,flashing ? "#fff8ff" : "#d7abff","#f8e6ff")
                     oval(ctx,.472,.366,.056,.18,"#342942","")
                 } else if (alien) {
-                    polygon(ctx, [0.245, 0.43, 0.33, 0.24, 0.50, 0.18, 0.67, 0.24, 0.755, 0.43,
-                        0.72, 0.64, 0.60, 0.83, 0.40, 0.83, 0.28, 0.64], skin, accent)
-                    oval(ctx, 0.365, 0.285, 0.27, 0.23, eye, "")
-                    oval(ctx, 0.466, 0.314, 0.068, 0.172, "#162530", "")
-                    oval(ctx, 0.386, 0.56, 0.228, 0.15, "#191926", "#7d7689")
-                    ctx.fillStyle = "#f5dcc1"
-                    ctx.fillRect(0.445, 0.57, 0.035, 0.029)
-                    ctx.fillRect(0.52, 0.57, 0.035, 0.029)
+                    const wing=Qt.darker(skin,1.89)
+                    polygon(ctx,[.04,.66,.18,.31,.39,.37,.61,.37,.82,.31,.96,.66,.82,.71,.63,.61,.37,.61,.18,.71],wing,skin)
+                    for (const side of [-1,1]) {
+                        const x=.50+side*.25
+                        polygon(ctx,[x-side*.05,.46,x+side*.024,.39,x+side*.07,.15,x+side*.043,.14,x-side*.02,.26,x-side*.06,.38],Qt.lighter(skin,1.40),accent)
+                        oval(ctx,x-.042,.52,.084,.23,wing,accent)
+                        oval(ctx,x-.027,.65,.054,.061,eye,"")
+                    }
+                    oval(ctx,.273,.39,.454,.33,skin,accent)
+                    oval(ctx,.354,.35,.292,.152,"#171222",skin)
+                    oval(ctx,.398,.46,.204,.044,eye,"")
                     if (enemy.type === "mothergalian") {
-                        oval(ctx, .25, .71, .17, .17, "#603350", accent)
-                        oval(ctx, .43, .74, .16, .17, "#603350", accent)
-                        oval(ctx, .60, .69, .17, .17, "#603350", accent)
+                        oval(ctx,.21,.65,.163,.20,wing,accent)
+                        oval(ctx,.418,.67,.163,.20,wing,accent)
+                        oval(ctx,.626,.65,.163,.20,wing,accent)
                     }
                 } else if (crawler) {
                     polygon(ctx, [0.04, 0.8, 0.2, 0.38, 0.32, 0.27, 0.5, 0.09, 0.68, 0.27,

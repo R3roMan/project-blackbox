@@ -40,6 +40,7 @@ Item {
     property string screenName:Screen.name
     property bool claimed:false
     property bool useWorkArea:false
+    property bool editingDesktop:false
     property rect workArea:Qt.rect(0,0,width,height)
     readonly property real areaLeft:useWorkArea ? Math.max(0,workArea.x) : 0
     readonly property real areaTop:useWorkArea ? Math.max(0,workArea.y) : 0
@@ -82,7 +83,7 @@ Item {
     function persist() {Native.Desktop.saveProgress(JSON.stringify({profile:records,discoveries:discovered}))}
     readonly property var options:Native.Desktop.config
     readonly property string mode:options.mode
-    readonly property bool home:Native.Desktop.atHome && visible
+    readonly property bool home:Native.Desktop.atHome && visible && !editingDesktop
     readonly property var backgrounds: {
         const map={}
         for(const front of ["front","left","right","up","down"]) if(options["wallpaper_"+front]) map[front]=options["wallpaper_"+front]

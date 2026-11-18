@@ -106,6 +106,8 @@ Node {
         id: centre
         position: {
             actor.revision
+            if (actor.preview)
+                return Qt.vector3d(0,actor.animate ? Math.sin(actor.age*3.2)*6 : 0,0)
             return Qt.vector3d(Rules.lanePosition(actor.enemy), Rules.elevation(actor.enemy), -actor.enemy.depth)
         }
         scale: Qt.vector3d(actor.size, actor.size, actor.size)
@@ -126,7 +128,7 @@ Node {
 
             Loader3D {
                 active: actor.creature.origin === "Hellborne" && !actor.creature.vampire
-                    && !actor.angel && actor.enemy.type!=="skorochiyus" && actor.enemy.type!=="crufixicatus"
+                    && !actor.angel && actor.enemy.type!=="skorochiyus"
                 sourceComponent: Node {
                     SickleHornGeometry { id: hornShape }
                     ScallopedWingGeometry { id: wingShape }
@@ -140,7 +142,7 @@ Node {
                             Model {
                                 geometry:hornShape
                                 visible:actor.enemy.type!=="saslimigus" && !actor.creature.skeleton
-                                    && !actor.creature.serpent && !actor.creature.slime
+                                    && !actor.creature.serpent && !actor.creature.slime && actor.enemy.type!=="crufixicatus"
                                 position:actor.fatRig ? Qt.vector3d(30,49,20) : actor.dragon
                                     ? Qt.vector3d(22,53,50) : Qt.vector3d(23,58,25)
                                 scale:actor.fatRig ? Qt.vector3d(.78,.75,.85) : Qt.vector3d(1,1,1)
@@ -150,9 +152,11 @@ Node {
                                 objectName:String(actor.enemy.id)
                                 pickable:actor.preview
                                 geometry:wingShape
-                                position:actor.fatRig ? Qt.vector3d(51,11,-28) : Qt.vector3d(38,10,-24)
+                                position:actor.fatRig ? Qt.vector3d(51,11,-28) : actor.enemy.type==="crufixicatus"
+                                    ? Qt.vector3d(12,-20,-12) : Qt.vector3d(38,10,-24)
+                                eulerRotation.x:actor.enemy.type==="crufixicatus" ? 180 : 0
                                 eulerRotation.y:14+actor.flap*24
-                                scale:actor.creature.devour ? Qt.vector3d(.52,.52,.52) : Qt.vector3d(1,1,1)
+                                scale:actor.creature.devour || actor.enemy.type==="crufixicatus" ? Qt.vector3d(.52,.52,.52) : Qt.vector3d(1,1,1)
                                 materials:[wingHide]
                             }
                         }

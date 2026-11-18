@@ -25,6 +25,7 @@ Node {
     readonly property bool reaper: kind === "fearme"
     readonly property bool harvester: kind === "harvester"
     readonly property bool crufix:kind === "crufixicatus"
+    readonly property bool halfAngel:kind === "archfellanus"
     eulerRotation.z: crufix ? 180 : 0
     readonly property bool furious: { revision; return leviathan && enemy.hp <= enemy.maxHp*.5 }
     readonly property real clock: { revision; return animate ? enemy.age : 0 }
@@ -429,18 +430,34 @@ Node {
         scale:Qt.vector3d(.085,1.02,.075); materials:[glow]
     }
     Model {
-        visible: beast.kind === "archfellanus"
+        visible: beast.halfAngel
         source:"#Cone"; y:-24; z:-27; eulerRotation.z:169+Math.sin(beast.clock*4)*13
         scale:Qt.vector3d(1.51,1.75,.31); materials:[voidSkin]
     }
-    Repeater3D {
-        model: beast.kind === "archfellanus" ? 12 : 0
-        delegate: Model {
-            required property int index
-            readonly property real angle: index*Math.PI/6
-            source:"#Cube"; x:Math.cos(angle)*45; y:73+Math.sin(angle)*9
-            eulerRotation.z:index*30
-            scale:Qt.vector3d(.24,.044,.08); materials:[index%2 ? gold : voidSkin]
+    Loader3D {
+        active:beast.halfAngel
+        sourceComponent:Node {
+            SickleHornGeometry {id:horn}
+            Repeater3D {
+                model:[-1,1]
+                Model {
+                    required property int modelData
+                    geometry:horn
+                    x:modelData*24; y:23; z:19
+                    scale:Qt.vector3d(modelData*.61,.70,.67)
+                    materials:[skin]
+                }
+            }
+            Repeater3D {
+                model:20
+                Model {
+                    required property int index
+                    readonly property real angle:index*Math.PI/10
+                    source:"#Sphere"
+                    x:Math.cos(angle)*44; y:81+Math.sin(angle)*16; z:Math.sin(angle)*29
+                    scale:Qt.vector3d(.17,.077,.145); materials:[voidSkin]
+                }
+            }
         }
     }
     Model {
