@@ -18,7 +18,11 @@ View3D {
     property real stab: 0
     property int sequence: 0
     property int detail:1
-    property string sunlight:""
+    property real sunYaw:-36
+    property real sunHeight:.28
+    property color sunColor:"#fff0d6"
+    property real darkSky:0
+    property real warmSky:0
     property int combo: 0
     property real staffCharge: 0
     property real staffCast:0
@@ -49,7 +53,7 @@ View3D {
 
     explicitTextureWidth: Math.max(1, Math.round(Math.min(960, width * Screen.devicePixelRatio)))
     explicitTextureHeight: Math.max(1, Math.round(explicitTextureWidth * height / Math.max(1, width)))
-    camera: handWeapon ? handEye : eye
+    camera: staff ? staffEye : handWeapon ? handEye : eye
     environment: SceneEnvironment {
         backgroundMode: SceneEnvironment.Transparent
         antialiasingMode:view.detail > 0 ? SceneEnvironment.MSAA : SceneEnvironment.NoAA
@@ -61,7 +65,14 @@ View3D {
         eulerRotation: Qt.vector3d(-22, 0, 0)
         clipNear: 4
         clipFar: 850
-        fieldOfView: view.staff ? 60 : view.twins ? 56 : 42 + (view.art.width - 49) * .13
+        fieldOfView: view.twins ? 56 : 42 + (view.art.width - 49) * .13
+    }
+    PerspectiveCamera {
+        id:staffEye
+        position:Qt.vector3d(0,48,540)
+        clipNear:5
+        clipFar:1200
+        fieldOfView:47
     }
     PerspectiveCamera {
         id: handEye
@@ -72,11 +83,10 @@ View3D {
         fieldOfView: 2*Math.atan(halfHeight/z)*180/Math.PI
     }
     DirectionalLight {
-        eulerRotation:Qt.vector3d(-48,view.sunlight ?
-            (view.sunlight==="sunrise" ? -61 : 55)+(view.motion ? Math.sin(view.clock*.023)*27 : 0) : -36,-13)
-        color:view.sunlight ? (view.sunlight==="sunrise" ? "#ffd093" : "#ff9c6c") : "#fff0d6"
-        brightness:view.sunlight ? 2.6 : 2.1
-        ambientColor:view.sunlight ? "#806079" : "#7885a7"
+        eulerRotation:Qt.vector3d(-16-view.sunHeight*66,view.sunYaw,-13)
+        color:view.sunColor
+        brightness:2.1+view.warmSky*.62-view.darkSky*.43
+        ambientColor:view.darkSky>.56 ? "#786585" : "#7885a7"
     }
     DirectionalLight { eulerRotation: Qt.vector3d(13, 118, 12); color: "#a4b9ff"; brightness: 1.43 }
     PrincipledMaterial { id: enamel; baseColor: view.art.shell; roughness: .53; metalness: .61 }
@@ -119,9 +129,9 @@ View3D {
         }
     }
     Node {
-        position: Qt.vector3d(19, -30 + view.intensity * 8, 68 - view.intensity * 14)
+        position: Qt.vector3d(89, -35 + view.intensity * 8, 68 - view.intensity * 14)
         eulerRotation: Qt.vector3d(68-view.aimOffset.y*7+Math.sin(view.staffCast*Math.PI)*12,24-view.aimOffset.x*12,8-Math.sin(view.staffCast*Math.PI)*10)
-        Node { id: runeTip; z: -136 }
+        Node { id: runeTip; objectName:"heldStaffTip"; z: -136 }
         Loader3D {
             active: view.staff
             sourceComponent: StaffRig {

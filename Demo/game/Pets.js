@@ -91,13 +91,14 @@ function trained(helper, level) {
 function flight(pet, clock, animate) {
     const resting=pet.resting>0
     const fold=resting ? Math.min(1,Math.max(0,((pet.restLength || pet.stats.rest)-pet.resting)*3.1+.12)) : 0
-    const phase=animate ? clock : 0
-    const crawl=spec(pet.id).crawl
+    const helper=spec(pet.id)
+    const phase=animate ? clock / (helper.travel + .25) : 0
+    const crawl=helper.crawl
     const steering=pet.travel>0 ? pet.heading : Math.sin(phase*1.8)
     return {
-        lane:pet.lane+(resting || crawl ? 0 : Math.cos(phase*1.9)*13),
+        lane:pet.lane+(resting || crawl || !animate ? 0 : Math.cos(phase*1.9)*13),
         elevation:pet.elevation-fold*(crawl ? 9 : 49)+Math.sin(phase*(resting ? 3.6 : 4.7))*(resting ? 3 : crawl ? 4 : 11),
-        depth:pet.depth+(resting ? 19*fold : Math.cos(phase*2.3)*9),
+        depth:pet.depth+(resting ? 19*fold : animate ? Math.cos(phase*2.3)*9 : 0),
         pitch:fold*18+Math.sin(phase*3.2)*(resting ? 1 : crawl ? 3 : 8),
         yaw:resting ? 0 : steering*(pet.travel>0 ? 23 : 12),
         bank:resting ? -7*fold : steering*(pet.travel>0 ? 29 : 15)

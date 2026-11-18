@@ -480,20 +480,13 @@ function waveBudget(wave, preset) {
 }
 
 function stageWeather(wave, seed, preset) {
-    const horizon=Conditions.twilight(wave,seed)
-    if (horizon)
-        return horizon
     const rate = Conditions.frequency(preset)
     if (incursion(wave,seed,rate))
         return "incursion"
     const ordinary = weather(wave)
     const landmark = wave === 5 || wave === 8
-    if (ordinary !== "clear" && (landmark || rate >= 1 || Conditions.roll(wave,seed,0x17c8fa34)<rate))
-        return ordinary === "night" ? Conditions.nightVariant(wave,seed) : ordinary
-    // The original ordinary night schedule avoids round tens. Roll a night
-    // independently on those encounters so every Overlord can be fought under it.
-    if (boss(wave) && Conditions.roll(wave,seed,0x601ee819) < .125*rate)
-        return Conditions.nightVariant(wave,seed)
+    if (ordinary === "rain" && (landmark || rate >= 1 || Conditions.roll(wave,seed,0x17c8fa34)<rate))
+        return Conditions.rainVariant(wave,seed)
     if (winter(wave,seed,rate))
         return "winter"
     const drifting = Conditions.drifting(wave,seed,rate)
@@ -502,10 +495,11 @@ function stageWeather(wave, seed, preset) {
     if (wave >= 11 && !boss(wave) && !introductions.some(function(entry) { return entry.wave === wave })
         && Conditions.roll(wave,seed,0x7c193a31) < .067*rate)
         return "meteor"
-    return inferno(wave,seed,rate) ? "inferno" : "clear"
+    if (inferno(wave,seed,rate)) return "inferno"
+    return wave>=3 && Conditions.roll(wave,seed,0x74ce32ab)<.19*rate ? "fog" : "clear"
 }
 
-function planWave(wave, seed, preset, resonance, forcedWeather) {
+function planWave(wave, seed, preset, resonance, forcedWeather, forcedLayer) {
     let state = (seed ^ Math.imul(wave,0x9e3779b1) ^ Math.imul(difficulty(preset).extra+1,0x85ebca6b)) >>> 0
     const random = function() {
         state = (Math.imul(state,1664525)+1013904223) >>> 0
@@ -513,7 +507,9 @@ function planWave(wave, seed, preset, resonance, forcedWeather) {
     }
     const budget = waveBudget(wave,preset)
     const ranks = Object.assign({},budget.ranks)
-    const condition = forcedWeather || stageWeather(wave,seed,preset)
+    const forcedNight = Conditions.isNight(forcedWeather)
+    const night = forcedNight ? forcedWeather : wave===1 ? "night" : Conditions.nightVariant(wave,seed)
+    const condition = forcedLayer || (forcedWeather && !forcedNight ? forcedWeather : stageWeather(wave,seed,preset))
     const groups = []
     const fresh = introductions.find(function(entry) { return entry.wave === wave })
     const pool = introductions.filter(function(entry) { return entry.wave < wave }).map(function(entry) {
@@ -535,7 +531,7 @@ function planWave(wave, seed, preset, resonance, forcedWeather) {
         }
         ranks[rank] -= count
     }
-    if (condition === "bloodMoon") {
+    if (night === "bloodMoon") {
         const rank = ranks.Nightmare > 0 ? "Nightmare" : ranks.Ascended > 0 ? "Ascended" : "Normal"
         ranks[rank] -= 1
         groups.push({type:"blandromedus",count:1,front:"front",late:true})
@@ -671,7 +667,9 @@ function planWave(wave, seed, preset, resonance, forcedWeather) {
             home = "right"
         if (index === 2 && wave === 2)
             home = "left"
-        chosen.push({at:at,type:group.type,front:home,lane:index ? Math.round(random()*250-125) : 0,units:group.units})
+        const arrival={at:at,type:group.type,front:home,lane:index ? Math.round(random()*250-125) : 0,units:group.units}
+        if (group.late) arrival.skyGate=.61
+        chosen.push(arrival)
         at += budget.gap+(index > 0 && (index+1)%budget.groupSize === 0 ? budget.rest : 0)
     }
     const final = boss(wave)
@@ -686,7 +684,9 @@ function planWave(wave, seed, preset, resonance, forcedWeather) {
         group.origin = enemyTypes[group.type].origin
         actualRanks[group.rank] += group.count
     }
-    return {wave:wave,difficulty:preset || "normal",weather:condition,enemyCount:budget.total,
+    const lastArrival=chosen.length ? chosen[chosen.length-1].at : .42
+    const skySeconds=Math.max(12,lastArrival/.70+(final ? 20 : 3))
+    return {wave:wave,difficulty:preset || "normal",weather:condition,night:night,skySeconds:skySeconds,enemyCount:budget.total,
         variety:groups.length,ranks:actualRanks,groups:groups,schedule:chosen,
         concurrent:maxConcurrent(wave,preset),label:wave > 10 && budget.step <= 2 ? "Aftermath" : final ? "Overlord" : budget.step >= 8 ? "Surge" : "Approach"}
 }

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtCore
 import "../native" as Native
 import "../Demo/game" as Game
 import "../Demo/ui" as Ui
@@ -9,6 +10,7 @@ import "../Demo/game/Rules.js" as Rules
 import "../Demo/game/Loadout.js" as Gear
 import "../Demo/game/Progress.js" as Progress
 import "../Demo/game/SaveData.js" as SaveData
+import "../Demo/game/Meta.js" as Meta
 
 Item {
     id:host
@@ -23,6 +25,10 @@ Item {
     readonly property real areaRight:useWorkArea ? Math.max(0,width-workArea.x-workArea.width) : 0
     readonly property real areaBottom:useWorkArea ? Math.max(0,height-workArea.y-workArea.height) : 0
     property string saveStatus:""
+    Ui.ProfileVault {
+        id:careerVault
+        location:String(StandardPaths.writableLocation(StandardPaths.ConfigLocation))+"/project-blackbox-demo.ini"
+    }
     function writeCheckpoint(data,automatic) {
         if (data.length && Native.Desktop.saveRun(data)) {
             saveStatus="Saved"
@@ -45,6 +51,7 @@ Item {
     onScreenNameChanged:claimVisible()
     onVisibleChanged:claimVisible()
     property bool bookOpen:false
+    property bool vaultOpen:false
     property string bookTab:"enemies"
     property string bookEntry:""
     function openBook(chapter,id) {
@@ -55,6 +62,7 @@ Item {
     Binding { target:Ui.UiMetrics; property:"textScale"; value:host.options.textScale || 1; when:host.claimed }
     property var stored:JSON.parse(Native.Desktop.progress())
     property var records:stored.profile || stored
+    readonly property var availableRecords:Progress.withGrades(records,careerVault.state)
     property var discovered:stored.discoveries && stored.discoveries.enemies ? stored.discoveries : ({enemies:[],abilities:[]})
     function persist() {Native.Desktop.saveProgress(JSON.stringify({profile:records,discoveries:discovered}))}
     readonly property var options:Native.Desktop.config
@@ -105,10 +113,11 @@ Item {
         sourceComponent:Game.PlayScene {
             id:game
             resumeState:Native.Desktop.parkedRun()
+            vault:careerVault
             artDirectory:Qt.resolvedUrl("../V0.1/kde/contents/images/")
             backgroundFiles:host.backgrounds
             allowed:host.home && host.mode==="play"
-            bookVisible:host.bookOpen
+            bookVisible:host.bookOpen || host.vaultOpen
             enabled:!bookVisible
             onCodexRequested:function(chapter,id) { host.openBook(chapter,id) }
             software:GraphicsInfo.api===GraphicsInfo.Software
@@ -119,7 +128,7 @@ Item {
             graphicsDetail:host.options.gpuEffects && Native.Desktop.gpu>.8 ? 0 : host.options.detail
             wallpaperQuality:host.mode==="performance" ? 1080 : 0
             showTimer:host.options.showTimer
-            unlockedGear:Progress.unlocked(host.records,host.options.achievementOverride)
+            unlockedGear:Progress.unlocked(host.availableRecords,host.options.achievementOverride)
             knownEnemies:host.discovered.enemies
             onSaveRequested:function(data,automatic) { host.writeCheckpoint(data,automatic) }
             onAutoSaveRequested:function(value) { Native.Desktop.setOption("autoSave",value) }
@@ -154,11 +163,11 @@ Item {
     Connections {
         target:Native.Desktop
         function onCommandRequested(name) {
-            if(!host.claimed || !battle.item)return
+            if(!host.claimed || !battle.item || host.vaultOpen)return
             const game=battle.item
             if(name==="new") {Native.Desktop.setOption("mode","play");game.resetRun()}
             else if(name==="continue") {
-                const unlocks=Progress.unlocked(host.records,host.options.achievementOverride)
+                const unlocks=Progress.unlocked(host.availableRecords,host.options.achievementOverride)
                 const saved=SaveData.savedChoice(Native.Desktop.savedRun(),Native.Desktop.previousRun(),unlocks)
                 if (saved) {
                     Native.Desktop.setOption("mode","play")
@@ -190,17 +199,37 @@ Item {
         active:host.bookOpen;z:40
         sourceComponent:Ui.ReferencePage {
             artDirectory:Qt.resolvedUrl("../V0.1/kde/contents/images/")
-            firstTab:host.bookTab;firstEntry:host.bookEntry;overlay:host.mode==="play";motion:host.options.motion;known:host.discovered;unlocks:Progress.unlocked(host.records,host.options.achievementOverride);career:host.records
+            firstTab:host.bookTab;firstEntry:host.bookEntry;overlay:host.mode==="play";motion:host.options.motion;known:host.discovered;unlocks:Progress.unlocked(host.availableRecords,host.options.achievementOverride);career:host.availableRecords
             achievementsUnlocked:host.options.achievementOverride
+            liveRun:battle.item?.run || null
+            liveRevision:battle.item?.revision || 0
+            nextTerms:Meta.contract(careerVault.state)
             onUnlockToggleRequested:Native.Desktop.setOption("achievementOverride",!host.options.achievementOverride)
             onCloseRequested:host.bookOpen=false
         }
     }
-    Loader {active:host.options.sound;sourceComponent:Game.Music {enabledSound:host.options.sound;activeWindow:host.home;track:host.bookOpen ? "book" : host.mode==="play" && battle.item ? battle.item.musicTrack : "home";quiet:host.bookOpen ? false : battle.item ? battle.item.paused : false;variation:!host.bookOpen && battle.item ? battle.item.musicVariation : ""}}
+    Loader {active:host.options.sound;sourceComponent:Game.Music {enabledSound:host.options.sound;activeWindow:host.home;track:host.bookOpen || host.vaultOpen ? "book" : host.mode==="play" && battle.item ? battle.item.musicTrack : "home";quiet:host.bookOpen || host.vaultOpen ? false : battle.item ? battle.item.paused : false;variation:!host.bookOpen && !host.vaultOpen && battle.item ? battle.item.musicVariation : ""}}
+    Loader {
+        anchors.fill:parent
+        anchors.leftMargin:host.areaLeft
+        anchors.topMargin:host.areaTop
+        anchors.rightMargin:host.areaRight
+        anchors.bottomMargin:host.areaBottom
+        z:65
+        active:host.vaultOpen && host.home
+        sourceComponent:Ui.WitchShop {
+            ledger:careerVault.state
+            motion:host.options.motion
+            vaultOpened:host.records.wave100Boss>0
+            onPurchaseRequested:function(id) {careerVault.purchase(id)}
+            onBackRequested:host.vaultOpen=false
+        }
+    }
     Row {
         anchors.left:parent.left;anchors.bottom:parent.bottom;anchors.leftMargin:host.areaLeft+10;anchors.bottomMargin:host.areaBottom+10;spacing:6;z:60
-        visible:host.home && !host.bookOpen && host.mode!=="play"
+        visible:host.home && !host.bookOpen && !host.vaultOpen && host.mode!=="play"
         Ui.ActionButton {text:"Grimoire";onClicked:host.openBook("enemies","")}
+        Ui.ActionButton {text:"Witch’s Vault";onClicked:{careerVault.reload();host.vaultOpen=true}}
         Ui.ActionButton {text:"Desktop settings";onClicked:settingsDrawer.open()}
     }
     Rectangle {

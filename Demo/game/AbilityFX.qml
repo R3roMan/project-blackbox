@@ -1,5 +1,4 @@
 import QtQuick
-import "../ui" as Ui
 
 EffectCanvas {
     id:fx
@@ -11,7 +10,7 @@ EffectCanvas {
     property bool motion:true
     property bool threeDimensional:false
     property real spray:0
-    textureLimit:1400
+    textureLimit:3840
     frameRate:30
     visible:active && (spray>0 || effects.some(function(e){return e.front===frontId}))
     onClockChanged:if (visible) requestPaint()
@@ -159,7 +158,6 @@ EffectCanvas {
             if (e.front!==frontId) continue
             const t=Math.max(0,Math.min(1,1-e.life/e.span)),p=motion ? t : .39
             const alpha=Math.min(1,(1-t)*1.7),points=e.points?.length ? e.points : [null]
-            const first=center(e,points[0])
             for (const point of points) {
                 const pos=center(e,point)
                 const base=point ? Math.min(h*.16,Math.max(22,pos.scale*81)) : h*(e.anchor==="field" ? .23 : .135)
@@ -170,18 +168,7 @@ EffectCanvas {
                 drawEffect(c,e,radius,p,!threeDimensional)
                 c.restore()
             }
-            if (e.label && w>0 && h>0) {
-                c.save()
-                const font=Ui.UiMetrics.text(e.passive ? 11 : 13)
-                c.globalAlpha=alpha
-                c.font="bold "+font+"px sans-serif"
-                const wide=c.measureText(e.label).width+18
-                const x=Math.max(6,Math.min(w-wide-6,first.x-wide*.5))
-                const y=Math.max(h*.23,Math.min(h-font-10,first.y-h*.107-p*19))
-                c.fillStyle="rgba(22,10,26,.86)";c.fillRect(x,y,wide,font+8)
-                c.fillStyle=e.color;c.fillRect(x,y,2,font+8);c.fillText(e.label,x+9,y+font+1)
-                c.restore()
-            }
+
         }
     }
 }

@@ -10,6 +10,8 @@
 .import "Arsenal.js" as Arsenal
 .import "Defense.js" as Defense
 .import "SlotEffects.js" as Sockets
+.import "Meta.js" as Meta
+.import "GradeGear.js" as Grades
 
 var weapons = {
     pistol: { id: "pistol", title: "Service pistol", category: "Weapon", rarity: "common", effect: "ballistic", capacity:7, damage:2, delay:0.25,
@@ -23,8 +25,8 @@ var weapons = {
         reload:1.6, aim: 19, color: "#75e4ff", trace: 5, afterglow: 0.31,
         handling:"reload", element:"stun", elementLevel:1, penetration:2, crit:.075,
         description: "An accurate, penetrating shot with level 1 Stun and higher critical chance." },
-    carbine: { id: "carbine", title: "Auto carbine", category: "Weapon", rarity: "common", effect: "tracer", capacity:17, damage:1.12, delay:0.118,
-        reload:1.19, aim: 30, color: "#d0ff8d", trace: 2, afterglow: 0.088,
+    carbine: { id: "carbine", title: "Auto carbine", category: "Weapon", rarity: "common", effect: "tracer", capacity:14, damage:1.12, delay:0.118,
+        reload:.94, aim: 30, color: "#d0ff8d", trace: 2, afterglow: 0.088,
         handling:"capacity", description: "A quick mechanical cycle for close to medium range." },
     riot: { id: "riot", title: "Riot pump", category: "Weapon", rarity: "rare", effect: "spread", capacity:6, damage:1.29, delay:0.69,
         reload:1.53, aim: 55, color: "#ffc97e", trace: 2.7, afterglow: 0.21,
@@ -59,10 +61,10 @@ var weapons = {
         handling:"reload", element:"poison", elementLevel:1, signature:"sporeSeed",
         description: "Poison rounds spread a level 1 dose to nearby enemies when they hit a target already suffering from Poison." },
     minigun: { id:"minigun", title:"Foundry minigun", category:"Weapon", rarity:"rare", effect:"tracer", capacity:44,
-        damage:1.19, delay:0.091, reload:2.56, aim:36, color:"#fed18f", trace:2.8, afterglow:.10, spinup:1,
+        damage:1.19, delay:0.091, reload:3.21, aim:36, color:"#fed18f", trace:2.8, afterglow:.10, spinup:1,
         handling:"spinup", description:"Hold fire for one second to spin up six barrels. A long belt feeds the firing burst." },
     launcher: { id:"launcher", title:"Lobber grenade launcher", category:"Weapon", rarity:"epic", effect:"grenade", capacity:5,
-        damage:8.2, delay:0.82, reload:2.05, aim:45, color:"#ffad55", trace:4, afterglow:.58, blast:160,
+        damage:8.2, delay:0.82, reload:2.57, aim:45, color:"#ffad55", trace:4, afterglow:.58, blast:160,
         handling:"reload", element:"explosive", elementLevel:2, signature:"impactFuse",
         description:"Lobs a timed grenade. Its fuse burns twice as fast when aimed directly at a target. A blast primes a death explosion." },
     breacher: { id:"breacher", title:"Doorbreaker", category:"Weapon", rarity:"common", effect:"spread", capacity:4,
@@ -229,10 +231,10 @@ var kits = [
     { key:"quartermaster", weapon:"pistol", active:"quickload", passive:"rewire", title:"Quartermaster kit", bonus:"Quickload also clears shot recovery." }
 ]
 
-Object.assign(weapons, Extra.weapons, Arsenal.weapons, Defense.weapons, Deep.weapons, Milestones.weapons,Campaign.weapons,Blood.weapons)
-Object.assign(activeAbilities, Extra.actives, Arsenal.actives, Defense.actives, Deep.actives, Milestones.actives,Campaign.actives,Blood.actives)
-Object.assign(passives, Extra.passives, Arsenal.passives, Defense.passives, Deep.passives, Milestones.passives,Campaign.passives,Blood.passives)
-kits = kits.concat(Extra.kits, Arsenal.kits, Defense.kits, Deep.kits, Milestones.kits,Campaign.kits,Blood.kits, [
+Object.assign(weapons, Extra.weapons, Arsenal.weapons, Defense.weapons, Deep.weapons, Milestones.weapons,Campaign.weapons,Blood.weapons,Grades.weapons)
+Object.assign(activeAbilities, Extra.actives, Arsenal.actives, Defense.actives, Deep.actives, Milestones.actives,Campaign.actives,Blood.actives,Grades.actives)
+Object.assign(passives, Extra.passives, Arsenal.passives, Defense.passives, Deep.passives, Milestones.passives,Campaign.passives,Blood.passives,Grades.passives)
+kits = kits.concat(Extra.kits, Arsenal.kits, Defense.kits, Deep.kits, Milestones.kits,Campaign.kits,Blood.kits,Grades.kits, [
     { key:"starSet", weapon:"starDestroyer", active:"bloodbattery", passive:"sparebox", title:"Starlight kit",
         bonus:"Star Destroyer charges 25% faster while Infinite Ammo is active." }
 ])
@@ -459,7 +461,7 @@ var secondPerks = {
     cinder:{ burnDuration:1.35, text:"Burn duration +1.35s" }, conductor:{ arcRadius:42, text:"Electric jump range +42" },
     chainfuse:{ blastRadius:.11, text:"Death blast radius +11%" }, rewire:{ coins:30, text:"Mega coin gifts +30 gold" }
 }
-Object.assign(secondPerks, Extra.perks, Arsenal.perks, Defense.perks, Deep.perks, Milestones.perks,Campaign.perks,Blood.perks)
+Object.assign(secondPerks, Extra.perks, Arsenal.perks, Defense.perks, Deep.perks, Milestones.perks,Campaign.perks,Blood.perks,Grades.perks)
 
 function passiveRank(run, id) {
     const index = findSlot(run, "passive", id)
@@ -471,9 +473,16 @@ function passiveRank(run, id) {
 }
 
 function perk(run, stat) {
-    return run.slots.passive.reduce(function(total, slot) {
-        return total + (slot.item && slot.item.level >= 2 ? secondPerks[slot.item.id][stat] || 0 : 0)
-    }, 0)
+    const polish=Meta.benefits(run).passive
+    let total=0
+    for (const slot of run.slots.passive) {
+        const item=slot.item
+        if (!item) continue
+        const grade=Grades.basic[item.id]
+        if (grade && grade[stat]) total+=grade[stat]*(1+(item.level>=1 ? .35 : 0)+(item.level>=3 ? .55 : 0))
+        if (item.level>=2) total+=(secondPerks[item.id][stat] || 0)*polish
+    }
+    return total
 }
 
 function weaponStats(item) {
@@ -502,7 +511,34 @@ function weaponLevel(run, item) {
 }
 
 function effectiveWeaponStats(run, item) {
-    return weaponStats(run.maxGearTime > 0 ? Object.assign({},item,{level:3}) : item)
+    const stats=weaponStats(run.maxGearTime > 0 ? Object.assign({},item,{level:3}) : item)
+    stats.damage*=Meta.benefits(run).weapon
+    return stats
+}
+
+function covenantOffer(run,group,qualities,salt) {
+    const pool=Object.values(catalogs[group]).filter(function(item) {
+        return qualities.includes(item.rarity) && !item.debugOnly && (!item.locked || run.unlocks.includes(item.id))
+    })
+    const index=(Math.imul(run.seed^salt,0x85ebca6b)>>>0)%Math.max(1,pool.length)
+    return pool[index]?.id || ""
+}
+
+function loadRating(run) {
+    const tiers={common:1,rare:1.28,epic:1.62,legendary:2.10}
+    const totals={items:0,upgrades:0,burden:0}
+    for (const group of Object.keys(catalogs)) {
+        const slots=run.slots[group]
+        for (const slot of slots) {
+            if (!slot.item) continue
+            const item=slot.item
+            totals.items++
+            totals.upgrades+=item.level+(slot.power ? slot.powerLevel+1 : 0)
+            totals.burden+=(tiers[catalogs[group][item.id].rarity] || 1)+item.level*.34+(slot.power ? .24+slot.powerLevel*.17 : 0)
+        }
+    }
+    totals.items+=run.inventory.filter(Boolean).length
+    return totals
 }
 
 function activeStats(item, bonus) {
@@ -571,7 +607,7 @@ function slotUpgradeColor(group, slot) {
 var startingHealth = 200
 
 function maxHealth(run) {
-    const base = (run.debugBuild === "star" ? 9999 : startingHealth) + (run.boons ? run.boons.health : 0) + passiveRank(run, "capacity") * 10
+    const base = (run.debugBuild === "star" ? 9999 : startingHealth) + Meta.benefits(run).health + (run.boons ? run.boons.health : 0) + passiveRank(run, "capacity") * 10
         + passiveRank(run, "deepcell") * 3 + perk(run, "health") + passiveSockets(run,"health",18)
     return Math.max(1, Math.ceil(base * Elements.healthFactor(run.elements || {}) * (run.fearCut ? .5 : 1)))
 }
@@ -1185,7 +1221,8 @@ function itemDetails(run,group,item) {
     const lines=[kitDescription(group,item.id,spec.description),"Upgrade "+level+" / 3"]
     if (group==="weapon") {
         const stats=run ? effectiveWeaponStats(run,item) : weaponStats(item)
-        lines.push("Damage "+stats.damage.toFixed(2)+" per hit"+(spec.spread ? " × "+spec.spread.length+" pellets" : "")+" · attack interval "+stats.delay.toFixed(2)+"s")
+        const damage=stats.damage*(1+(run?.boons?.damage || 0))
+        lines.push("Damage "+damage.toFixed(2)+" per hit"+(spec.spread ? " × "+spec.spread.length+" pellets" : "")+" · attack interval "+stats.delay.toFixed(2)+"s")
         if (usesAmmo(spec)) lines.push("Magazine "+stats.capacity+" · reload "+stats.reload.toFixed(2)+"s")
         else if (spec.staff) lines.push("Spell charge "+(item.charge || 0)+" / "+stats.chargeCost+" attacks · R / right-click to cast")
         else if (spec.melee || spec.throwing) lines.push("R / right-click: "+(spec.melee ? "weapon trick, then a stronger charging strike" : "draw and spin the next axe"))
@@ -1193,7 +1230,8 @@ function itemDetails(run,group,item) {
         if (spec.element) lines.push(Elements.kinds[spec.element].title+" "+(stats.elementLevel || spec.elementLevel || 1))
     } else if (group==="active") {
         const stats=activeStats(item)
-        lines.push("Cooldown "+stats.cooldown.toFixed(1)+"s before loadout bonuses"+(run && run.cooldowns[item.id] ? " · remaining "+run.cooldowns[item.id].toFixed(1)+"s" : ""))
+        lines.push("Cooldown "+(stats.cooldown*Meta.benefits(run).recovery).toFixed(1)+"s before other loadout bonuses"
+            +(run?.cooldowns?.[item.id] ? " · remaining "+run.cooldowns[item.id].toFixed(1)+"s" : ""))
         lines.push("Ability damage: "+abilityDamageDescription(run,item))
         if (spec.element) lines.push(Elements.kinds[spec.element].title+" "+stats.elementLevel)
     } else lines.push("Effective passive rank "+(run ? passiveRank(run,item.id) : 1+Number(level>=1)+Number(level>=3)*2))
@@ -1208,9 +1246,10 @@ function offerDetails(offer) {
 
 var activeImpacts={shock:[5,1.5],sunfall:[8.25,2.3],immolate:[3.3,1],stormcall:[9,1.8],searingmark:[1.5,1],
     bladesweep:[7.4,2.3],blackWake:[4.2,1.25],brineFlare:[7.4,1.8],colourSpill:[5,1.5],mireCloud:[4.5,1]}
-function abilityDamageDescription(run,item) {
+function abilityDamageDescription(run,item,bonus) {
     const spec=activeAbilities[item.id],s=activeStats(item).strength
-    const format=function(value){return Number(value.toFixed(2))}
+    const factor=bonus ?? Meta.benefits(run).active*(1+(run?.boons?.damage || 0))
+    const format=function(value){return Number((value*factor).toFixed(2))}
     if(spec.damage) {
         let multiplier=1
         if(run) multiplier=item.id==="lateBloom" && run.wave>20 ? 2.2 : item.id==="fieldLesson" && run.wave<=20 ? 2 : 1
@@ -1225,7 +1264,7 @@ function abilityDamageDescription(run,item) {
         execution:"Defeats one eligible non-boss, then triggers a death explosion",
         liquidation:format(5*(1+s*.14))+"–"+format(20*(1+s*.14))+" per target; spends20–80 gold",
         guardPulse:format(3.5+s)+"–"+format(22.5+s)+" per target, from absorbed shield force",
-        criticalEcho:"Last critical ×"+format(.52+s*.055)+", capped at22 impact",
+        criticalEcho:"Last critical ×"+Number((.52+s*.055).toFixed(2))+", capped at "+format(22)+" impact",
         mirrormine:format(2.5+s)+" impact per intercepted projectile",
         sporeBurst:format(5+s*2)+" +65% of the foe's Poison health loss",
         runesurge:format(3+s)+" +2.7 × stored staff charges",

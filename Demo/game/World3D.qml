@@ -5,6 +5,7 @@ import "Rules.js" as Rules
 import "Pets.js" as Pets
 import "Optics.js" as Optics
 import "CutArt.js" as CutArt
+import "Conditions.js" as Conditions
 
 View3D {
     id: world
@@ -31,7 +32,12 @@ View3D {
     property real wallpaperZoom: 1
     readonly property real pixelRatio: Math.max(1, Screen.devicePixelRatio)
     property bool voidIncursion: false
-    property string sunlight: ""
+    property real sunYaw:-36
+    property real sunHeight:.28
+    property color sunColor:"#ffc4a4"
+    property real darkSky:0
+    property real warmSky:0
+    property bool fog:false
     readonly property int autoHeight: detail === 0 ? 900
         : detail === 1 && (hypnotised || voidIncursion) ? 1080 : 1440
     readonly property real renderScale: Math.min(pixelRatio,(quality || autoHeight)/Math.max(1,height))
@@ -191,13 +197,10 @@ View3D {
     }
 
     DirectionalLight {
-        eulerRotation: Qt.vector3d(world.sunlight ? -12 : -28, world.sunlight
-            ? (world.sunlight==="sunrise" ? -56 : 65)+(world.motion ? Math.sin(world.elapsed*.023)*28 : 0)
-            : -38,0)
-        color: world.sunlight ? (world.sunlight==="sunrise" ? "#ffc07b" : "#ff8759")
-            : world.detail === 2 ? "#ffb178" : "#ffc4a4"
-        ambientColor: world.sunlight ? "#724470" : world.detail === 2 ? "#514765" : "#70617e"
-        brightness: world.sunlight ? 2.55 : world.detail === 2 ? 2.15 : 1.8
+        eulerRotation: Qt.vector3d(-14-world.sunHeight*68,world.sunYaw,-6)
+        color:world.sunColor
+        ambientColor:world.darkSky>.6 ? "#655681" : "#70617e"
+        brightness: (world.detail===2 ? 2.1 : 1.8)+world.warmSky*.58-world.darkSky*.45
         castsShadow:world.detail === 2
         shadowMapQuality:Light.ShadowMapQualityMedium
         shadowFactor:69
@@ -283,7 +286,7 @@ View3D {
             chargedFlash:{world.revision;return petAnchor.pet?.chargedFlash || 0}
             x:petAnchor.flight.lane
             y:petAnchor.flight.elevation
-            z:-petAnchor.flight.depth-petAnchor.gesture[3]
+            z:-petAnchor.flight.depth+petAnchor.gesture[3]
             eulerRotation:Qt.vector3d(petAnchor.gesture[0]+petAnchor.flight.pitch,
                 petAnchor.gesture[1]+petAnchor.flight.yaw,petAnchor.gesture[2]+petAnchor.flight.bank)
         }
@@ -460,6 +463,7 @@ View3D {
             visible: { world.revision; return !enemy.waitingBoss && (enemy.front === world.frontId
                 || world.turnRatio < 1 && enemy.front === world.previousFront) && (!world.hypnotised || enemy.type === "hallucination") }
             active: visible
+            opacity:{world.revision;return world.fog ? Conditions.fogVisibility(enemy.depth) : 1}
             sourceComponent: enemy.type === "hasasasa" ? warship : demon
             Component {
                 id: demon

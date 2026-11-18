@@ -8,7 +8,7 @@ Node {
     required property real phase
     required property real strike
     required property real flap
-    property bool resting:false
+    required property real fold
     readonly property string form:helper.form
     readonly property bool wyvern:helper.id==="wyvern"
     readonly property bool firefly:helper.id==="firefly"
@@ -20,6 +20,7 @@ Node {
     PrincipledMaterial {id:groove; baseColor:pet.shade; roughness:.60}
     PrincipledMaterial {id:light; baseColor:pet.helper.accent; lighting:PrincipledMaterial.NoLighting}
     PrincipledMaterial {id:pale; baseColor:"#ead0b6"; roughness:.70}
+    PrincipledMaterial {id:membraneSkin; baseColor:Qt.lighter(pet.helper.skin,1.47);roughness:.70;cullMode:Material.NoCulling}
     PrincipledMaterial {id:glass; baseColor:Qt.rgba(pet.highlight.r,pet.highlight.g,pet.highlight.b,.43); roughness:.28; cullMode:Material.NoCulling; alphaMode:PrincipledMaterial.Blend}
 
     Loader3D {
@@ -43,9 +44,10 @@ Node {
                 model:[-1,1]
                 Model {
                     required property int modelData
-                    source:"#Sphere";x:modelData*30;y:10+pet.flap*7;z:-16
-                    eulerRotation.z:modelData*(16+pet.flap*22)
-                    scale:Qt.vector3d(.43,.048,.21);materials:[glass]
+                    source:"#Sphere";x:modelData*(27-pet.fold*9);y:10+pet.flap*7;z:-16
+                    eulerRotation.z:modelData*(16+pet.flap*22-pet.fold*49)
+                    eulerRotation.y:modelData*pet.fold*43
+                    scale:Qt.vector3d(pet.firefly ? .39 : .49,.048,pet.firefly ? .14 : .22);materials:[glass]
                 }
             }
         }
@@ -61,11 +63,12 @@ Node {
                     required property int modelData
                     x:modelData*14;y:7;z:-6
                     scale:Qt.vector3d(modelData,1,1)
-                    eulerRotation.z:modelData*(8+pet.flap*37-(pet.resting ? 44 : 0))
+                    eulerRotation.z:modelData*(8+pet.flap*37-pet.fold*44)
+                    eulerRotation.y:modelData*((pet.wyvern ? 15 : -8)+pet.fold*52)
                     Model {
                         geometry:membrane
-                        scale:Qt.vector3d(pet.wyvern ? .48 : .39,pet.form==="bat" ? .59 : .45,.53)
-                        materials:[plate]
+                        scale:Qt.vector3d(pet.wyvern ? .51 : .39,pet.form==="bat" ? .66 : pet.wyvern ? .32 : .54,.53)
+                        materials:[membraneSkin]
                     }
                     Model {source:"#Cylinder";x:15;y:7;z:12;eulerRotation.z:-65;scale:Qt.vector3d(.022,.36,.022);materials:[groove]}
                     Model {
@@ -84,6 +87,19 @@ Node {
             }
             Model {visible:pet.form==="drake";source:"#Sphere";y:11;z:36;scale:Qt.vector3d(.22,.17,.31);materials:[plate]}
             Repeater3D {
+                model:pet.form==="drake" ? 4 : 0
+                Model {
+                    required property int index
+                    source:pet.wyvern && index===3 ? "#Cone" : "#Sphere"
+                    x:(pet.wyvern ? -1 : 1)*index*7+Math.sin(pet.phase*4-index*.6)*index*1.7
+                    y:-10+index*(pet.wyvern ? 7 : -2)
+                    z:-20-index*7
+                    eulerRotation.z:pet.wyvern ? 43 : -20
+                    scale:Qt.vector3d(.22-index*.037,.17-index*.021,.23-index*.037)
+                    materials:[index===3 ? pale : index%2 ? groove : plate]
+                }
+            }
+            Repeater3D {
                 model:pet.form==="drake" ? 4 : 2
                 Model {
                     required property int index
@@ -101,11 +117,18 @@ Node {
                 Node {
                     id:side
                     required property int modelData
-                    x:modelData*33; y:5+pet.flap*9
+                    x:modelData*(32-pet.fold*12); y:5+pet.flap*9
+                    eulerRotation.z:modelData*(pet.flap*21-pet.fold*37)
+                    eulerRotation.y:modelData*pet.fold*40
                     Model {
-                        source:"#Sphere"; z:1; eulerRotation.z:side.modelData*(-25+pet.flap*13)
-                        scale:pet.form==="ray" ? Qt.vector3d(.42,.094,.32) : Qt.vector3d(.36,.073,.30)
-                        materials:[plate]
+                        source:"#Sphere"; z:1; eulerRotation.z:side.modelData*(pet.form==="ray" ? -12 : 27)
+                        scale:pet.form==="ray" ? Qt.vector3d(.64,.092,.36) : Qt.vector3d(.39,.26,.12)
+                        materials:[membraneSkin]
+                    }
+                    Model {
+                        visible:pet.form==="moth"
+                        source:"#Sphere";x:side.modelData*-3;y:-12;z:-7;eulerRotation.z:side.modelData*25
+                        scale:Qt.vector3d(.24,.17,.145);materials:[plate]
                     }
                     Model {source:"#Sphere";y:4;z:8;scale:Qt.vector3d(.13,.06,.13);materials:[groove]}
                     Model {source:"#Sphere";y:6;z:11;scale:Qt.vector3d(.067,.039,.066);materials:[light]}
@@ -132,12 +155,12 @@ Node {
                     id:engine
                     required property int modelData
                     x:modelData*(pet.form==="kite" ? 30 : 15); z:-9
-                    eulerRotation.z:modelData*(4+pet.strike*20-(pet.resting ? 27 : 0))
+                    eulerRotation.z:modelData*(4+pet.strike*20-pet.fold*27)
                     Model {
                         source:pet.form==="kite" ? "#Cube" : "#Sphere"
                         eulerRotation.y:pet.form==="kite" ? engine.modelData*33 : 0
                         y:pet.form==="kite" ? 5 : 12
-                        scale:pet.form==="kite" ? Qt.vector3d(.41,.12,.17) : Qt.vector3d(.27,.27,.50)
+                        scale:pet.form==="kite" ? Qt.vector3d(.54,.12,.24) : Qt.vector3d(.27,.27,.50)
                         materials:[plate]
                     }
                     Repeater3D {
@@ -188,10 +211,24 @@ Node {
             }
             Model {
                 visible:pet.form==="fox"
-                source:"#Sphere";y:-3;z:-36;eulerRotation:Qt.vector3d(46,Math.sin(pet.phase*4)*26,0)
-                scale:Qt.vector3d(.22,.24,.65);materials:[pale]
+                source:"#Sphere";x:19;y:-3;z:-23;eulerRotation:Qt.vector3d(13,51+Math.sin(pet.phase*4)*19,-34)
+                scale:Qt.vector3d(.24,.27,.69);materials:[plate]
+            }
+            Model {
+                visible:pet.form==="fox"
+                source:"#Sphere";x:42+Math.sin(pet.phase*4)*5;y:10;z:-34;eulerRotation:Qt.vector3d(20,50,-24)
+                scale:Qt.vector3d(.154,.163,.31);materials:[pale]
             }
             Model {visible:pet.form==="fox";source:"#Sphere";z:32;y:6;scale:Qt.vector3d(.24,.116,.25);materials:[pale]}
+            Repeater3D {
+                model:pet.form==="fox" ? 4 : 0
+                Model {
+                    required property int index
+                    source:"#Sphere";x:index%2 ? 11 : -11;y:-27+pet.fold*11;z:index<2 ? 12 : -11
+                    eulerRotation.x:Math.sin(pet.phase*6+index*2)*15
+                    scale:Qt.vector3d(.071,.114,.13);materials:[index<2 ? pale : groove]
+                }
+            }
             Repeater3D {
                 model:pet.form==="fairy" ? 5 : 0
                 Model {

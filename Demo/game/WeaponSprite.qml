@@ -39,7 +39,7 @@ Item {
         if (handWeapon)
             return steel.mapToItem(sprite,steel.width*.06,steel.height*.34)
         if (staff)
-            return Qt.point(width * .28, height * .27)
+            return Qt.point(width * .64, height * .30)
         if (forwardView)
             return forward.muzzle
         if (twins)

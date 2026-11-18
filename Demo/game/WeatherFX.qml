@@ -13,11 +13,11 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        visible: weatherFx.sky && ["night","bloodMoon","rain","inferno","winter","incursion"].includes(weatherFx.condition)
+        visible: weatherFx.sky && ["night","bloodMoon","rain","thunder","fog","inferno","winter","incursion"].includes(weatherFx.condition)
         gradient: Gradient {
-            GradientStop { position: 0; color: weatherFx.redNight ? "#ac731027" : weatherFx.condition === "inferno" ? "#75381821" : weatherFx.condition === "incursion" ? "#bb130a22" : weatherFx.condition === "night" ? "#ba0a193d" : "#54435a71" }
-            GradientStop { position: .50; color: weatherFx.redNight ? "#82501225" : weatherFx.condition === "inferno" ? "#30b64027" : weatherFx.condition === "incursion" ? "#8722143b" : weatherFx.condition === "night" ? "#74071138" : "#41353b59" }
-            GradientStop { position: 1; color: weatherFx.redNight ? "#9b2a0b1a" : weatherFx.condition === "inferno" ? "#a5d64614" : weatherFx.condition === "winter" ? "#77739cc5" : weatherFx.condition === "night" ? "#6a101a30" : "#46324958" }
+            GradientStop { position: 0; color: weatherFx.condition === "fog" ? "#65737d8b" : weatherFx.redNight ? "#ac731027" : weatherFx.condition === "inferno" ? "#75381821" : weatherFx.condition === "incursion" ? "#bb130a22" : weatherFx.condition === "night" ? "#ba0a193d" : "#54435a71" }
+            GradientStop { position: .50; color: weatherFx.condition === "fog" ? "#d09da5ac" : weatherFx.redNight ? "#82501225" : weatherFx.condition === "inferno" ? "#30b64027" : weatherFx.condition === "incursion" ? "#8722143b" : weatherFx.condition === "night" ? "#74071138" : "#41353b59" }
+            GradientStop { position: 1; color: weatherFx.condition === "fog" ? "#9b68727b" : weatherFx.redNight ? "#9b2a0b1a" : weatherFx.condition === "inferno" ? "#a5d64614" : weatherFx.condition === "winter" ? "#77739cc5" : weatherFx.condition === "night" ? "#6a101a30" : "#46324958" }
         }
     }
     Rectangle {
@@ -32,10 +32,20 @@ Item {
             GradientStop { position: 1; color: "transparent" }
         }
     }
+    Rectangle {
+        anchors.fill:parent
+        visible:!weatherFx.sky && weatherFx.condition==="fog"
+        gradient:Gradient {
+            GradientStop {position:0;color:"#3d777e89"}
+            GradientStop {position:.46;color:"#978c929b"}
+            GradientStop {position:.78;color:"#7d686e78"}
+            GradientStop {position:1;color:"#36464b58"}
+        }
+    }
     EffectCanvas {
         id: rain
         anchors.fill: parent
-        visible: !weatherFx.sky && ["rain","meteor","inferno","winter","incursion","windy","glitch"].includes(weatherFx.condition)
+        visible: !weatherFx.sky && ["rain","thunder","fog","meteor","inferno","winter","incursion","windy","glitch"].includes(weatherFx.condition)
         onVisibleChanged: if (visible) requestPaint()
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()
@@ -49,6 +59,20 @@ Item {
             const ctx = beginPaint()
             ctx.clearRect(0, 0, width, height)
             const time = weatherFx.motion ? weatherFx.time : 0
+            if (weatherFx.condition === "fog") {
+                for (let bank=0;bank<6;bank++) {
+                    const y=(.22+bank*.13+Math.sin(time*.063+bank)*.033)*height
+                    const thick=(.14+bank%3*.035)*height
+                    const haze=ctx.createLinearGradient(0,y-thick,0,y+thick)
+                    haze.addColorStop(0,"transparent")
+                    haze.addColorStop(.48,Qt.rgba(.69,.72,.75,.11+bank%3*.04))
+                    haze.addColorStop(.70,Qt.rgba(.52,.57,.63,.09))
+                    haze.addColorStop(1,"transparent")
+                    ctx.fillStyle=haze
+                    ctx.fillRect(0,y-thick,width,thick*2)
+                }
+                return
+            }
             if (weatherFx.condition === "windy") {
                 const gust = weatherFx.gust / 1.26
                 ctx.lineCap = "round"
@@ -165,11 +189,13 @@ Item {
                 ctx.globalAlpha = 1
                 return
             }
-            for (let i = 0; i < 101; i += 1) {
+            if (weatherFx.condition!=="rain" && weatherFx.condition!=="thunder") return
+            const storm=weatherFx.condition==="thunder"
+            for (let i = 0; i < (storm ? 158 : 101); i += 1) {
                 const speed = 385 + (i % 5) * 125
                 const x = ((i * 123.31 - time * speed * .19) % width + width) % width
                 const y = (i * 97.51 + time * speed) % height
-                const length = 14 + i % 7 * 4
+                const length = (storm ? 24 : 14) + i % 7 * 4
                 ctx.beginPath()
                 ctx.strokeStyle = Qt.rgba(.65, .80, .98, .12 + (i % 7) * .035)
                 ctx.lineWidth = i % 3 ? 1 : 1.8

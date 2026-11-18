@@ -5,6 +5,7 @@
 .import "Elements.js" as Elements
 .import "Pets.js" as Pets
 .import "Conditions.js" as Conditions
+.import "Meta.js" as Meta
 
 var phases = ["ready","combat","between","reward","bossReward","shop"]
 
@@ -88,6 +89,7 @@ function validEnemy(entry) {
 
 function validStage(stage) {
     return stage === null || plain(stage) && Number.isInteger(stage.wave) && Number.isFinite(stage.enemyCount)
+        && (stage.night===undefined || ["night","bloodMoon"].includes(stage.night) && stage.skySeconds>=1 && Number.isFinite(stage.skySeconds))
         && Array.isArray(stage.groups) && stage.groups.every(function(group) {return !!Mission.enemyTypes[group.type]
             && Number.isInteger(group.count) && group.count > 0}) && Array.isArray(stage.schedule) && plain(stage.ranks)
 }
@@ -133,6 +135,13 @@ function decodeRun(text, unlocks) {
     }
     if (data.pet && !Pets.pets.some(function(pet) {return pet.id === data.pet.id}))
         return null
+    if ((data.covenant && !Meta.validTerms(data.covenant)) || (data.attemptId && !Meta.validId(data.attemptId)))
+        return null
+    if ((data.skyProgress!==undefined && (data.skyProgress<0 || data.skyProgress>1))
+        || (data.skyPhase && !["daytime","sunset","night","bloodMoon","sunrise"].includes(data.skyPhase))
+        || (data.skyClearing && (!data.stage?.night || data.phase!=="combat"))) return null
+    if (data.shopCapacity!==undefined && (!Number.isInteger(data.shopCapacity) || data.shopCapacity<5 || data.shopCapacity>8))
+        return null
     if (data.shopQuality!==undefined && (!Number.isInteger(data.shopQuality) || data.shopQuality<0 || data.shopQuality>3))
         return null
     if (!validStage(data.stage) || !validStage(data.nextStage) || !data.bolts.every(function(bolt) {
@@ -153,6 +162,31 @@ function decodeRun(text, unlocks) {
     run.note = ""
     run.shield.held = run.shield.raised = false
     run.viewReady = true
+    if (run.training && !run.training.lessonMap) {
+        if (run.training.step>=4) run.training.step+=2
+        run.training.lessonMap=2
+    }
+    // Convert a checkpoint from before weather and sky were separate.
+    for (const stage of [run.stage,run.nextStage]) {
+        if (!stage || stage.night) continue
+        stage.night=Conditions.isNight(stage.weather) ? stage.weather : "night"
+        stage.skySeconds=Math.max(12,(stage.schedule[stage.schedule.length-1]?.at || 0)/.70+3)
+        if (["night","bloodMoon","sunrise","sunset"].includes(stage.weather)) stage.weather="clear"
+    }
+    if (run.phase==="combat" && data.skyProgress===undefined && run.stage) {
+        run.skyProgress=Math.min(1,run.waveTime/run.stage.skySeconds)
+        run.skyPhase=Conditions.daypart(run.skyProgress,run.stage.night)
+        run.bloodMoonSeen=data.weatherEffect==="bloodMoon"
+        run.weatherEffect=run.stage.weather
+    }
+    // Older checkpoints used one stock position for the counter expansion.
+    if (run.phase === "shop" && run.shopStock.some(function(card) {return card.id === "expand-counter"})) {
+        run.shopStock = run.shopStock.filter(function(card) {return card.id !== "expand-counter"})
+        const listingRandom = {rng: (run.rng ^ 0x6eba65d1) >>> 0}
+        const existing = run.shopStock.map(function(card) {return card.id})
+        const missing = Math.max(0,run.shopCapacity-run.shopStock.length)
+        run.shopStock.push(...Gear.makeShop(run,function() {return Rules.random(listingRandom)},existing,missing))
+    }
     if (run.lunge) {
         run.lunge.gun = Gear.current(run)
         run.lunge.weapon = Gear.weapons[run.lunge.gun.id]
@@ -172,15 +206,15 @@ function savedChoice(current, previous, unlocks) {
         const run = decodeRun(candidate,unlocks)
         if (run) {
             return {data:candidate,wave:run.wave || run.startAt,difficulty:Mission.difficulty(run.difficulty).title,
-                phase:run.phase,debug:run.debug,training:!!run.training,restored:candidate!==current}
+                phase:run.phase,debug:run.debug,training:!!run.training,attemptId:run.attemptId,restored:candidate!==current}
         }
     }
     return null
 }
 
-function bundle(profile, discoveries, override, display, sound, motion, runSave) {
+function bundle(profile, discoveries, override, display, sound, motion, runSave, vault) {
     return JSON.stringify({format:"PROJECT-BLACKBOX",version:1,exportedAt:new Date().toISOString(),
-        profile:profile,discoveries:discoveries,achievementsOverride:override,display:display,sound:sound,motion:motion,runSave:runSave})
+        profile:profile,discoveries:discoveries,achievementsOverride:override,display:display,sound:sound,motion:motion,runSave:runSave,vault:vault})
 }
 
 function decodeBundle(text) {
@@ -205,5 +239,6 @@ function decodeBundle(text) {
     if (d.autoSave!==undefined && typeof d.autoSave!=="boolean") return null
     if (data.runSave !== "" && !decodeRun(data.runSave,[]))
         return null
+    if (data.vault!==undefined && !Meta.decode(data.vault)) return null
     return data
 }

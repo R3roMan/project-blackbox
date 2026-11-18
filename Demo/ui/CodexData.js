@@ -5,6 +5,7 @@
 .import "../game/EnemyLore.js" as Lore
 .import "../game/Conditions.js" as Conditions
 .import "../game/Pets.js" as Pets
+.import "../game/Meta.js" as Meta
 
 var chapters = [
     { id:"enemies", title:"Demons" }, { id:"weapons", title:"Weapons" },
@@ -114,7 +115,7 @@ function kitLinks(entry, group) {
         .map(function(kit) { return link("kits",kitKey(kit),kit.title) }).join(" · ")
 }
 
-function entryText(entry, chapter) {
+function entryText(entry, chapter, live, terms) {
     if (!entry) return ""
     if (chapter === "enemies") {
         const notes = Lore.tactics[entry.id] || ""
@@ -137,9 +138,16 @@ function entryText(entry, chapter) {
     if (chapter === "weapons" || chapter === "abilities") {
         const group = chapter === "weapons" ? "weapon" : entry.category === "Active" ? "active"
             : entry.category === "Passive" ? "passive" : ""
-        const details = group ? Gear.itemDetails(null,group,{id:entry.id,level:0}) : entry.description
+        const item=(live && group ? Gear.ownedItem(live,group,entry.id) : null) || {id:entry.id,level:0}
+        let details = group ? Gear.itemDetails(live,group,item) : entry.description
+        if (!live && group==="weapon") details=details.replace(/^Damage /m,"Base damage ")
+        if (!live && group==="active") details=details.replace(/^Ability damage:/m,"Base ability damage ·")
         const kits = group ? kitLinks(entry,group) : ""
-        return linkText(details,chapter,entry.id)+(kits ? "<br><br><b>Kit pages</b><br>"+kits : "")
+        const boosts=Meta.benefits({covenant:terms})
+        const next=live ? "" : group==="weapon" ? (entry.damage*boosts.weapon).toFixed(2)+" per hit"
+            : group==="active" ? Gear.abilityDamageDescription(null,item,boosts.active) : ""
+        return linkText(details,chapter,entry.id)+(next ? "<br><br><b>Next run damage</b><br>"+escape(next) : "")
+            +(kits ? "<br><br><b>Kit pages</b><br>"+kits : "")
     }
     if (chapter === "controls")
         return (entry.rows || []).map(function(row) { return "<b>"+escape(row[0])+"</b><br>"+escape(row[1]) })

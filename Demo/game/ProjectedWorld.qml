@@ -6,6 +6,7 @@ import "AttackArt.js" as Attacks
 import "CreatureLivery.js" as Livery
 import "Optics.js" as Optics
 import "AbyssPaint.js" as AbyssPaint
+import "Conditions.js" as Conditions
 
 Item {
     id: world
@@ -18,6 +19,7 @@ Item {
     property var guestPet: null
     property var smokes: []
     property real blindness: 0
+    property bool fog:false
     property real elapsed: 0
     property real lungeDepth: 0
     property real lungeLane: 0
@@ -224,6 +226,7 @@ Item {
             readonly property real strike: { world.revision; return Attacks.amount(enemy, Rules.charging(enemy), world.motion) }
             readonly property bool crawler: creature.role === "void"
             readonly property bool flashing: { world.revision; return enemy.flash > 0 || Rules.charging(enemy) }
+            readonly property bool stormLit: {world.revision;return !!enemy.stormCharged}
             readonly property bool shielded: { world.revision; return enemy.barrier > 0 }
             readonly property real shatter: { world.revision; return enemy.shatter || 0 }
             readonly property string condition: { world.revision; return Elements.visible(enemy.elements) }
@@ -246,7 +249,8 @@ Item {
                 return !enemy.waitingBoss && enemy.type !== "hasasasa" && enemy.front === world.frontId
                     && (!world.hypnotised || enemy.type === "hallucination")
             }
-            opacity: shade || creature.voidBoss ? 1 : 1 - world.blindness * .94
+            opacity: {world.revision;return (shade || creature.voidBoss ? 1 : 1-world.blindness*.94)
+                    *(world.fog ? Conditions.fogVisibility(enemy.depth) : 1)}
             width: (creature.leviathan ? 342 : crawler ? 185 : enemy.type === "meteor" ? 181 : 300) * projected.scale * Rules.enemySize(enemy)
             height: (creature.leviathan ? 231 : crawler ? 142 : enemy.type === "endme" ? 274 : alien ? 146 : angel ? 231 : 183) * projected.scale * Rules.enemySize(enemy)
             rotation: (world.motion && enemy.type === "mastafangenbus" ? ageDegrees : 0) + strike * pose[1] * .56 + dodgeLean
@@ -256,6 +260,7 @@ Item {
             y: projected.y - height * (world.portraitMode ? .5 : .52)
             z: { world.revision; return 2000 - enemy.depth }
             onFlashingChanged: requestPaint()
+            onStormLitChanged:requestPaint()
             onStrikeChanged: requestPaint()
             onCountdownChanged: requestPaint()
             onAngryChanged: requestPaint()
@@ -306,7 +311,7 @@ Item {
                 ctx.reset()
                 ctx.clearRect(0, 0, width, height)
                 ctx.scale(width, height)
-                const accent = angry ? "#fd5579" : ghost ? "#b9c0ca" : creature.accent
+                const accent = stormLit ? "#fff0ff" : angry ? "#fd5579" : ghost ? "#b9c0ca" : creature.accent
                 const skin = angry ? "#daa3b5" : ghost ? "#858a95" : flashing ? Qt.lighter(creature.skin, 1.60) : creature.skin
                 const eye = ghost ? "#d3d7de" : flashing ? Qt.lighter(accent, 1.35) : accent
 
@@ -866,12 +871,12 @@ Item {
             strike: { world.revision; return companion.model ? companion.model.flash : 0 }
             readonly property var gesture: Pets.attackPose(helper.id, world.motion ? strike : 0)
             visible: { world.revision; return !world.hypnotised && !!companion.model && companion.model.front === world.frontId }
-            readonly property var point: {
+            readonly property var pose: {
                 world.revision
                 const model = companion.model
-                const pose=model ? Pets.flight(model,world.elapsed,world.motion) : {lane:0,elevation:0,depth:900}
-                return world.projection(pose.lane,pose.elevation,pose.depth-gesture[3])
+                return model ? Pets.flight(model,world.elapsed,world.motion) : {lane:0,elevation:0,depth:900,bank:0}
             }
+            readonly property var point:world.projection(pose.lane,pose.elevation,pose.depth-gesture[3])
             x: point.x - width * .5
             y: point.y - height * .5
             width: 117 * point.scale
@@ -880,8 +885,7 @@ Item {
             resting: { world.revision; return companion.model ? companion.model.resting > 0 : false }
             opacity: resting ? .78 : 1
             flap: world.motion && !resting ? Math.sin(world.elapsed * 13) : 0
-            rotation: gesture[2]+gesture[1]*.18
-                +(companion.model ? Pets.flight(companion.model,world.elapsed,world.motion).bank : 0)
+            rotation: gesture[2]+gesture[1]*.18+pose.bank
         }
         Rectangle {
             readonly property real flash: { world.revision; return companion.model ? companion.model.flash : 0 }

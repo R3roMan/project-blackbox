@@ -10,6 +10,18 @@ function handle(length, material) {
 }
 
 var parts = {
+    zeroHour:[
+        handle(112,"dark"),
+        part("Cylinder",0,0,69,24,13,24,"bronze",90),
+        part("Cube",0,0,-44,97,14,17,"bronze"),
+        part("Cone",-42,0,-57,19,52,18,"accent",0,0,-50),
+        part("Cone",42,0,-57,19,52,18,"accent",0,0,50),
+        part("Cube",0,0,-162,40,12,235,"metal"),
+        part("Cube",-20,0,-165,6,10,228,"accent"),
+        part("Cube",20,0,-165,6,10,228,"accent"),
+        part("Cube",0,6,-169,7,1,196,"dark"),
+        part("Cone",0,0,-284,41,45,13,"accent",-90)
+    ],
     nailclub:[
         handle(124,"wood"),
         part("Cylinder", 0,0,-72,37,124,37,"wood",90),
@@ -152,6 +164,7 @@ function katanaBlade(bevel) {
 // The trick pivot bisects the whole weapon. The idle position lines up each grip
 // near the same part of the screen regardless of blade length.
 var frames = {
+    zeroHour:{centre:-108,scale:1,tip:-304,lean:14,wheel:-360,lift:32,turn:23,swing:93},
     nailclub:{centre:-35, scale:1.23, tip:-135, lean:-18, wheel:360, lift:20, turn:12, swing:52},
     katana:{centre:-132, scale:1, tip:-325, lean:14, wheel:360, lift:-14, turn:26, swing:65},
     mechasword:{centre:-111, scale:1.10, tip:-245, lean:15, wheel:-360, lift:35, turn:-39, swing:54},

@@ -12,6 +12,7 @@ import "Optics.js" as Optics
 import "Conditions.js" as Conditions
 import "SaveData.js" as SaveData
 import "Tutorial.js" as Tutorial
+import "Meta.js" as Meta
 
 FocusScope {
     id: play
@@ -42,6 +43,15 @@ FocusScope {
     property bool bookVisible:false
     signal codexRequested(string chapter, string id)
     property bool autoSave:false
+    property var vault:null
+    property string waveCheckpoint:""
+    property var attemptReport:null
+    property bool attemptArchived:false
+    property bool retireArmed:false
+    property string outcomeKind:""
+    property string previousPhase:"ready"
+    property real swapOffset:0
+    property int swappingTo:-1
     signal saveRequested(string data, bool automatic)
     signal autoSaveRequested(bool enabled)
     signal textScaleRequested(real value)
@@ -123,7 +133,13 @@ FocusScope {
     readonly property var flyingPet: { revision; return run.pet }
     readonly property var petSpec: Pets.spec(flyingPet ? flyingPet.id : petChoice)
     readonly property string weather: { revision; return run.weatherEffect || Rules.weather(wave) }
-    readonly property bool twilight:fighting && (weather==="sunrise" || weather==="sunset")
+    readonly property var sky:{revision;return Conditions.sky(run.skyProgress,run.stage?.night || "night")}
+    readonly property string nightPlan:{revision;return run.stage?.night || "night"}
+    readonly property string daypart:{revision;return run.skyPhase}
+    readonly property bool foggy:weather==="fog"
+    readonly property real solarYaw:-108+(sky.sunX-.40)*116
+    readonly property color solarColor:sky.red>.12 ? Qt.tint("#a89fce",Qt.rgba(.88,.19,.29,sky.red*.65))
+        : sky.dark>.55 && sky.warm<.25 ? "#a2b4e2" : Qt.tint("#ffead2",Qt.rgba(1,.39,.08,sky.warm*.61))
     readonly property bool glitchInput: fighting && weather === "glitch"
     readonly property real elapsed: { revision; return run.time }
     readonly property real distortion: { revision; return run.voidStorm ? .76 : run.distortion }
@@ -133,7 +149,7 @@ FocusScope {
     readonly property real shieldRefill: { revision; return run.barrierRefill }
     readonly property real shieldTime: { revision; return run.barrier }
     readonly property real shieldCooldown: { revision; return Rules.barrierCooldown(run) }
-    readonly property int shieldCapacity: { revision; return run.barrierMax+(run.barrierCell.level ? run.barrierCell.level+1 : 0) }
+    readonly property int shieldCapacity: { revision; return run.barrierMax+(run.barrierCell.level ? run.barrierCell.level+1 : Meta.benefits(run).barrier) }
     readonly property int barrierLevel: { revision; return run.barrierCell.level }
     readonly property var fieldGuard: {
         revision
@@ -354,8 +370,16 @@ FocusScope {
     }
 
     function equipWeapon(slot) {
-        if (!Rules.selectWeapon(run, slot))
+        if (swapMotion.running || !Rules.canAct(run) || !run.slots.weapon[slot]?.item || run.selectedWeapon===slot)
             return
+        fireHeld=false
+        if (!motion) {finishEquip(slot);return}
+        swappingTo=slot
+        swapMotion.restart()
+    }
+
+    function finishEquip(slot) {
+        if (!Rules.selectWeapon(run,slot)) return
         fireHeld = false
         shotFlash = 0
         publish()
@@ -408,7 +432,8 @@ FocusScope {
             reportedProgress = run.progress
             const report={}
             for(const key of Object.keys(delta))
-                if(!run.debug || /^(enemyKills_|enemyDeaths_|weaponKills_)/.test(key) || key==="trainingWins") report[key]=delta[key]
+                if(!run.rehearsal && !["loadSamples","loadBurden","damageTaken","unblockedHits","shopBuys","shopSpent"].includes(key)
+                    && (!run.debug || /^(enemyKills_|enemyDeaths_|weaponKills_)/.test(key) || key==="trainingWins")) report[key]=delta[key]
             if (Object.keys(report).length)
                 careerDelta(report)
         }
@@ -463,7 +488,7 @@ FocusScope {
     }
 
     function saveCheckpoint(automatic) {
-        if (automatic && (!autoSave || run.debug || run.training)) return
+        if (run.rehearsal || automatic && (!autoSave || run.debug || run.training)) return
         const saved=SaveData.encodeRun(run)
         if (saved) saveRequested(saved,automatic)
         else if (!automatic) saveNotice="Save unavailable"
@@ -475,6 +500,11 @@ FocusScope {
         turnRatio=1
         paused=restored.phase==="combat"
         run=restored
+        if (!run.debug && !run.training && run.wave>0) {
+            if (!run.attemptId) run.attemptId=newAttemptId()
+            if (vault && vault.alreadySettled(run.attemptId)) run.rehearsal=true
+        }
+        waveCheckpoint=SaveData.encodeRun(run)
         frontId=previousFront=restored.playerFront
         reportedMetrics=Object.assign({},restored.metrics)
         reportedProgress=restored.progress
@@ -486,15 +516,41 @@ FocusScope {
         Qt.callLater(giveMenuFocus)
     }
 
-    function startWave() {
-        if (!allowed || paused)
+    function startWave(skipPet) {
+        if (!allowed || paused || outcomeKind)
             return
         if (draftingWeapon)
             Rules.chooseStarter(run,starterChoice)
+        if (skipPet && run.phase==="ready") run.petChoice=""
+        if (run.phase==="ready" && !run.debug && !run.training && !run.attemptId) {
+            run.attemptId=newAttemptId()
+            if (vault) Rules.applyCovenant(run,vault.reserve(run.attemptId))
+        }
         if (!Rules.startWave(run))
             return
+        waveCheckpoint=SaveData.encodeRun(run)
         readyBattle()
         saveCheckpoint(true)
+    }
+
+    function newAttemptId() {
+        return Date.now().toString(36)+"-"+Math.floor(Math.random()*0xffffffff).toString(36)+"-"+run.seed.toString(36)
+    }
+
+    function finishAttempt() {
+        attemptReport=Meta.report(run,run.finishReason || "death",Gear.loadRating(run))
+        attemptArchived=false
+        if (vault && vault.settle(attemptReport))
+            careerDelta({["grade"+attemptReport.grades.overall]:1})
+    }
+
+    function continueAttempt() {
+        const restored=waveCheckpoint ? SaveData.decodeRun(waveCheckpoint,unlockedGear) : null
+        if (!restored) return
+        restored.rehearsal=true
+        attemptReport=null
+        previousPhase="ready"
+        restoreRun(restored)
     }
 
     function readyBattle() {
@@ -514,6 +570,12 @@ FocusScope {
     }
 
     function resetRun() {
+        outcomeTimer.stop()
+        outcomeKind=""
+        previousPhase="ready"
+        waveCheckpoint=""
+        attemptReport=null
+        retireArmed=false
         turn.stop()
         turnAnimation.stop()
         turnRatio = 1
@@ -544,21 +606,18 @@ FocusScope {
     }
 
     function skipSelection() {
-        if (!allowed || paused)
+        if (!allowed || paused || outcomeKind)
             return
-        if (draftingWeapon)
-            Rules.chooseStarter(run,starterChoice)
+        if (run.phase==="ready") {startWave(true);return}
         if (!Rules.skipSelection(run))
             return
         selectedOffer = ""
-        if (run.phase === "combat")
-            readyBattle()
-        else
-            publish()
+        publish()
+        saveCheckpoint(true)
     }
 
     function refreshSelection() {
-        if (!allowed || paused || !Rules.refresh(run))
+        if (!allowed || paused || outcomeKind || !Rules.refresh(run))
             return
         selectedOffer = ""
         publish()
@@ -612,7 +671,7 @@ FocusScope {
 
     function fire(x, y, continuation) {
         if (!fighting || bookVisible || trainingBlocked || stunned || constricted || play.turning || lunging || fieldGuard.raised || !worldItem
-            || (!continuation && shotTime > 0) || reloadTime || prepTime || cooling)
+            || (!continuation && shotTime > 0) || reloadTime || prepTime || cooling || swapMotion.running || run.skyClearing)
             return
         if (!Tutorial.readyToFire(run,scopeHeld)) {
             fireHeld=false
@@ -654,7 +713,7 @@ FocusScope {
     }
 
     function pickReward(id, slot) {
-        if (!allowed || paused || phase !== "reward")
+        if (!allowed || paused || outcomeKind || phase !== "reward")
             return
         const card = run.offers.find(function(offer) { return offer.id === id })
         if (card && card.category !== "Supply" && slot === undefined && Gear.defaultSlot(run, card) === -1) {
@@ -670,8 +729,9 @@ FocusScope {
     }
 
     function giveMenuFocus() {
-        if (!allowed || fighting || bookVisible)
+        if (!allowed || fighting || bookVisible || outcomeKind)
             return
+        if (phase==="defeat") {postcard.item?.forceActiveFocus();return}
         const choice = phase === "reward" && !paused
             ? rewardList.itemAt(0) : phase === "bossReward" && !paused ? boonList.itemAt(0) : primaryAction
         if (choice && choice.visible && choice.enabled)
@@ -679,7 +739,7 @@ FocusScope {
     }
 
     function mainAction() {
-        if (!allowed)
+        if (!allowed || outcomeKind)
             return
         if (paused) {
             paused = false
@@ -697,6 +757,7 @@ FocusScope {
     }
 
     function handleEscape() {
+        if (outcomeKind) return
         if (paused)
             mainAction()
         else if (phase === "combat" || phase === "between" || phase === "ready" || lab)
@@ -731,9 +792,18 @@ FocusScope {
         else
             Qt.callLater(giveMenuFocus)
     }
-    onPhaseChanged: if (phase !== "combat") {
-        saveNotice=""
-        Qt.callLater(giveMenuFocus)
+    onPhaseChanged: {
+        const finished=previousPhase==="combat"
+        previousPhase=phase
+        if (phase==="defeat") finishAttempt()
+        if (finished && ["between","reward","bossReward","defeat"].includes(phase) && !run.training) {
+            outcomeKind=phase==="defeat" ? "loss" : "win"
+            outcomeTimer.restart()
+        }
+        if (phase!=="combat") {
+            saveNotice=""
+            Qt.callLater(giveMenuFocus)
+        }
     }
     onPausedChanged: if (!fighting) Qt.callLater(giveMenuFocus)
     onUnlockedGearChanged: Rules.updateCareerUnlocks(run, unlockedGear)
@@ -753,6 +823,8 @@ FocusScope {
             shotFlash = 0
             heldShiftKeys = []
             crossedMouseEdges = 0
+            swapMotion.stop()
+            swapOffset=0
             Rules.holdShield(run,false)
         }
     }
@@ -776,6 +848,17 @@ FocusScope {
         interval: play.turnMs
     }
     Timer { id: achievementNotice; interval: 3200; onTriggered: play.achievementText = "" }
+    Timer {
+        id:outcomeTimer
+        interval:play.outcomeKind==="loss" ? 2750 : 2350
+        onTriggered:{play.outcomeKind="";Qt.callLater(play.giveMenuFocus)}
+    }
+    SequentialAnimation {
+        id:swapMotion
+        NumberAnimation {target:play;property:"swapOffset";from:0;to:1;duration:73;easing.type:Easing.InCubic}
+        ScriptAction {script:play.finishEquip(play.swappingTo)}
+        NumberAnimation {target:play;property:"swapOffset";from:1;to:0;duration:124;easing.type:Easing.OutCubic}
+    }
     NumberAnimation {
         id: turnAnimation
         target: play
@@ -812,7 +895,7 @@ FocusScope {
             play.publish()
             if (play.phase!=="combat" && play.phase!=="defeat") play.saveCheckpoint(true)
             if (sight && Rules.queuedShot(play.run)) play.fire(play.pointer.x,play.pointer.y,true)
-            else if (play.canShoot && play.fireHeld && aim.containsMouse) play.fire(play.pointer.x,play.pointer.y)
+            else if (play.fireHeld && aim.containsMouse) play.fire(play.pointer.x,play.pointer.y)
         }
     }
 
@@ -932,7 +1015,7 @@ FocusScope {
             previousFront: play.previousFront
             direction: play.turnDirection
             progress: play.turnRatio
-            lab: play.lab
+            lab: play.lab && !play.outcomeKind
             slide: play.projectedMode || !play.fighting
             transitionStyle:play.transitionStyle
             framing: play.wallpaperFit
@@ -970,15 +1053,17 @@ FocusScope {
             time:play.elapsed
             motion:play.motion
         }
-        Loader {
+        SkyDome {
             anchors.fill:parent
-            active:play.twilight
-            sourceComponent:Twilight {condition:play.weather; clock:play.elapsed; motion:play.motion}
-        }
-        LunarDisc {
-            visible:play.fighting && play.frontId==="up" && Conditions.isNight(play.weather)
+            visible:play.phase==="combat" || !!play.outcomeKind
+            sky:play.sky
+            frontId:play.location.id
+            night:play.nightPlan
+            sunTint:play.solarColor
+            motion:play.motion
+            projected:play.projectedMode
+            turn:play.turnRatio
             opacity:1-play.blindness
-            redNight:play.weather==="bloodMoon"
         }
         Loader {
             anchors.fill:parent
@@ -986,15 +1071,15 @@ FocusScope {
             sourceComponent:Atmosphere {
                 clock:play.elapsed
                 motion:play.motion
-                tint:play.weather==="bloodMoon" ? "#f66874" : play.location.color
+                tint:play.daypart==="bloodMoon" ? "#f66874" : play.location.color
             }
         }
         Loader {
             id: worldLoader
             objectName: "worldLoader"
             anchors.fill: parent
-            active: play.phase === "combat" && play.allowed
-            visible: play.fighting
+            active: (play.phase === "combat" || !!play.outcomeKind) && play.allowed
+            visible: play.fighting || !!play.outcomeKind
             sourceComponent: play.projectedMode ? projected : hardware
         }
     }
@@ -1018,7 +1103,12 @@ FocusScope {
             artDirectory: play.artDirectory
             quality: play.wallpaperQuality
             detail:play.graphicsDetail
-            sunlight:play.twilight ? play.weather : ""
+            sunYaw:play.solarYaw
+            sunHeight:1-play.sky.sunY
+            sunColor:play.solarColor
+            darkSky:play.sky.dark
+            warmSky:play.sky.warm
+            fog:play.foggy
             abilityEvents:{play.revision;return play.run.abilityEvents}
             transitionStyle:play.transitionStyle
             transitionStrength:play.transitionStrength
@@ -1051,6 +1141,7 @@ FocusScope {
         id: projected
         ProjectedWorld {
             objectName: "projectedWorld"
+            fog:play.foggy
             actors: play.actors
             bolts: play.bolts
             axes: play.axes
@@ -1090,6 +1181,20 @@ FocusScope {
         opacity: 1 - play.blindness
         time: play.elapsed
         motion: play.motion
+    }
+    StormFX {
+        anchors.fill:parent
+        castVisible:play.fighting && play.weather==="thunder" && !play.hypnotised
+        field:play.worldItem
+        clock:play.elapsed
+        motion:play.motion
+        strikes:{play.revision;return castVisible ? play.run.stormBursts.filter(function(strike){return strike.front===play.frontId}) : []}
+        charges:{
+            play.revision
+            if (!castVisible) return []
+            return play.actors.filter(function(actor){return actor.stormCharged && actor.front===play.frontId && actor.hp>0 && !actor.warp})
+                .slice(0,10).map(function(actor){return Object.assign(Rules.arcPoint(actor),{size:Rules.enemySize(actor)})})
+        }
     }
     CombatSpectacle {
         objectName: "demonSpectacle"
@@ -1144,10 +1249,10 @@ FocusScope {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.horizontalCenterOffset: play.weaponAim.x * play.width * (play.handWeapon ? .033 : .018)
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: play.handWeapon ? -5
-            : 4 + play.height*.011 - play.weaponAim.y*play.height*.018 - Math.min(1,(play.magnification-1)*4)*play.height*.117
-        width: play.width * (play.handWeapon ? .77 : play.weapon.chargeEachShot ? .49 : play.compactLayout ? .55 : .59)
-        height: play.height * (play.handWeapon ? .89 : play.weapon.chargeEachShot ? .39 : .47)
+        anchors.bottomMargin: (play.handWeapon || play.weapon.staff ? -5
+            : 4 + play.height*.011 - play.weaponAim.y*play.height*.018 - Math.min(1,(play.magnification-1)*4)*play.height*.117)-play.swapOffset*play.height*.27
+        width: play.width * (play.weapon.staff ? .70 : play.handWeapon ? .77 : play.weapon.chargeEachShot ? .49 : play.compactLayout ? .55 : .59)
+        height: play.height * (play.weapon.staff ? .94 : play.handWeapon ? .89 : play.weapon.chargeEachShot ? .39 : .47)
         active: play.fighting
         transformOrigin: Item.Bottom
         rotation: play.projectedMode && !play.handWeapon ? play.weaponAim.x*4 - play.weaponAim.y*2 : 0
@@ -1157,11 +1262,48 @@ FocusScope {
         }
         sourceComponent: play.projectedMode ? drawnGun : modeledGun
     }
+    Rectangle {
+        objectName:"centreReloadMeter"
+        z:22
+        width:Math.min(240,play.width*.34)
+        height:reloadContents.implicitHeight+15
+        x:(play.width-width)*.5
+        y:play.height*.585
+        radius:7
+        visible:play.fighting && play.reloadTime>0 && !play.trainingDialogue
+        color:"#ed18121f"
+        border.color:"#e8a27d"
+        ColumnLayout {
+            id:reloadContents
+            anchors.fill:parent
+            anchors.margins:7
+            spacing:4
+            Text {
+                Layout.fillWidth:true
+                text:"RELOADING  ·  "+play.reloadTime.toFixed(1)+"s"
+                horizontalAlignment:Text.AlignHCenter
+                color:"#ffe1bc"
+                font.family:"IBM Plex Mono"
+                font.pixelSize:Ui.UiMetrics.text(12)
+            }
+            Rectangle {
+                Layout.fillWidth:true
+                implicitHeight:5
+                color:"#57424e"
+                radius:2
+                Rectangle {width:parent.width*play.reloadRatio;height:parent.height;color:"#ffd59b";radius:2}
+            }
+        }
+    }
     Component {
         id: modeledGun
         WeaponModel {
             detail:play.graphicsDetail
-            sunlight:play.twilight ? play.weather : ""
+            sunYaw:play.solarYaw-play.location.yaw
+            sunHeight:1-play.sky.sunY
+            sunColor:play.solarColor
+            darkSky:play.sky.dark
+            warmSky:play.sky.warm
             weapon: play.weapon
             aimOffset: play.weaponAim
             shotLife: play.strikeLife
@@ -1183,7 +1325,7 @@ FocusScope {
         id: drawnGun
         WeaponSprite {
             weapon: play.weapon
-            sunlight:play.twilight ? play.weather : ""
+            sunlight:play.sky.warm>.13 ? (play.run.skyProgress>.70 ? "sunrise" : "sunset") : ""
             aimOffset: play.weaponAim
             shotLife: play.strikeLife
             reloadRatio: play.reloadRatio
@@ -1513,7 +1655,7 @@ FocusScope {
         Text {
             width: parent.width
             text: (play.summons ? play.summons + (play.summons === 1 ? " summon  ·  " : " summons  ·  ") : "")
-                + play.gold + " gold" + (play.weather !== "clear" ? "  ·  " + Conditions.entries[play.weather].title : "")
+                + play.gold + " gold  ·  "+Conditions.entries[play.daypart].title+(play.weather !== "clear" ? "  ·  " + Conditions.entries[play.weather].title : "")
             horizontalAlignment: Text.AlignHCenter
             color: "#ffe08a"
             font.family: "IBM Plex Mono"
@@ -2027,8 +2169,8 @@ FocusScope {
         color: play.phase === "shop" ? "#211823" : "#f71b1622"
         border.color: play.phase === "shop" ? "#8498ba" : "#94616f"
         border.width: 1
-        visible: opacity > 0
-        enabled: !play.fighting
+        visible: opacity > 0 && !play.outcomeKind && play.phase!=="defeat"
+        enabled: visible && !play.fighting
 
         Rectangle {
             anchors.top: parent.top
@@ -2108,7 +2250,9 @@ FocusScope {
                 build: { play.revision; return play.run.debugBuild }
                 unlockAll: { play.revision; return play.run.debugUnlockAll }
                 bloodMoon: { play.revision; return play.run.debugWeather === "bloodMoon" }
+                weatherLayer:{play.revision;return play.run.debugLayer}
                 onPracticeWeatherRequested:function(value) { if (Rules.setPracticeWeather(play.run,value)) play.publish() }
+                onWeatherLayerRequested:function(value) {if (Rules.setPracticeLayer(play.run,value)) play.publish()}
                 onUnlocksRequested: function(enabled) {
                     if (Rules.applyDebugUnlocks(play.run, enabled))
                         play.publish()
@@ -2141,13 +2285,22 @@ FocusScope {
             StarterPicker {
                 onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
                 Layout.fillWidth: true
-                visible: play.draftingWeapon && !play.paused
+                visible: play.draftingWeapon && !play.paused && !(play.vault?.state.pending.epic || play.vault?.state.pending.legendary)
                 weapons: play.startingWeapons
                 selectedId: play.starterChoice
                 onWeaponSelected: function(id) {
                     if (Rules.chooseStarter(play.run,id))
                         play.publish()
                 }
+            }
+            Text {
+                Layout.fillWidth:true
+                visible:play.draftingWeapon && !play.paused && !!(play.vault?.state.pending.epic || play.vault?.state.pending.legendary)
+                text:"The Witch has reserved a random "+(play.vault?.state.pending.legendary ? "Legendary" : "Epic")+" starting weapon."
+                color:"#edbfeb"
+                font.family:"Inter"
+                font.pixelSize:Ui.UiMetrics.text(14)
+                wrapMode:Text.WordWrap
             }
             PetPicker {
                 Layout.fillWidth: true
@@ -2325,7 +2478,7 @@ FocusScope {
             spacing: 7
             Ui.ActionButton {
                 id: primaryAction
-                objectName: "primaryPlayAction"
+                objectName:play.phase==="defeat" ? "preparationAction" : "primaryPlayAction"
                 primary: true
                 enabled: play.allowed
                 visible: play.paused || ["ready","between","defeat"].includes(play.phase)
@@ -2384,6 +2537,20 @@ FocusScope {
                 }
             }
             Ui.ActionButton {
+                objectName:"retireRun"
+                visible:play.paused && !play.run.training && play.phase!=="combat" && play.phase!=="ready" && play.run.metrics.waves>0
+                text:play.retireArmed ? "Confirm return" : "Retire"
+                hintText:"End the run and receive a grade. A hitless run can qualify for SSS here."
+                onClicked: {
+                    if (!play.retireArmed) {play.retireArmed=true;return}
+                    if (Rules.retire(play.run)) {
+                        play.paused=false
+                        play.retireArmed=false
+                        play.publish()
+                    }
+                }
+            }
+            Ui.ActionButton {
                 objectName: "quitRun"
                 visible: play.paused
                 text: "Home"
@@ -2433,6 +2600,29 @@ FocusScope {
         }
     }
 
+    Loader {
+        id:postcard
+        anchors.centerIn:parent
+        width:Math.min(play.width-35,820)
+        height:Math.min(play.height-24,535*Math.sqrt(Ui.UiMetrics.textScale))
+        z:75
+        active:play.phase==="defeat" && !play.outcomeKind && !!play.attemptReport
+        sourceComponent:Ui.RunPostcard {
+            report:play.attemptReport
+            canContinue:!!play.waveCheckpoint && !play.tutorial
+            archived:play.attemptArchived
+            onRestartRequested:play.resetRun()
+            onContinueRequested:play.continueAttempt()
+            onArchiveRequested:if(play.vault && play.vault.archive(play.attemptReport)) play.attemptArchived=true
+            onExitRequested:play.exitRequested()
+        }
+    }
+    Loader {
+        anchors.fill:parent
+        z:100
+        active:!!play.outcomeKind
+        sourceComponent:OutcomeSplash {loss:play.outcomeKind==="loss";motion:play.motion}
+    }
     Loader {
         id: audio
         active: play.sound

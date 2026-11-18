@@ -41,7 +41,14 @@ GUNS = {
     "rimeBell":("pump",129,.28,.79,(.11,.43,.59,.92)),
     "furnaceDoor":("pump",52,.42,1.04,(.10,.31,.58,.80,.97)),
     "twinShotguns":("pump",73,.34,.78,(.08,.27,.48,.72,.96)),
-    "siegeRpg":("launch",43,.58,.91,(.10,.35,.61,.87,.98)),
+    "siegeRpg":("launch",43,.58,3.8,(.07,.28,.54,.80,.97)),
+    "mortuarySix":("ballistic",136,.16,.54,(.09,.38,.76,.94)),
+    "stampedCarbine":("ballistic",172,.12,.65,(.08,.33,.72,.96)),
+    "auditBreaker":("rail",520,.31,1.03,(.07,.38,.65,.94)),
+    "patentCoil":("pulse",369,.19,.96,(.10,.33,.56,.82,.96)),
+    "registrar":("rail",803,.42,1.11,(.06,.37,.78,.95)),
+    "grandReceipt":("rail",154,.57,2.44,(.08,.25,.67,.88,.99)),
+    "zeroHour":("blade",201,.41,.91,(.07,.42,.82,.98)),
     "cinderTwig":("staff",164,.35,.40,(.10,.65)),
     "draughtStick":("staff",376,.35,.40,(.12,.62)),
     "pollenRod":("staff",127,.39,.45,(.14,.61,.83)),
@@ -337,6 +344,25 @@ def rain_loop():
 
 
 rain_loop()
+
+
+def thunder_strike():
+    rng = Random(4357)
+    rumble = 0
+
+    def sample(t):
+        nonlocal rumble
+        crackle = rng.uniform(-1, 1)
+        rumble = .97 * rumble + .03 * crackle
+        crack = .52 * crackle * exp(-t * 28)
+        swell = min(1, t * 17) * exp(-t * 2.6)
+        body = (.52 * tone(56 - 8 * t, t) + .24 * tone(36, t) + rumble) * swell
+        return min(1, (1.65 - t) * 15) * (crack + body)
+
+    write("thunder-strike", 1.65, sample)
+
+
+thunder_strike()
 
 
 def bed(name, pulse_count, hot=False):

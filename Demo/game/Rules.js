@@ -10,6 +10,7 @@
 .import "Abyss.js" as Abyss
 .import "Conditions.js" as Conditions
 .import "SkillArt.js" as SkillArt
+.import "Meta.js" as Meta
 
 var fronts = Mission.fronts
 var groundFronts = Mission.groundFronts
@@ -63,9 +64,11 @@ function directionToward(view, targetView) {
 function create(seed, unlocks) {
     const run = {
         seed:seed >>> 0, rng:seed >>> 0, phase:"ready", time:0, wave:0, waveTime:0,
-        difficulty:"normal", startAt:1, debug:false, debugBuild:"standard", debugUnlockAll:false,debugWeather:"",
+        difficulty:"normal", startAt:1, debug:false, debugBuild:"standard", debugUnlockAll:false,debugWeather:"",debugLayer:"",
         nextStage:null,stage:null,desktop:null,training:null,abilityEvents:[],passiveFxReady:{},salvoTime:0,salvoBonus:0,runeReady:0,sprayTime:0,vampireReady:0,
         careerUnlocks:unlocks || [], playerFront:"front", viewReady:true, weatherEffect:"clear", nextFirePulse:0,
+        skyProgress:0,skyPhase:"daytime",skyClearing:false,bloodMoonSeen:false,stormAt:0,stormBursts:[],
+        attemptId:"",covenant:null,rehearsal:false,finishReason:"",
         abyssSeal:{progress:0,closed:false}, grab:null, hypnosis:null, inkStains:false, dizzyLeft:0,
         fearCut:false, souls:0, scytheSouls:0, boneTime:0, boneRank:0, windAt:20, gustLeft:0,scareTime:0,
         starterChoice:"", starterOffers:[], starterSeed:(seed >>> 0)^0x614f93cd,
@@ -148,6 +151,7 @@ function configure(run, difficulty, startAt, build) {
     if (!run.debug) {
         run.debugBuild = "standard"
         run.debugWeather = ""
+        run.debugLayer = ""
         if (run.debugUnlockAll)
             applyDebugUnlocks(run, false)
     } else if (["standard","star","random"].includes(build)) {
@@ -162,6 +166,14 @@ function setPracticeWeather(run, enabled) {
         return false
     run.debugWeather = enabled ? "bloodMoon" : ""
     run.nextStage = null
+    prepareStage(run)
+    return true
+}
+
+function setPracticeLayer(run, layer) {
+    if (run.phase!=="ready" || !run.debug || !["","clear","rain","thunder","fog","winter","inferno","incursion","meteor","windy","glitch"].includes(layer)) return false
+    run.debugLayer=layer
+    run.nextStage=null
     prepareStage(run)
     return true
 }
@@ -314,7 +326,7 @@ function raiseShield(run) {
     guard.limit = spec.limit ? spec.limit + upgrades*.12 + Gear.perk(run,"shieldLimit") : 0
     guard.capacity = spec.hits + Number(guard.level >= 2) + Number(rank(run,"guardSeam") >= 3) + Gear.kitBonus(run,"shieldHits")
     guard.recovery = Math.max(2.45,spec.cooldown - upgrades*.25 - guard.level*.65 - rank(run,"guardSeam")*.45
-        - Gear.perk(run,"shieldCool") - Gear.kitBonus(run,"shieldCooldown") - Gear.passiveSockets(run,"shieldRecovery",.85))
+        - Gear.perk(run,"shieldCool") - Gear.kitBonus(run,"shieldCooldown") - Gear.passiveSockets(run,"shieldRecovery",.85) - Meta.benefits(run).shield)
     guard.mode = mode
     guard.tint = spec.tint
     guard.raised = true
@@ -328,7 +340,7 @@ function raiseShield(run) {
 }
 
 function isTimedParry(run, extraWindow) {
-    return run.shield.raised && run.shield.age <= .20+(extraWindow || 0)
+    return run.shield.raised && run.shield.age <= .20+Meta.benefits(run).parry+(extraWindow || 0)
 }
 
 function lowerShield(run) {
@@ -492,11 +504,84 @@ function blindness(run) {
 }
 
 function night(run) {
-    return Conditions.isNight(run.weatherEffect)
+    return Conditions.isNight(run.skyPhase) || Conditions.isNight(run.weatherEffect)
+}
+
+function bloodMoon(run) {
+    return run.skyPhase === "bloodMoon" || run.weatherEffect === "bloodMoon"
 }
 
 function blindRank(run) {
-    return Math.max(run.elements.blind,run.weatherEffect === "bloodMoon" ? 2 : night(run) ? 1 : 0)
+    return Math.max(run.elements.blind,bloodMoon(run) ? 2 : night(run) ? 1 : 0)
+}
+
+function skyRanks(dark,red) {
+    return {health:dark ? 1.05 : 1, damage:red ? 1.15 : dark ? 1.05 : 1,
+        speed:red ? 1.20 : dark ? 1.05 : 1, cadence:red ? 1.10 : dark ? 1.05 : 1}
+}
+
+function updateSky(run, dt) {
+    if (run.training || !run.stage?.night) return
+    const pace = run.skyClearing ? Math.max(1/run.stage.skySeconds,.37) : 1/run.stage.skySeconds
+    const lateGuest=run.stage.night==="bloodMoon" && run.pending.some(function(entry) {return entry.type==="blandromedus"})
+    run.skyProgress = Math.max(run.skyProgress,Math.min(lateGuest ? .74 : 1,run.skyProgress+dt*pace))
+    const phase = Conditions.daypart(run.skyProgress,run.stage.night)
+    if (phase === run.skyPhase) return
+    run.skyPhase=phase
+    const dark=night(run), red=bloodMoon(run)
+    const now=skyRanks(dark,red)
+    for (const enemy of run.enemies) {
+        const old=skyRanks(enemy.night,enemy.bloodMoon)
+        const health=now.health/old.health
+        enemy.damage*=now.damage/old.damage
+        enemy.travelSpeed*=now.speed/old.speed
+        enemy.attack*=old.cadence/now.cadence
+        enemy.ranged*=old.cadence/now.cadence
+        enemy.baseHp*=health
+        enemy.hp*=health
+        enemy.maxHp*=health
+        enemy.barrier*=health
+        if (enemy.turrets) {
+            for (const tube of enemy.turrets) {tube.hp*=health;tube.maximum*=health}
+            enemy.coreHp*=health
+        }
+        if (enemy.fangs)
+            for (const fang of enemy.fangs) {fang.hp*=health;fang.maximum*=health}
+        enemy.night=dark
+        enemy.bloodMoon=red
+    }
+    if (red && !run.bloodMoonSeen) {
+        run.bloodMoonSeen=true
+        record(run,"bloodMoonNights")
+        announce(run,"Blood Moon Night","bloodMoonArrival")
+    } else if (phase==="night" && !run.skyClearing && !run.enemies.some(function(enemy){return enemyTypes[enemy.type].role==="boss"})) {
+        announce(run,null,"nightArrival")
+    }
+}
+
+function thunderStrike(run) {
+    const viable=run.enemies.filter(function(enemy) {
+        const spec=enemyTypes[enemy.type]
+        return enemy.hp>0 && !enemy.warp && !enemy.waitingBoss && !enemy.stormCharged && !ghosted(enemy)
+            && !["boss","hazard","illusion"].includes(spec.role) && enemy.front===run.playerFront
+            && !(enemy.type==="archfellanus" && Abyss.mirror(enemy.age))
+    })
+    const enemy=viable.length ? viable[Math.floor(ambientRandom(run)*viable.length)] : null
+    const point=enemy ? arcPoint(enemy) : {lane:(ambientRandom(run)-.5)*990,elevation:12,depth:1360}
+    const empowered=enemy && ambientRandom(run)>=.50
+    run.stormBursts.push(Object.assign(point,{id:run.nextId++,front:run.playerFront,life:.68,span:.68,charged:!!empowered,seed:Math.floor(ambientRandom(run)*600)}))
+    announce(run,empowered ? enemyTypes[enemy.type].title+" is supercharged" : null,"thunderStrike")
+    if (!enemy) return
+    if (empowered) {
+        enemy.stormCharged=true
+        enemy.travelSpeed*=1.5
+        enemy.attack/=1.5
+        enemy.ranged/=1.5
+    } else {
+        // The bolt reaches the demon directly and takes down any barrier with it.
+        enemy.barrier=0
+        wound(run,enemy,enemy.hp+1,"storm")
+    }
 }
 
 function blindStrength(run) {
@@ -620,7 +705,7 @@ function stunTime(run) {
 }
 
 function canAct(run) {
-    return run.phase === "combat" && !run.scareTime && stunTime(run) <= 0 && (!run.grab || !run.grab.constrict)
+    return run.phase === "combat" && !run.skyClearing && !run.scareTime && stunTime(run) <= 0 && (!run.grab || !run.grab.constrict)
 }
 
 function random(run) {
@@ -659,15 +744,29 @@ function prepareStage(run) {
     const wave = run.phase === "ready" && run.debug ? run.startAt : run.wave+1
     if (!run.nextStage || run.nextStage.wave !== wave || run.nextStage.difficulty !== run.difficulty)
         run.nextStage = Mission.planWave(wave,run.seed,run.difficulty,run.desktop?.resonance,
-            run.debug ? run.debugWeather : "")
+            run.debug ? run.debugWeather : "",run.debug ? run.debugLayer : "")
     return run.nextStage
+}
+
+function applyCovenant(run,terms) {
+    if (!terms || run.debug || run.training || run.covenant) return
+    run.covenant=terms
+    const parcel=terms.pending
+    const rarity=parcel.legendary ? "legendary" : parcel.epic ? "epic" : ""
+    if (rarity) run.starterChoice=Gear.covenantOffer(run,"weapon",[rarity],0x178ca4)
+    if (parcel.basket) {
+        run.slots.active[0].item=Gear.makeItem(Gear.covenantOffer(run,"active",["common","rare"],0x30f1e))
+        run.slots.passive[0].item=Gear.makeItem(Gear.covenantOffer(run,"passive",["common","rare"],0x99f32))
+    }
+    run.health=Gear.maxHealth(run)
+    run.barrierCell.hp=Meta.benefits(run).barrier
 }
 
 function attackInterval(enemy) {
     const creature = enemyTypes[enemy.type]
     const interval = enemy.type === "faeel" ? creature.interval
         : (creature.ship && enemy.turrets ? Ship.frequency(enemy) : creature.interval) * Mission.attackIntervalScale
-    return interval/(enemy.bloodMoon ? 1.10 : enemy.night ? 1.05 : 1)
+    return interval/skyRanks(enemy.night,enemy.bloodMoon).cadence/(enemy.stormCharged ? 1.5 : 1)
 }
 
 function startWave(run) {
@@ -706,6 +805,9 @@ function startWave(run) {
     run.smokeRoster += 1
     run.fastTurn = run.remoteGuard = 0
     run.wave += 1
+    const carried=Gear.loadRating(run)
+    record(run,"loadSamples")
+    record(run,"loadBurden",carried.burden)
     run.metrics.bestWave = run.wave
     run.progress += 1
     run.hurtThisWave = false
@@ -779,13 +881,17 @@ function startWave(run) {
     run.pending = stage.schedule.map(function(entry) { return Object.assign({},entry) })
     run.waveSize = stage.enemyCount
     run.weatherEffect = stage.weather
-    if (run.weatherEffect === "bloodMoon")
-        record(run,"bloodMoonNights")
+    run.skyProgress=0
+    run.skyPhase="daytime"
+    run.skyClearing=false
+    run.bloodMoonSeen=false
+    run.stormAt=run.weatherEffect==="thunder" ? 4.6+ambientRandom(run)*3.5 : 0
+    run.stormBursts=[]
     run.nextFirePulse = 0
     run.nextFrostPulse = 5
     const sky = Conditions.entries[run.weatherEffect]
     const cue = {inferno:"inferno",incursion:"voidIntrusion",winter:"winterArrival",windy:"windArrival",
-        glitch:"glitchArrival",night:"nightArrival",bloodMoon:"bloodMoonArrival",rain:"rainArrival",meteor:"meteorArrival"}
+        glitch:"glitchArrival",rain:"rainArrival",thunder:"rainArrival",meteor:"meteorArrival"}
     announce(run,"Wave "+run.wave+(sky.id === "clear" ? " incoming" : " · "+sky.title),cue[sky.id] || "wave")
     return true
 }
@@ -796,14 +902,14 @@ function spawn(run, entry) {
         return null
     const preset = Mission.difficulty(run.difficulty)
     const dark = night(run)
-    const bloodMoon = run.weatherEffect === "bloodMoon"
+    const red = bloodMoon(run)
     const scale = enemyScale(run.wave, run.difficulty) * (entry.tuning || 1) * (dark ? 1.05 : 1)
     const health = creature.health * scale * preset.health
     const enemy = {
         id: run.nextId++, type: entry.type, front: entry.front, lane: entry.lane, depth: creature.distance || Mission.spawnDistance,
-        hp:health,maxHp:health,baseHp:health,damage:creature.damage * scale * preset.damage * (bloodMoon ? 1.15/1.05 : 1),
-        travelSpeed:creature.speed * preset.speed * (bloodMoon ? 1.20 : dark ? 1.05 : 1),
-        night:dark,bloodMoon:bloodMoon,crumble:0,
+        hp:health,maxHp:health,baseHp:health,damage:creature.damage * scale * preset.damage * (red ? 1.15/1.05 : 1),
+        travelSpeed:creature.speed * preset.speed * (red ? 1.20 : dark ? 1.05 : 1),
+        night:dark,bloodMoon:red,stormCharged:false,crumble:0,
         dodgeIn:0, dodgeOffset:0, dodgeLift:0, dodgeAge:0, dodgeAim:0,
         dodgeLaneGoal:0, dodgeLiftGoal:0, maneuverIn:0,
         lateral:entry.lane || 0, driftHeight:0, driftLane:entry.lane || 0, heightGoal:0,
@@ -1126,12 +1232,13 @@ function remove(run, index, paid, source) {
     const role = enemyTypes[enemy.type].role
     const baseGold = Math.round(goldPerKill(run.wave) * (role === "boss" ? 10 : enemy.type === "gojemarus" ? 5 : 1)
         + rank(run,"liquidAssets") + Gear.passiveSockets(run,"killGold",4))
-    const value = run.weatherEffect === "bloodMoon" ? Math.round(baseGold*1.25) : baseGold
+    const value = bloodMoon(run) ? Math.round(baseGold*1.25) : baseGold
     run.gold += value
     record(run, "goldEarned", value)
     if (role === "boss") {
         record(run, "bossKills")
-        if (run.weatherEffect === "bloodMoon")
+        if (run.wave===100) record(run,"wave100Boss")
+        if (bloodMoon(run))
             record(run,"bloodMoonBosses")
         if (run.waveTime-(enemy.engagedAt || 0)<35)
             record(run,"fastBosses")
@@ -1411,13 +1518,13 @@ function interruptAttack(enemy) {
 }
 
 function applyToEnemy(run, enemy, kind, level, options) {
-    if (statusImmune(enemy, kind) || kind === "burn" && run.weatherEffect === "rain")
+    if (statusImmune(enemy, kind) || kind === "burn" && Conditions.isRain(run.weatherEffect))
         return
     if (kind === "wind" && level > 0) {
         applyKnockback(run,enemy,level)
         return
     }
-    const weatherPerks = kind === "freeze" && run.weatherEffect === "rain" ? {forceFreeze:true} : null
+    const weatherPerks = kind === "freeze" && Conditions.isRain(run.weatherEffect) ? {forceFreeze:true} : null
     Elements.apply(enemy.elements, kind, level, function() { return random(run) },
         Object.assign({},elementalPerks(run,kind),kind==="burn" ? {duration:.6*rank(run,"slowEmbers")} : null,weatherPerks,options))
     enemy.maxHp = Math.max(1, enemy.baseHp * Elements.healthFactor(enemy.elements))
@@ -1430,7 +1537,7 @@ function arcPoint(enemy) {
 
 function chainElectric(run, origin, damage, level, extraReach) {
     const spec = Elements.kinds.electric
-    const rain = run.weatherEffect === "rain"
+    const rain = Conditions.isRain(run.weatherEffect)
     const hops = rain ? run.enemies.length : spec.passes[level] + (Gear.hasKit(run, "resonance") ? 1 : 0)
     const radius = spec.radius[level] + Gear.perk(run, "arcRadius") + (extraReach || 0)
     const retain = Math.min(.82, spec.retain[level] + .036 * rank(run, "conductor"))
@@ -1655,7 +1762,7 @@ function changeSniperPerch(run, enemy) {
 }
 
 function splitBody(run, enemy, blade) {
-    if (!["katana","chainsaw","darksaber","emberslash","mechasword","duoknives","reaperscythe","breakerGlaive","fearScythe"].includes(blade)
+    if (!["katana","chainsaw","darksaber","emberslash","mechasword","duoknives","reaperscythe","breakerGlaive","fearScythe","zeroHour"].includes(blade)
         || ["meteor","nightosphere","hallucination"].includes(enemy.type))
         return
     const life = enemyTypes[enemy.type].role === "boss" ? 1.42 : 1.02
@@ -1682,6 +1789,7 @@ function hurtReaction(run, enemy) {
 function wound(run, enemy, amount, source, element, level, impact) {
     if (!enemy || enemy.hp <= 0 || enemy.waitingBoss || !Number.isFinite(amount) || amount < 0)
         return ""
+    if (source==="ability" && !impact?.weaponId) amount*=Meta.benefits(run).active
     const spec = enemyTypes[enemy.type]
     if (run.training && spec.trainer) {
         const mode=run.training.mode
@@ -1715,7 +1823,7 @@ function wound(run, enemy, amount, source, element, level, impact) {
         return spec.title+" drinks the blast"
     if ((source === "ability" || source === "grenade") && !impact?.attackRolled && attackMisses(run,blindRank(run)))
         return ""
-    if (element === "electric" && run.weatherEffect === "rain" && source !== "electric")
+    if (element === "electric" && Conditions.isRain(run.weatherEffect) && source !== "electric")
         amount *= 2
     const multiplier = !spec.critImmune && impact && impact.critical > 1 ? impact.critical : 1
     if (enemy.type === "hasasasa") {
@@ -1796,12 +1904,12 @@ function wound(run, enemy, amount, source, element, level, impact) {
     if (dealt > 0 && (source !== "burn" || enemy.hp <= 0))
         blood(run, enemy, impact && impact.blood || source, enemy.hp <= 0 && enemy.type !== "mystery")
     if (element === "electric" && dealt > 0) {
-        if (source !== "electric" && (!resisted || run.weatherEffect === "rain"))
+        if (source !== "electric" && (!resisted || Conditions.isRain(run.weatherEffect)))
             chainElectric(run, enemy, amount, level, impact && impact.arcReach)
         if (!resisted && enemy.hp > 0 && random(run) < Elements.electricStun(level))
             applyToEnemy(run, enemy, "stun", 1)
     } else if (element && dealt > 0) {
-        applyToEnemy(run, enemy, element, level)
+        applyToEnemy(run, enemy, element, level, impact?.durationScale ? {durationScale:impact.durationScale} : null)
         if (element === "burn" && run.weatherEffect !== "rain")
             enemy.infernoBurn = false
     }
@@ -1982,12 +2090,12 @@ function explode(run, grenade) {
             grenade.kind === "staff" ? "ability" : "grenade", effect.element, effect.elementLevel,
             { arcReach:effect.spell === "electric" && Gear.hasKit(run,"thunderKit") ? 45 : 0,
                 critical:effect.critical,ranged:grenade.kind === "launcher",breakBarrier:grenade.kind === "nullgrenade",
-                attackRolled:effect.attackRolled,explosion:!effect.spell,weaponId:effect.weaponId })
+                attackRolled:effect.attackRolled,explosion:!effect.spell,weaponId:effect.weaponId,durationScale:effect.durationScale })
         if (effect.spell && effect.element === "freeze" && exposed && !statusImmune(enemy,"freeze"))
             enemy.elements.frozen = Math.max(enemy.elements.frozen, 1.45 + (Gear.hasKit(run,"iceKit") ? .50 : 0))
         if (effect.element === "freeze" && enemy.elements.frost)
             enemy.elements.frostLeft = Math.max(enemy.elements.frostLeft,
-                2.9 + grenade.strength * .75 + (Gear.hasKit(run, "breacher") ? 2 : 0))
+                (2.9 + grenade.strength * .75 + (Gear.hasKit(run, "breacher") ? 2 : 0))*(effect.durationScale || 1))
         if (grenade.kind === "gravitywell" && enemy.hp > 0)
             applyToEnemy(run, enemy, "weaken", Math.min(3, effect.elementLevel - 1))
     }
@@ -2006,6 +2114,7 @@ function explode(run, grenade) {
         return gift.front === grenade.front && Math.hypot(gift.lane - grenade.lane,
             -68 - grenade.elevation, (gift.depth - grenade.depth) * .66) < grenade.radius
     })
+    if (grenade.kind==="launcher" && (targets.length || bag || turret || fang)) record(run,"hitShots")
     run.rumble = Math.max(run.rumble, .38)
     announce(run, bag ? claimGift(run, bag) : targets.length ? "Blast · " + targets.length + " targets" : "",
         bag ? giftCue(bag) : grenade.kind === "cryogrenade" ? "frost" : "detonation")
@@ -2081,6 +2190,11 @@ function strikeContact(run, contact, damage, element, level, blade, critical) {
         const stats = weapons[blade] && blade === Gear.current(run).id ? Gear.effectiveWeaponStats(run,Gear.current(run)) : null
         const note = wound(run, contact.enemy, damage, "gun", element, level, { blood:blade, critical:critical,
             knockback:stats ? stats.knockback : 0,pushBonus:stats ? stats.pushBonus : 0 })
+        if (blade==="zeroHour") {
+            for (const enemy of blastNeighbours(run,contact.enemy,360).slice(0,2))
+                wound(run,enemy,damage*.50,"gun","",0,{blood:blade,weaponId:blade})
+            passiveVisual(run,"zeroHour",contact.enemy.front,"cut","slice",arcPoint(contact.enemy),"",.18)
+        }
         if (note)
             announce(run, note, "")
     } else if (contact.gift) {
@@ -2505,6 +2619,7 @@ function updateLunge(run, dt) {
         const contact = impactContact(run, strike.target, strike.front)
         if (contact) {
             strikeContact(run,contact,strike.damage,strike.element,strike.level,strike.weapon.id,strike.critical)
+            record(run,"hitShots")
             meleeDefeat(run,strike.gun,strike.weapon,contact.enemy)
             run.meleeImpact = strike.weapon.afterglow
             announce(run, "Charged strike", "combo")
@@ -2564,6 +2679,7 @@ function meleeStrike(run, gun, weapon, stats, hits, view, power, aim) {
         if (++struck >= limit || !close)
             break
     }
+    if (struck) record(run,"hitShots")
     if (finisher && struck) {
         record(run, "katanaCombos")
         announce(run, "Katana · finishing cut", "combo")
@@ -2721,15 +2837,16 @@ function shoot(run, hits, view, aim, continuation) {
         // Throwers and launchers keep their actual wind-up and ammo cycle.
     }
     if (!canAct(run) || run.desktop?.cpuMode && run.desktop.locked && (ammoWeapon || weapon.sustain) || run.shield.raised || run.lunge || gun.reload > 0 || gun.prep > 0 || gun.cool > 0
-        || (continuation ? !queuedShot(run) : gun.recovery > 0 || gun.burstLeft > 0) || weapon.spinup && gun.spin < 1)
+        || (continuation ? !queuedShot(run) : gun.recovery > 0 || gun.burstLeft > 0))
         return false
     if (ammoWeapon && gun.ammo === 0 && !unlimited) {
-        announce(run, "Magazine empty · R to reload", "empty")
-        gun.recovery = 0.24
+        reload(run,hits,frontId,aim)
         return false
     }
+    if (weapon.spinup && gun.spin<1) return false
 
     if (run.cursed && !weapon.melee && !weapon.throwing && random(run) < .13) {
+        record(run,"shots")
         gun.streak = 0
         if (continuation) {
             gun.burstLeft -= 1
@@ -3037,7 +3154,8 @@ function reload(run, hits, view, aim) {
     const kit = weapon.id === "twinpistols" && Gear.hasKit(run, "twinSet") ? .78 : 1
     const hunger = Math.min(.61, .40 + .075 * Math.max(0,rank(run,"redHunger") - 1))
         * missingHealth(run,"redHunger") * (Gear.hasKit(run,"redHungerKit") ? 1.10 : 1)
-    gun.reloadLength = Math.max(.32, stats.reload * kit * (1 - hunger) * Math.max(.54, 1 - rank(run, "reload") * .095 - Gear.perk(run, "reload")))
+    gun.reloadLength = Math.max(.32, stats.reload * kit * (1 - hunger)
+        * Math.max(.54, 1 - rank(run, "reload") * .095 - Gear.perk(run, "reload") - Gear.kitBonus(run,"reload",gun.id)))
         * (run.hexes.reload ? 1.43 : 1) * (Gear.weaponSocket(run).reload || 1)
     gun.reload = gun.reloadLength
     gun.burstLeft = 0
@@ -3450,7 +3568,7 @@ function expansionActive(run, id, stats, view, aimId, available) {
         return "staffImpact"
     }
     default:
-        return utilityActive(run, Defense.actives[id], strength, local, pointed, view, aimId)
+        return utilityActive(run, activeAbilities[id], strength, local, pointed, view, aimId)
     }
 }
 
@@ -3603,6 +3721,9 @@ function useAbility(run, slot, view, aimId, aim) {
         return enemy.front === view && enemy.warp <= 0 && !enemy.waitingBoss && !ghosted(enemy)
     })
     const before=available.map(function(enemy) {return SkillArt.footprint(enemy)})
+    const boon=Meta.benefits(run)
+    const timing=boon.duration>1 ? captureActiveTiming(run,available) : null
+    const grenadesBefore=run.grenades.length
     const ammoBefore=gun.ammo
     const barrierBefore=run.barrierHp
     const boltsBefore=run.bolts.length
@@ -3894,6 +4015,11 @@ function useAbility(run, slot, view, aimId, aim) {
     }
     if (slotBonus.weaponRecovery)
         gun.recovery=Math.max(0,gun.recovery-slotBonus.weaponRecovery)
+    if (timing) extendActiveTiming(run,available,timing,boon.duration)
+    for (const grenade of run.grenades.slice(grenadesBefore)) {
+        grenade.damage*=boon.active
+        grenade.effect=Object.assign({},grenade.effect,{durationScale:boon.duration})
+    }
     const targets=available.filter(function(enemy,index) {
         return SkillArt.footprint(enemy)!==before[index]
     }).sort(function(a,b) {return Number(b.id===aimId)-Number(a.id===aimId) || a.depth-b.depth}).slice(0,5)
@@ -3905,6 +4031,40 @@ function useAbility(run, slot, view, aimId, aim) {
     run.cooldowns[id] = abilityRecovery(run, equipped, stats, slotBonus)
     announce(run, feedback || activeAbilities[id].title + " activated", sound)
     return true
+}
+
+var timedActives=["barrier","frozenTime","decoyTime","dodgeWindow","safeTime","boneTime","salvoTime","fastFire",
+    "fastTurn","remoteGuard","infiniteAmmo","maxGearTime","carefulAim","lockfeed","sharpenTime","parry"]
+var timedTargets=["slow","mark","recover"]
+var timedStatus=["burnLeft","frostLeft","frozen","stunned","stunGate","blindLeft","weakenLeft","stickyLeft","poisonLeft","poisonDuration"]
+
+function captureTimers(entity,names) {
+    return names.map(function(key) {return entity[key] || 0})
+}
+
+function captureActiveTiming(run,enemies) {
+    return {player:captureTimers(run,timedActives),clouds:run.venomClouds.length,
+        target:enemies.map(function(enemy) {return captureTimers(enemy,timedTargets)}),
+        status:enemies.map(function(enemy) {return captureTimers(enemy.elements,timedStatus)})}
+}
+
+function extendTimers(object,names,previous,factor) {
+    for (let i=0;i<names.length;i++) {
+        const key=names[i]
+        if (object[key]>previous[i]) object[key]=previous[i]+(object[key]-previous[i])*factor
+    }
+}
+
+function extendActiveTiming(run,enemies,before,factor) {
+    extendTimers(run,timedActives,before.player,factor)
+    for (let i=0;i<enemies.length;i++) {
+        extendTimers(enemies[i],timedTargets,before.target[i],factor)
+        extendTimers(enemies[i].elements,timedStatus,before.status[i],factor)
+    }
+    for (const cloud of run.venomClouds.slice(before.clouds)) {
+        cloud.life*=factor
+        cloud.span*=factor
+    }
 }
 
 function rewindBolts(run,view,seconds) {
@@ -3945,7 +4105,7 @@ function abilityRecovery(run, slot, stats, bonus) {
     const power = bonus || Gear.socketEffect(run,"active",slot)
     const ability = stats || Gear.activeStats(slot.item, power.strength)
     const kitTiming = slot.item.id === "execution" && Gear.hasKit(run,"verdictSet") ? .82 : 1
-    return ability.cooldown * kitTiming * (run.waveTime<30 ? Math.max(.60,1-.07*rank(run,"secondHand")) : 1) * Math.max(.38, 1 - rank(run, "cooling") * .085
+    return ability.cooldown * Meta.benefits(run).recovery * kitTiming * (run.waveTime<30 ? Math.max(.60,1-.07*rank(run,"secondHand")) : 1) * Math.max(.38, 1 - rank(run, "cooling") * .085
         - rank(run, "deepcell") * .068 - Gear.perk(run, "cooldown") - Gear.kitBonus(run,"active",slot.item.id)) * (power.cooldown || 1)
 }
 
@@ -3970,14 +4130,16 @@ function evadesImpact(run, projectile) {
 
 function damagePlayer(run, amount, origin, type, burningTick, payload, projectile) {
     const attacker = enemyTypes[type]
-    const rain = run.weatherEffect === "rain"
-    const affected = payload && payload.element !== undefined ? payload : type === "gigafinterus" ? {element:"burn",elementLevel:3} : attacker
+    const rain = Conditions.isRain(run.weatherEffect)
+    const source = payload && payload.sourceId ? target(run,payload.sourceId)
+        : run.enemies.find(function(enemy) { return enemy.type === type && enemy.front === origin && enemy.hp > 0 && !enemy.warp })
+    const charged = !burningTick && !payload?.environment && (payload?.stormCharged || (!projectile && source?.stormCharged))
+    const affected = charged ? Object.assign({},payload,{element:"electric",elementLevel:1,electricStun:.08,forceStun:0})
+        : payload && payload.element !== undefined ? payload : type === "gigafinterus" ? {element:"burn",elementLevel:3} : attacker
     if (burningTick && rain && !payload?.soulDrain)
         return
     if (affected.element === "electric" && rain)
         amount *= 2
-    const source = payload && payload.sourceId ? target(run,payload.sourceId)
-        : run.enemies.find(function(enemy) { return enemy.type === type && enemy.front === origin && enemy.hp > 0 && !enemy.warp })
     if (!burningTick && !payload?.mirror && !payload?.environment
         && attackMisses(run,payload?.blindAtFire ?? source?.elements.blind ?? 0)) {
         if (origin === run.playerFront)
@@ -4003,6 +4165,7 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
     }
     if (!burningTick && evadesImpact(run, projectile))
         return
+    if (!burningTick) record(run,"unblockedHits")
     if (!burningTick && (run.barrier > 0 && run.barrierHp > 0 || run.barrierCell.hp > 0)) {
         if (run.barrierHp > 0)
             run.barrierHp -= 1
@@ -4043,7 +4206,9 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
     const damage = Math.max(1, amount * (1-apron) * (1-rank(run,"firstShift")*(run.wave<=20 ? .08 : .02)) * (projectile ? Math.max(.70,1-rank(run,"leeSide")*.04) : 1) * (run.cursed ? 1.20 : 1) * criticalPower * lining * exposure * guarded * Math.max(.25,
         1 - rank(run, "armour") * .095 - padding - insulation - ground - blast - steady - first - brine - Gear.perk(run, "armor")))
     if (run.desktop)run.desktop.pressure=Math.min(1,run.desktop.pressure+.06+damage/400)
+    const before=run.health
     run.health = Math.max(0, run.health - damage)
+    record(run,"damageTaken",before-run.health)
     if (type === "crufixicatus" && source && !source.scareUsed && !burningTick && run.health > 0) {
         source.scareUsed = true
         run.scareTime = 3
@@ -4090,7 +4255,9 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
             run.burnOrigin = origin
             run.burnSource = payload?.environment ? "" : type
         }
+        const prior=run.health
         run.health = Math.min(run.health, Gear.maxHealth(run))
+        if (prior>run.health) record(run,"damageTaken",prior-run.health)
     }
     if (!burningTick || run.health === 0)
         announce(run, burningTick ? "Burn damage" : (critical ? "Critical hit · " : "") + attacker.title + " hit you"
@@ -4102,6 +4269,7 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
         if (!payload?.environment)
             record(run,"enemyDeaths_"+type)
         run.phase = "defeat"
+        run.finishReason="death"
         announce(run, "The Shrine fell", "loss")
     }
 }
@@ -4116,7 +4284,8 @@ function launchBolts(run, enemy, creature) {
             elevation:elevation(enemy) + (creature.serpent ? 59 : creature.sniper ? 26 : 0),
             depth:enemy.depth-(creature.distance ? 135 : 0),duration:duration,remaining:duration + stagger,
             damage:enemy.damage * (burst === 5 ? .40 : burst > 1 ? .72 : 1) * Elements.damageFactor(enemy.elements),
-            color:enemy.type === "nightosphere" ? "#cb63ff" : creature.serpent ? "#e4c1ff" : creature.accent, source:enemy.type, sourceId:enemy.id, element:creature.element || "",
+            color:enemy.stormCharged ? "#e2c9ff" : enemy.type === "nightosphere" ? "#cb63ff" : creature.serpent ? "#e4c1ff" : creature.accent,
+            source:enemy.type, sourceId:enemy.id, element:creature.element || "", stormCharged:!!enemy.stormCharged,
             hp:creature.boltHealth || 0, maximum:creature.boltHealth || 0,sniper:!!creature.sniper,voidShot:!!creature.voidBoss || !!creature.ink,
             ink:!!creature.ink,localOnly:!!creature.ink || ["nightosphere","lalaBubu","blandromedus"].includes(enemy.type),
             crystal:enemy.type === "nightosphere",drain:!!creature.vampire,
@@ -4320,7 +4489,7 @@ function petStrike(run, pet, helper, enemy) {
                 && Math.abs(other.lane - enemy.lane) < (charged ? 280 : pet.id === "wyvern" ? 220 : 165)
         }).slice(0, charged ? 3 : 2)
         for (const other of nearby)
-            wound(run, other, damage * .61, pet)
+            wound(run, other, damage * .61, pet, charged ? "burn" : "", 1)
     }
     if (charged)
         passiveVisual(run,helper.id,pet.front,secondary.kind,"companion",arcPoint(enemy),secondary.title.toUpperCase(),.5)
@@ -4650,7 +4819,10 @@ function strike(run, enemy, creature) {
             return
         }
         run.fearCut = true
+        const prior=run.health
         run.health = Math.min(run.health,Gear.maxHealth(run))
+        record(run,"unblockedHits")
+        record(run,"damageTaken",prior-run.health)
         run.impactType = enemy.type
         run.impactTime = .64
         run.hurtThisWave = true
@@ -4761,6 +4933,11 @@ function tickWeapon(run, slot, index, dt, firingHeld) {
 function update(run, dt, sealing, firingHeld, aim, viewReady) {
     if (run.phase !== "combat")
         return
+    if (run.skyClearing) {
+        updateSky(run,dt)
+        if (run.skyProgress>=1) finishWave(run)
+        return
+    }
     if (run.scareTime > 0) {
         run.scareTime = Math.max(0,run.scareTime-dt)
         return
@@ -4777,6 +4954,14 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         desktop.pressure=Math.max(0,(desktop.pressure || 0)-dt*.022)
     }
     run.waveTime += dt
+    updateSky(run,dt)
+    if (run.weatherEffect==="thunder") {
+        run.stormBursts=run.stormBursts.filter(function(strike) {strike.life-=dt;return strike.life>0})
+        if (run.waveTime>=run.stormAt) {
+            run.stormAt=run.waveTime+6.4+ambientRandom(run)*5.8
+            thunderStrike(run)
+        }
+    }
     run.salvoTime=Math.max(0,run.salvoTime-dt)
     run.sprayTime=Math.max(0,run.sprayTime-dt)
     run.abilityEvents=run.abilityEvents.filter(function(effect) {effect.life-=dt;return effect.life>0})
@@ -4880,8 +5065,11 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
     }
     const priorPoisonLoss = run.elements.poisonLoss
     const fireDamage = Elements.advance(run.elements, dt)
-    if (run.elements.poisonLoss > priorPoisonLoss)
+    if (run.elements.poisonLoss > priorPoisonLoss) {
+        const prior=run.health
         run.health = Math.min(run.health, Gear.maxHealth(run))
+        if (run.health<prior) record(run,"damageTaken",prior-run.health)
+    }
     if (fireDamage > 0) {
         damagePlayer(run, fireDamage, run.burnOrigin,run.burnSource || "gigafinterus",true,{environment:!run.burnSource})
         if (run.phase === "defeat")
@@ -4921,7 +5109,8 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
 
     while (run.reinforcements.length && roomToSpawn(run,run.reinforcements[0]))
         spawn(run, run.reinforcements.shift())
-    while (run.pending.length && run.pending[0].at <= run.waveTime && roomToSpawn(run,run.pending[0])) {
+    while (run.pending.length && run.pending[0].at <= run.waveTime
+        && run.skyProgress >= (run.pending[0].skyGate || 0) && roomToSpawn(run,run.pending[0])) {
         const next = run.pending[0].type
         if (enemyTypes[next].role === "boss" && (run.enemies.length || run.bolts.length))
             break
@@ -5140,7 +5329,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
                 announce(run, front(enemy.front).title + " · " + creature.title + " winding up a shard", "warning")
             }
             if (!enemy.ranged) {
-                enemy.ranged = creature.rangedInterval * Mission.attackIntervalScale
+                enemy.ranged = creature.rangedInterval * Mission.attackIntervalScale / (enemy.stormCharged ? 1.5 : 1)
                 fireSpinShard(run, enemy)
             }
         }
@@ -5281,45 +5470,61 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         && !run.detonations.length && !run.bursts.some(function(burst) { return burst.life > .30 })
         && !run.gore.some(function(event) { return event.boss && event.fatal && event.life > .55 })) {
         if (run.training) return
-        record(run, "waves")
-        if (run.waveTime<30) record(run,"quickWaves")
-        if (run.waveTime<60) {run.metrics.bestTimedWave=Math.max(run.metrics.bestTimedWave || 0,run.wave);run.progress++}
-        if (!run.hurtThisWave)
-            record(run, "flawless")
-        if (!run.hurtThisWave) {
-            run.metrics.bestFlawlessWave = Math.max(run.metrics.bestFlawlessWave || 0,run.wave)
-            run.progress += 1
-        }
-        if (run.health / Gear.maxHealth(run) <= .35)
-            record(run, "lowHealthWaves")
-        if (run.weatherEffect === "rain")
-            record(run, "rainWaves")
-        if (run.weatherEffect === "bloodMoon")
-            record(run,"bloodMoonClears")
-        Elements.clearPoison(run.elements)
-        run.fearCut = false
-        const cap = Gear.maxHealth(run)
-        const recovery=Math.round(cap*Mission.difficulty(run.difficulty).recovery) + Gear.passiveSockets(run,"waveHeal",8)
-        const heal = Math.max(0, Math.min(recovery, cap - run.health))
-        run.health += heal
-        run.gifts = []
-        run.venomClouds = []
-        run.grenades = []
-        run.hexes = {}
-        run.taxedCooldowns = {}
-        run.giftRoster += 1
-        if (isBossWave(run.wave))
-            beginBossReward(run)
-        else if (isGearRewardWave(run.wave)) {
-            run.offers = draft(run)
-            run.phase = "reward"
-            run.refreshUsed = 0
-        } else {
-            run.offers = []
-            run.phase = "between"
-        }
-        announce(run, heal ? "Wave cleared · +" + Math.round(heal) + " HP" : "Wave cleared", "clear")
+        if (run.stage?.night && run.skyProgress<1)
+            run.skyClearing=true
+        else
+            finishWave(run)
     }
+}
+
+function finishWave(run) {
+    run.skyClearing=false
+    record(run, "waves")
+    if (run.waveTime<30) record(run,"quickWaves")
+    if (run.waveTime<60) {run.metrics.bestTimedWave=Math.max(run.metrics.bestTimedWave || 0,run.wave);run.progress++}
+    if (!run.hurtThisWave)
+        record(run, "flawless")
+    if (!run.hurtThisWave) {
+        run.metrics.bestFlawlessWave = Math.max(run.metrics.bestFlawlessWave || 0,run.wave)
+        run.progress += 1
+    }
+    if (run.health / Gear.maxHealth(run) <= .35)
+        record(run, "lowHealthWaves")
+    if (Conditions.isRain(run.weatherEffect))
+        record(run, "rainWaves")
+    if (run.bloodMoonSeen || run.weatherEffect === "bloodMoon")
+        record(run,"bloodMoonClears")
+    Elements.clearPoison(run.elements)
+    run.fearCut = false
+    const cap = Gear.maxHealth(run)
+    const recovery=Math.round(cap*Mission.difficulty(run.difficulty).recovery) + Gear.passiveSockets(run,"waveHeal",8)
+    const heal = Math.max(0, Math.min(recovery, cap - run.health))
+    run.health += heal
+    run.gifts = []
+    run.venomClouds = []
+    run.grenades = []
+    run.hexes = {}
+    run.taxedCooldowns = {}
+    run.giftRoster += 1
+    if (isBossWave(run.wave))
+        beginBossReward(run)
+    else if (isGearRewardWave(run.wave)) {
+        run.offers = draft(run)
+        run.phase = "reward"
+        run.refreshUsed = 0
+    } else {
+        run.offers = []
+        run.phase = "between"
+    }
+    announce(run, heal ? "Wave cleared · +" + Math.round(heal) + " HP" : "Wave cleared", "clear")
+}
+
+function retire(run) {
+    if (!run.metrics.waves || !["between","reward","bossReward","shop"].includes(run.phase)
+        || run.shopStock.some(function(card) {return card.paid && !card.sold})) return false
+    run.phase="defeat"
+    run.finishReason="retired"
+    return true
 }
 
 function charging(enemy) {
@@ -5494,12 +5699,12 @@ function buy(run, id, slot, confirmed) {
         run.spentGold += spent
         run.metrics.bestRunSpent = run.spentGold
         run.progress += 1
+        record(run,"shopBuys")
+        record(run,"shopSpent",spent)
     }
     if (rankUp)
         record(run, "upgrades")
     if (card.action === "expand-shop") {
-        if (id==="expand-counter")
-            run.shopStock=run.shopStock.filter(function(item) { return item.id!=="expand-counter" })
         const extra = Gear.makeShop(run,function() { return random(run) },run.shopStock.map(function(row) { return row.id }),
             Math.max(0,run.shopCapacity-run.shopStock.length))
         run.shopStock.push(...extra)

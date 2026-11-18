@@ -48,9 +48,10 @@ Item {
             }
             Text {
                 readonly property var weather:Weather.entries[muster.stage.weather] || Weather.entries.clear
-                visible:weather.id !== "clear"
-                text:weather.glyph+" "+weather.title
-                color:weather.tint
+                readonly property bool blood:muster.stage.night==="bloodMoon"
+                visible:weather.id !== "clear" || blood
+                text:(weather.id!=="clear" ? weather.glyph+" "+weather.title : "")+(blood ? (weather.id!=="clear" ? "  ·  " : "")+"Blood Moon" : "")
+                color:blood ? "#f09c9a" : weather.tint
                 font.family:"Inter"
                 font.pixelSize:Ui.UiMetrics.text(muster.compact ? 12 : 15)
             }

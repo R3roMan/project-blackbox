@@ -18,7 +18,7 @@ ColumnLayout {
     signal purchaseRequested(string offerId, int slot, string confirmed)
 
     readonly property int balance: { revision; return run.gold }
-    readonly property var cards: { revision; return Gear.shopCards(run).filter(function(card) {return card.id!=="expand-counter"}) }
+    readonly property var cards: { revision; return Gear.shopCards(run) }
     readonly property var expansion:{revision;return Gear.counterOffer(run)}
     readonly property int edition: { revision; return run.shopEdition }
     property string selectedId: ""

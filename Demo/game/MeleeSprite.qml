@@ -47,6 +47,15 @@ Canvas {
         ctx.clearRect(0, 0, width, height)
         ctx.scale(width / 336, height / 170)
         const hot = primed ? Qt.lighter(accent, 1.45) : accent
+        if (weaponId==="zeroHour") {
+            polygon(ctx,[7,79,54,59,237,59,247,72,247,90,53,100],steel(ctx,51,105))
+            polygon(ctx,[7,79,54,59,237,59,216,67,47,70],hot)
+            polygon(ctx,[7,79,53,100,237,100,216,91,47,88],hot)
+            polygon(ctx,[234,47,249,36,258,71,324,73,331,86,320,94,257,94,248,126,235,112,242,87],"#946837")
+            ctx.fillStyle=hot
+            ctx.fillRect(72,77,135,4)
+            return
+        }
         if (weaponId === "breakerGlaive") {
             polygon(ctx,[35,37,312,123,322,137,307,151,31,61],"#33303a")
             polygon(ctx,[10,17,91,35,155,76,118,88,67,57,15,46],steel(ctx,17,88))

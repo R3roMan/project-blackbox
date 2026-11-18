@@ -35,7 +35,7 @@ function apply(state, kind, level, random, perks) {
         if (!state.burnLeft)
             state.burnTick = .60
         state.burn = Math.max(state.burn, tier)
-        state.burnLeft = Math.max(state.burnLeft, data.duration[tier] + (bonus.duration || 0))
+        state.burnLeft = Math.max(state.burnLeft, (data.duration[tier] + (bonus.duration || 0))*(bonus.durationScale || 1))
     } else if (kind === "freeze") {
         state.burn = state.burnLeft = state.burnTick = 0
         state.frost = Math.max(state.frost, tier)
@@ -50,7 +50,7 @@ function apply(state, kind, level, random, perks) {
         state.explosive = Math.max(state.explosive, tier)
     } else if (kind === "stun") {
         if (!state.stunGate) {
-            state.stunned = bonus.stunDuration || data.duration[tier]
+            state.stunned = (bonus.stunDuration || data.duration[tier])*(bonus.durationScale || 1)
             state.stunGate = state.stunned + 1.65
         }
     } else if (kind === "poison") {
@@ -66,7 +66,7 @@ function apply(state, kind, level, random, perks) {
     } else if (kind === "sticky") {
         if (state.sticky < tier && (state.sticky || !state.stickyGuard)) {
             state.sticky = tier
-            state.stickyLeft = data.duration[tier]
+            state.stickyLeft = data.duration[tier]*(bonus.durationScale || 1)
             state.stickyGuard = state.stickyLeft + 1.5
         }
     } else if (kind === "weaken" || kind === "blind") {

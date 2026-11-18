@@ -18,6 +18,9 @@ FocusScope {
     required property var unlocks
     property string firstEntry: ""
     property var career: ({})
+    property var liveRun:null
+    property int liveRevision:0
+    property var nextTerms:null
     property bool achievementsUnlocked: false
     property bool motion: true
     property bool overlay: false
@@ -71,9 +74,12 @@ FocusScope {
     readonly property color tierColor: entry && tab === "enemies" ? Encounters.tierColors[Encounters.tier(entry.id)]
         : entry && entry.rarity ? Gear.rarities[entry.rarity]?.color || "#af7957" : "#984b41"
     readonly property string heading: !entry ? "An empty chapter" : seen ? entry.title : "Unknown"
-    readonly property string description: !entry ? "There is nothing written here yet."
-        : !seen ? "Its name has yet to reach these pages. Meet it in the field."
-        : Book.entryText(entry,tab)
+    readonly property string description: {
+        liveRevision
+        return !entry ? "There is nothing written here yet."
+            : !seen ? "Its name has yet to reach these pages. Meet it in the field."
+            : Book.entryText(entry,tab,liveRun,nextTerms)
+    }
     readonly property string caption: !seen || !entry ? "" : tab === "enemies"
         ? entry.origin+" · "+Encounters.tier(entry.id)+" · "+(Encounters.firstWave(entry.id) === 0
             ? "Tutorial" : Encounters.firstWave(entry.id) === -1 ? "Blood Moon" : "Wave "+Encounters.firstWave(entry.id))

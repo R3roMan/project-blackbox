@@ -4,9 +4,11 @@ Canvas {
     id:lunarDisc
     objectName:"starSkyMoon"
     required property bool redNight
-    readonly property real diameter:Math.min(parent.width,parent.height)*.34
-    x:parent.width*.68-width/2
-    y:parent.height*.35-height/2
+    property real orbitX:.68
+    property real orbitY:.35
+    readonly property real diameter:Math.min(parent.width,parent.height)*.285
+    x:parent.width*orbitX-width/2
+    y:parent.height*orbitY-height/2
     width:diameter
     height:diameter
     onWidthChanged:requestPaint()

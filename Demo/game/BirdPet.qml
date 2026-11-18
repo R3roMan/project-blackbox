@@ -39,7 +39,7 @@ Node {
     }
     Model {
         source:"#Sphere"
-        y:bird.wendy ? -7 : -7; z:12
+        y:-7; z:12
         scale:bird.finch ? Qt.vector3d(.26,.30,.34) : bird.raven ? Qt.vector3d(.36,.23,.32)
             : Qt.vector3d(.39,.40,.42)
         materials:[chest]

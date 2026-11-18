@@ -29,8 +29,9 @@ Canvas {
             ctx.rotate(-Math.PI*.48)
             ctx.scale(1.47,1.47)
         } else {
-            ctx.translate(92 + attack*22,46 + attack*8)
+            ctx.translate(214 + attack*14,48 + attack*7)
             ctx.rotate(.23 + attack*.087-Math.sin(cast*Math.PI)*.22)
+            ctx.scale(.72,.72)
         }
         ctx.fillStyle = "#262630"
         ctx.fillRect(-7,0,15,151)

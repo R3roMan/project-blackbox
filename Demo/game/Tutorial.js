@@ -6,8 +6,10 @@
 var lessons=[
     {title:"Meet Oblogabgalus",text:"A large target. A loaded pistol. Aim at his belly and land three shots.",goal:"Land three pistol shots.",kind:"shoot",front:"front"},
     {title:"Keep the chamber fed",text:"Press R, or right-click, to reload. Watch the magazine fill before firing again.",goal:"Complete one reload.",kind:"reload",front:"front"},
-    {title:"Stand your ground",text:"Hold Space to raise your shield. His open mouth warns of a bite. Release Space after the block; a late block recovers faster.",goal:"Block his bite with Space.",kind:"melee",front:"front"},
+    {title:"Stand your ground",text:"Hold Space to raise your shield. His open mouth warns of a bite. Release Space after the block. Blocking or lowering your shield starts its recovery.",goal:"Block his bite with Space.",kind:"melee",front:"front"},
     {title:"Catch the warning",text:"This time he will spit. Hold Space before the projectile reaches you. You can also shoot hostile projectiles in ordinary battles.",goal:"Block the incoming projectile.",kind:"projectile",front:"front"},
+    {title:"Perfect parry",text:"Wait for the final flash of his windup. Press Space just before the bite, within the last fifth of a second. A perfect parry cuts the next shield recovery by 25%.",goal:"Wait for the flash, then press Space.",kind:"parry",front:"front"},
+    {title:"Let the shield recover",text:"Watch the blue field-shield bar. It fills while the shield recharges. Release Space and wait for READY before raising it again.",goal:"Watch the shield bar return to READY.",kind:"recharge",front:"front"},
     {title:"Thin the crowd",text:"Shoot the small demon beside him. These practice targets will wait for you.",goal:"Defeat the stationary peon.",kind:"peon",front:"front"},
     {title:"A threat to the left",text:"Tap A or the left arrow, or move your mouse to the left edge. Find and shoot the peon. Return with D or the right edge.",goal:"Look left and defeat the peon.",kind:"peon",front:"left"},
     {title:"Watch both sides",text:"Reach the right-hand laboratory. Hold Shift to aim down the sights, then shoot the final practice peon while scoped. Release Shift before turning.",goal:"Look right. Hold Shift and shoot the peon.",kind:"peon",front:"right",scope:true}
@@ -24,7 +26,7 @@ function create(seed,unlocks) {
     run.pending=[]
     run.pet=null
     run.slots=Gear.starter()
-    run.training={mode:"dialogue",step:0,age:0,front:"front",base:{},attempt:0,phase:1,bossId:0,message:""}
+    run.training={mode:"dialogue",step:0,age:0,front:"front",base:{},attempt:0,phase:1,bossId:0,message:"",lessonMap:2}
     const boss=Rules.spawn(run,{type:"oblogabgalus",front:"front",lane:0})
     boss.depth=980
     boss.hp=boss.maxHp=boss.baseHp=60
@@ -48,7 +50,8 @@ function text(run) {
         : lessons[run.training.step].text
 }
 function prompt(run) {
-    const mode=run.training.mode
+    const t=run.training,mode=t.mode
+    if(mode==="lesson" && lessons[t.step].kind==="parry" && t.age>=2.02 && !t.struck) return "PARRY NOW   ·   SPACE"
     return mode==="lesson" ? lessons[run.training.step].goal : mode==="activeLesson" ? "Press Q to use Shock pulse." : mode==="phase1" ? "Try it on your own. Defeat Oblogabgalus."
         : mode==="phase2" ? "Phase II · Follow him. Block the charge. Use Q." : mode==="molt" ? "Oblogabgalus is molting…" : ""
 }
@@ -67,12 +70,13 @@ function resetLesson(run) {
     run.bolts=[];run.boltRoster++
     run.enemies=run.enemies.filter(function(e){return e.id===t.bossId});run.roster++
     run.playerFront="front";t.front="front"
-    run.shield.held=run.shield.raised=false;run.shield.cool=0
+    run.shield.held=run.shield.raised=false
+    if (lesson.kind!=="recharge") run.shield.cool=0
     const gun=Gear.current(run)
     Object.assign(gun,Gear.makeItem("pistol"))
     if (lesson.kind==="reload") gun.ammo=2
     b.front="front";b.depth=980;b.lane=0;b.hp=60;b.attack=2.0;b.attackFlash=0;b.warp=0
-    if (lesson.kind==="melee") b.depth=280
+    if (lesson.kind==="melee" || lesson.kind==="parry") b.depth=280
     if (lesson.kind==="peon") {
         // Keep the practice target clear of the trainer's much larger hit volume.
         const peon=Rules.spawn(run,{type:"silophosus",front:lesson.front,lane:350})
@@ -140,11 +144,13 @@ function update(run,dt,sealing,firing,aim,viewReady) {
         if (lesson.kind==="shoot") success=delta("trainingHits")>=3
         if (lesson.kind==="reload") success=delta("reloads")>0 && !Gear.current(run).reload
         if (lesson.kind==="peon") success=!run.enemies.some(function(e){return e.trainingPeon})
-        if (lesson.kind==="melee" && b) {
+        if ((lesson.kind==="melee" || lesson.kind==="parry") && b) {
             b.attack=Math.max(0,2.2-t.age)
             if (t.age>=2.2 && !t.struck) {t.struck=true;Rules.damagePlayer(run,7,"front",b.type,false,{sourceId:b.id})}
-            success=delta("shieldBlocks")>0
+            success=delta(lesson.kind==="parry" ? "parries" : "shieldBlocks")>0
+            if (lesson.kind==="parry" && t.struck && !success) {rewind(run);return}
         }
+        if (lesson.kind==="recharge") success=run.shield.cool<=0 && !run.shield.held
         if (lesson.kind==="projectile" && b && t.age>1 && !t.struck) {
             t.struck=true
             Rules.launchBolts(run,b,{boltTime:1.2,accent:"#ffe17a",boltHealth:2})

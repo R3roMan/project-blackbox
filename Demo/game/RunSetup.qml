@@ -10,7 +10,9 @@ ColumnLayout {
     required property string build
     required property bool unlockAll
     property bool bloodMoon:false
+    property string weatherLayer:""
     signal practiceWeatherRequested(bool enabled)
+    signal weatherLayerRequested(string layer)
     signal unlocksRequested(bool enabled)
     signal configurationChanged(string difficulty, int startAt, string build)
     readonly property bool debugEnabled: startAt > 1
@@ -77,13 +79,22 @@ ColumnLayout {
             onToggled: setup.unlocksRequested(checked)
         }
     }
-    CheckBox {
-        property bool practice:setup.debugEnabled
-        visible:practice
-        objectName:"debugBloodMoon"
-        text:"Blood Moon practice"
-        checked:setup.bloodMoon
-        palette.windowText:"#f1ccd2"
-        onToggled:setup.practiceWeatherRequested(checked)
+    RowLayout {
+        visible:setup.debugEnabled
+        CheckBox {
+            objectName:"debugBloodMoon"
+            text:"Blood Moon practice"
+            checked:setup.bloodMoon
+            palette.windowText:"#f1ccd2"
+            onToggled:setup.practiceWeatherRequested(checked)
+        }
+        ComboBox {
+            objectName:"debugWeatherLayer"
+            property var options:["","clear","fog","thunder","rain","winter","inferno","incursion","meteor","windy","glitch"]
+            model:["Random weather","Clear","Fog","Thunderstorm","Rain","Winter","Inferno","Void incursion","Meteor shower","High winds","Glitch"]
+            currentIndex:Math.max(0,options.indexOf(setup.weatherLayer))
+            Accessible.name:"Debug weather overlay"
+            onActivated:setup.weatherLayerRequested(options[currentIndex])
+        }
     }
 }

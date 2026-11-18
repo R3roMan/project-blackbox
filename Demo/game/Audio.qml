@@ -52,7 +52,7 @@ Item {
         petBetray:"pet-betray", angelArrival:"angel-arrival", alienArrival:"alien-arrival",
         lalaLaugh:"lala-laugh", winterArrival:"winter-arrival", winterPulse:"winter-pulse",
         bloodMoonArrival:"blood-moon-arrival",bloodBolt:"blood-bolt",bloodDrain:"blood-drain",stoneBreak:"stone-break",
-        rainArrival:"rain-arrival",nightArrival:"night-arrival",meteorArrival:"meteor-arrival",
+        rainArrival:"rain-arrival",nightArrival:"night-arrival",meteorArrival:"meteor-arrival",thunderStrike:"thunder-strike",
         windArrival:"wind-arrival",windGust:"wind-gust",glitchArrival:"glitch-arrival",aimMiss:"aim-miss",
         parryBlock:"parry-block",boneShatter:"bone-shatter",colourSpill:"colour-spill",soulTaken:"soul-taken",
         fangCrack:"fang-crack",fangLaunch:"fang-launch","leviathan-fangs":"leviathan-fangs",
@@ -97,7 +97,7 @@ Item {
 
     function syncWeather() {
         syncLoop(battle,inBattle)
-        syncLoop(rain,inBattle && weather === "rain")
+        syncLoop(rain,inBattle && (weather === "rain" || weather === "thunder"))
         syncLoop(fireWeather,inBattle && weather === "inferno")
         syncLoop(winter,inBattle && weather === "winter")
         syncLoop(incursion,inBattle && weather === "incursion")

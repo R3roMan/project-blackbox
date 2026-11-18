@@ -8,6 +8,7 @@ import "game" as Game
 import "ui" as Ui
 import "game/Progress.js" as Progress
 import "game/SaveData.js" as SaveData
+import "game/Meta.js" as Meta
 
 ApplicationWindow {
     id: window
@@ -16,7 +17,7 @@ ApplicationWindow {
     height: 750
     minimumWidth: 760
     minimumHeight: 530
-    title: "Project Blackbox · Workshop build"
+    title: "Project Blackbox · The Witch’s Vault"
     visible: true
     color: "#110e19"
 
@@ -34,6 +35,10 @@ ApplicationWindow {
     property string pendingResume:""
     property string bookChapter:""
     property string bookEntry:""
+    property int recordIndex:0
+    readonly property var reports: [careerVault.state.best,careerVault.state.last].concat(careerVault.state.archive).filter(function(report,index,list) {
+        return report && list.findIndex(function(other) {return other?.id===report.id})===index
+    })
     readonly property bool bookVisible:bookChapter.length>0
 
     function openBook(chapter,id) {
@@ -42,11 +47,11 @@ ApplicationWindow {
     }
     property string settingsStatus:""
     readonly property var known: readCodex(codex.entries)
-    readonly property var profile: Progress.read(codex.career)
+    readonly property var profile: Progress.withGrades(Progress.read(codex.career),careerVault.state)
     readonly property var unlocks: Progress.unlocked(profile,codex.unlockAchievements)
     readonly property var continuedRun:page==="home" ? SaveData.savedChoice(codex.savedRun,codex.previousRun,unlocks) : null
     readonly property string continueSummary: !continuedRun ? "No saved run" : continuedRun.training ? "Tutorial checkpoint"
-        : "Wave "+continuedRun.wave+" · "+continuedRun.difficulty+(continuedRun.debug ? " · Practice" : "")
+        : "Wave "+continuedRun.wave+" · "+continuedRun.difficulty+(continuedRun.debug || careerVault.state.settled[continuedRun.attemptId] ? " · Practice" : "")
             +(continuedRun.restored ? " · Recovered save" : "")
 
     function saveRun(data) {
@@ -68,6 +73,7 @@ ApplicationWindow {
         property string savedRun:""
         property string previousRun:""
     }
+    Ui.ProfileVault {id:careerVault;location:codex.location}
 
     Settings {
         id: display
@@ -121,6 +127,7 @@ ApplicationWindow {
 
     function goHome() {
         bookChapter=""
+        careerVault.reload()
         page = "home"
     }
 
@@ -144,8 +151,9 @@ ApplicationWindow {
 
     function exportProgress(file) {
         const store = backupStore.createObject(window,{location:file})
+        careerVault.reload()
         const payload = SaveData.bundle(profile,known,codex.unlockAchievements,displayValues(),sound,motion,
-            SaveData.savedChoice(codex.savedRun,codex.previousRun,unlocks)?.data || "")
+            SaveData.savedChoice(codex.savedRun,codex.previousRun,unlocks)?.data || "",careerVault.state)
         store.setValue("payload",payload)
         store.sync()
         store.destroy()
@@ -166,6 +174,7 @@ ApplicationWindow {
         // Keep recovery data for the imported run independent of the previous profile.
         codex.previousRun = ""
         codex.savedRun = incoming.runSave
+        if (incoming.vault) careerVault.replace(incoming.vault)
         for (const key of Object.keys(incoming.display))
             display[key] = incoming.display[key]
         sound = incoming.sound
@@ -194,8 +203,9 @@ ApplicationWindow {
     }
 
     function reportProgress(delta) {
-        const before = Progress.unlocked(profile)
-        const updated = Progress.merge(profile, delta)
+        const stored=Progress.read(codex.career)
+        const before = Progress.unlocked(stored)
+        const updated = Progress.withGrades(Progress.merge(stored, delta),careerVault.state)
         codex.career = JSON.stringify(updated)
         return Progress.achievements.filter(function(achievement) {
             return !before.includes(achievement.reward) && Progress.complete(updated, achievement)
@@ -209,6 +219,7 @@ ApplicationWindow {
         sourceComponent: window.page === "play" ? playPage : window.page === "xd" ? xdPage
             : window.page === "home" ? homePage : window.page === "settings" ? settingsPage
             : window.page === "achievements" ? achievementsPage
+            : window.page === "witch" ? witchPage : window.page === "record" ? recordPage
             : window.page === "controls" || window.page === "codex" ? referencePage : galleryPage
     }
 
@@ -224,6 +235,8 @@ ApplicationWindow {
             known:window.known
             unlocks:window.unlocks
             career:window.profile
+            liveRun:window.currentPlay?.run || null
+            liveRevision:window.currentPlay?.revision || 0
             achievementsUnlocked:codex.unlockAchievements
             motion:window.motion
             overlay:true
@@ -244,7 +257,8 @@ ApplicationWindow {
             enabledSound: window.sound
             activeWindow: window.activeHome
             track: window.bookVisible ? "book" : window.currentPlay ? window.currentPlay.musicTrack
-                : window.page === "home" || window.page === "controls" || window.page === "codex" || window.page === "achievements"
+                : window.page === "witch" ? "book"
+                : window.page === "home" || window.page === "record" || window.page === "controls" || window.page === "codex" || window.page === "achievements"
                     ? (window.page==="codex" || window.page==="achievements" ? "book" : "home") : ""
             quiet: !window.bookVisible && window.currentPlay ? window.currentPlay.paused : false
             variation: !window.bookVisible && window.currentPlay ? window.currentPlay.musicVariation : ""
@@ -345,6 +359,22 @@ ApplicationWindow {
                 Flow {
                     width:parent.width
                     spacing:8
+                    Ui.ActionButton {
+                        objectName:"openWitchShop"
+                        text:"Witch’s Vault · ◆ "+careerVault.state.gems
+                        accent:"#d09be9"
+                        onClicked:{careerVault.reload();window.page="witch"}
+                    }
+                    Ui.ActionButton {
+                        objectName:"openRunRecord"
+                        text:"Expedition record · "+(careerVault.state.best?.grades.overall || "—")
+                        enabled:window.reports.length>0
+                        onClicked:{window.recordIndex=0;window.page="record"}
+                    }
+                }
+                Flow {
+                    width:parent.width
+                    spacing:8
                     Ui.ActionButton {objectName:"openTutorial";text:"Tutorial battle";onClicked:{window.tutorial=true;window.pendingResume="";window.page="play"}}
                     Ui.ActionButton { objectName: "openControls"; text: "Controls"; onClicked: window.page = "controls" }
                     Ui.ActionButton { objectName: "openCodex"; text: "Grimoire"; onClicked: window.page = "codex" }
@@ -385,6 +415,44 @@ ApplicationWindow {
     }
 
     Component {
+        id:witchPage
+        Ui.WitchShop {
+            ledger:careerVault.state
+            motion:window.motion
+            vaultOpened:window.profile.wave100Boss>0
+            onPurchaseRequested:function(id) {careerVault.purchase(id)}
+            onBackRequested:window.goHome()
+        }
+    }
+
+    Component {
+        id:recordPage
+        Item {
+            ColumnLayout {
+                anchors.centerIn:parent
+                width:Math.min(parent.width-30,810)
+                height:Math.min(parent.height-26,580*Math.sqrt(Ui.UiMetrics.textScale))
+                ComboBox {
+                    objectName:"archivedAttempts"
+                    Layout.fillWidth:true
+                    model:window.reports.map(function(report,index) {
+                        return (index===0 ? "Best · " : "")+report.grades.overall+" · Wave "+report.wave+" · "+new Date(report.date*1000).toLocaleDateString(Qt.locale())
+                    })
+                    currentIndex:window.recordIndex
+                    onActivated:window.recordIndex=currentIndex
+                }
+                Ui.RunPostcard {
+                    Layout.fillWidth:true
+                    Layout.fillHeight:true
+                    reviewing:true
+                    report:window.reports[window.recordIndex] || null
+                    onExitRequested:window.goHome()
+                }
+            }
+        }
+    }
+
+    Component {
         id: referencePage
         Ui.ReferencePage {
             artDirectory: window.art
@@ -392,6 +460,7 @@ ApplicationWindow {
             firstTab: window.page === "controls" ? "controls" : "enemies"
             known: window.known
             career:window.profile
+            nextTerms:Meta.contract(careerVault.state)
             unlocks: window.unlocks
             achievementsUnlocked: codex.unlockAchievements
             onUnlockToggleRequested: codex.unlockAchievements = !codex.unlockAchievements
@@ -408,6 +477,7 @@ ApplicationWindow {
             known:window.known
             unlocks:window.unlocks
             career:window.profile
+            nextTerms:Meta.contract(careerVault.state)
             achievementsUnlocked: codex.unlockAchievements
             onUnlockToggleRequested: codex.unlockAchievements = !codex.unlockAchievements
             onCloseRequested: window.goHome()
@@ -436,6 +506,7 @@ ApplicationWindow {
             id: play
             artDirectory: window.art
             tutorial:window.tutorial
+            vault:careerVault
             bookVisible:window.bookVisible
             enabled:!bookVisible
             onCodexRequested:function(chapter,id) { window.openBook(chapter,id) }

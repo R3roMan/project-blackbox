@@ -16,7 +16,7 @@ View3D {
         id:eye
         z:240
         y:0
-        horizontalMagnification:Math.min(portrait.width/190,portrait.height/128)
+        horizontalMagnification:Math.max(.01,Math.min(portrait.width/152,portrait.height/105))
         verticalMagnification:horizontalMagnification
     }
     DirectionalLight { eulerRotation:Qt.vector3d(-29,-34,0); brightness:2.1; color:"#ffe1bd"; ambientColor:"#69637c" }

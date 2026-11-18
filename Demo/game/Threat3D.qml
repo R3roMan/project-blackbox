@@ -57,6 +57,7 @@ Node {
         return animate && enemy.dodgeAge > 0 ? -Math.sign(enemy.dodgeLaneGoal) * 22 * Math.sin(enemy.dodgeAge / .47 * Math.PI) : 0
     }
     readonly property bool warning: { revision; return Rules.charging(enemy) }
+    readonly property bool stormLit: {revision;return !!enemy.stormCharged}
     readonly property bool hurt: { revision; return enemy.flash > 0 }
     readonly property real hurtFace: {revision; return (enemy.hurtFace || 0)/.38}
     readonly property bool shielded: { revision; return enemy.barrier > 0 }
@@ -87,7 +88,7 @@ Node {
     }
     PrincipledMaterial {
         id: light
-        baseColor: actor.anger ? "#ff476a" : actor.ghost ? "#c7cbd1" : actor.warning ? Qt.lighter(actor.creature.accent, 1.35) : actor.creature.accent
+        baseColor: actor.stormLit ? "#fff1ff" : actor.anger ? "#ff476a" : actor.ghost ? "#c7cbd1" : actor.warning ? Qt.lighter(actor.creature.accent, 1.35) : actor.creature.accent
         lighting: PrincipledMaterial.NoLighting
     }
     PrincipledMaterial { id: dark; baseColor: "#1e1322"; lighting: PrincipledMaterial.NoLighting }
