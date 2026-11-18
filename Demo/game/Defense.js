@@ -2,7 +2,7 @@
 
 var modes = {
     standard:{ title:"Field shield", tint:"#65c8ff", hits:1,limit:0,cooldown:4.5 },
-    fleetShell:{ title:"Fleet shell", tint:"#6df6cb", hits:1,limit:1.40,cooldown:4.8 },
+    fleetShell:{ title:"Fleet shell", tint:"#6df6cb", hits:1,limit:1.40,cooldown:3.2 },
     perfectGuard:{ title:"Perfect guard", tint:"#d9deff", hits:1,limit:.73,cooldown:5.5 },
     jesterWard:{ title:"Jester ward", tint:"#ce86ff", hits:1,limit:0,cooldown:7.4 },
     bulwark:{ title:"Bulwark", tint:"#ffc77c", hits:2,limit:0,cooldown:12.1 }

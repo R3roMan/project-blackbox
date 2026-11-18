@@ -906,6 +906,7 @@ FocusScope {
         id: hardware
         World3D {
             id: viewport
+            voidIncursion: play.weather === "incursion"
             objectName: "world3D"
             actors: play.actors
             bolts: play.bolts
@@ -2247,6 +2248,7 @@ FocusScope {
         anchors.right:parent.right
         anchors.top:parent.top
         anchors.bottom:selectionPanel.top
+        anchors.topMargin: Math.min(76, Math.max(0, selectionPanel.y - 165))
         anchors.leftMargin:play.compactLayout ? 26 : 40
         anchors.rightMargin:play.compactLayout ? 26 : 40
         anchors.bottomMargin:6

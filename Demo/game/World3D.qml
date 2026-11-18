@@ -29,7 +29,10 @@ View3D {
     readonly property bool abyssTransition:(frontId === "down" || previousFront === "down") && frontId !== previousFront && turnRatio < 1
     property real wallpaperZoom: 1
     readonly property real pixelRatio: Math.max(1, Screen.devicePixelRatio)
-    readonly property real renderScale: Math.min(pixelRatio, quality > 0 ? quality / Math.max(1, height) : 1440 / Math.max(1,height))
+    property bool voidIncursion: false
+    readonly property int autoHeight: detail === 0 ? 900
+        : detail === 1 && (hypnotised || voidIncursion) ? 1080 : 1440
+    readonly property real renderScale: Math.min(pixelRatio,(quality || autoHeight)/Math.max(1,height))
     readonly property real turnEdge: Math.min(1, Math.min(turnRatio, 1 - turnRatio) / .24)
     readonly property real wallBlend: abyssTransition || transitionStyle === "soft" ? 0 : turnEdge * turnEdge * (3 - 2 * turnEdge) * (1 - blindness)
     readonly property real cropV: 1 / Math.tan(28 * Math.PI / 180)
@@ -88,8 +91,16 @@ View3D {
             if (enemy.front !== frontId || enemy.warp > 0 || enemy.hp <= 0 || enemy.waitingBoss
                 || hypnotised && enemy.type !== "hallucination")
                 continue
-            if (ids.has(enemy.id))
-                hits.push({ id:enemy.id, depth:enemy.depth })
+            let bodyHit = ids.has(enemy.id)
+            if (!bodyHit && (enemy.type === "oblogabgalus" || enemy.trainingPeon)) {
+                // Keep the solid centre of a practice target hittable while
+                // its animated mesh or the new wallpaper is being uploaded.
+                const centre = projection(Rules.lanePosition(enemy), Rules.elevation(enemy), enemy.depth)
+                const radius = (enemy.trainingPeon ? 43 : 65) * Rules.enemySize(enemy)
+                    * centre.scale * (1 - .35 * (enemy.trainingMolt || 0))
+                bodyHit = Math.hypot(x - centre.x,(y - centre.y) * 1.15) <= radius
+            }
+            if (bodyHit) hits.push({ id:enemy.id, depth:enemy.depth })
             if (enemy.turrets) {
                 for (const tube of enemy.turrets) {
                     if (tube.hp > 0 && ids.has(tube.targetId))
@@ -403,6 +414,7 @@ View3D {
             readonly property var enemy: enemyList.records[actorId]
             visible: { world.revision; return !enemy.waitingBoss && (enemy.front === world.frontId
                 || world.turnRatio < 1 && enemy.front === world.previousFront) && (!world.hypnotised || enemy.type === "hallucination") }
+            active: visible
             sourceComponent: enemy.type === "hasasasa" ? warship : demon
             Component {
                 id: demon
@@ -501,7 +513,7 @@ View3D {
                 opacity: bolt.bubble ? .53 + Math.sin(world.elapsed*6+projectile.actorId)*.15 : 1
             }
             Loader3D {
-                active:projectile.bolt.bubble
+                active:!!projectile.bolt.bubble
                 position:Qt.vector3d(projectile.point.lane,projectile.point.elevation,-projectile.point.depth)
                 sourceComponent:Bubble3D {
                     targetId:projectile.actorId
