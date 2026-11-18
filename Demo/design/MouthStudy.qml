@@ -71,6 +71,7 @@ ApplicationWindow {
                         function onRevisionChanged() { card.specimen.age = study.elapsed }
                     }
                     View3D {
+                        id: stage
                         anchors { fill: parent; topMargin: 10; bottomMargin: 63 }
                         environment: SceneEnvironment {
                             backgroundMode: SceneEnvironment.Transparent
@@ -82,11 +83,11 @@ ApplicationWindow {
                             id: labEye
                             z: 740
                             y: 25
-                            horizontalMagnification: Math.min(parent.height/330,parent.width/478)
+                            horizontalMagnification: Math.min(stage.height/345,stage.width/530)
                             verticalMagnification: horizontalMagnification
                         }
-                        DirectionalLight { eulerRotation: Qt.vector3d(-25,-23,0); brightness:2.7; color:"#fff2da"; ambientColor:"#6e626b" }
-                        DirectionalLight { eulerRotation: Qt.vector3d(28,155,0); brightness:2.25; color:"#9b9aff" }
+                        DirectionalLight { eulerRotation: Qt.vector3d(-25,-23,0); brightness:2.05; color:"#fff2da"; ambientColor:"#615765" }
+                        DirectionalLight { eulerRotation: Qt.vector3d(28,155,0); brightness:1.72; color:"#9b9aff" }
                         Game.Threat3D {
                             enemy: card.specimen
                             revision: study.revision

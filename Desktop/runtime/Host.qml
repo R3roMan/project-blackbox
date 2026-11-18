@@ -21,21 +21,21 @@ Item {
         }
         return null
     }
-    Timer {
-        interval:450; repeat:true; running:host.claimed
-        onTriggered: {
-            const rows={}
-            for (const name of ["enableDebug","debugStart","debugBuild-star","primaryPlayAction","pausePlay"]) {
-                const item=host.sampleControl(host,name)
-                if (!item || !item.visible) continue
-                const box=item.mapToItem(null,0,0)
-                rows[name]=[box.x,box.y,item.width,item.height,item.enabled]
-            }
-            console.warn("BLACKBOX QA",JSON.stringify({home:host.home,area:host.workArea,controls:rows,
-                phase:battle.item?.phase,debug:battle.item?.run.debug,paused:battle.item?.paused}))
+    function inputSample() {
+        const rows={}
+        for (const name of ["enableDebug","debugStart","debugBuild-star","primaryPlayAction","pausePlay"]) {
+            const item=host.sampleControl(host,name)
+            if (!item || !item.visible) continue
+            const box=item.mapToItem(null,0,0)
+            rows[name]=[box.x,box.y,item.width,item.height,item.enabled]
         }
+        return {size:[width,height],panelArea:[workArea.x,workArea.y,workArea.width,workArea.height],controls:rows}
     }
-    Timer { interval: 2400; running: host.claimed; onTriggered: host.grabToImage(function(result) { result.saveToFile("/tmp/blackbox-refit/nested-setup.png") }) }
+    Timer {
+        interval: 2400
+        running: host.claimed
+        onTriggered: host.grabToImage(function(result) { result.saveToFile("/tmp/blackbox-refit/nested-setup.png") })
+    }
     property string screenName:Screen.name
     property bool claimed:false
     property bool useWorkArea:false
@@ -91,7 +91,7 @@ Item {
         if(!claimed || !battle.item)return
         const game=battle.item,run=game.run
         const actives=run.slots.active.map(function(slot,i){return slot.item ? {title:Gear.activeAbilities[slot.item.id].title,id:slot.item.id,cooldown:Rules.activeCooldown(run,slot.item.id),duration:Rules.abilityRecovery(run,slot)} : {title:"Empty",cooldown:0,duration:1}})
-        Native.Desktop.publish({canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
+        Native.Desktop.publish({qa:inputSample(),canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(home && mode==="play" && battle.item)battle.item.keyTargetFocus()
     Component.onCompleted: {claimVisible();report()}

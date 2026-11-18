@@ -289,6 +289,26 @@ FocusScope {
 
     function keyTargetFocus() {keyTarget.forceActiveFocus()}
 
+    function syncTrainingView() {
+        if (!run.training || run.playerFront===frontId) return
+        turn.stop()
+        turnAnimation.stop()
+        turnRatio=1
+        frontId=run.playerFront
+        previousFront=frontId
+    }
+
+    function advanceTraining() {
+        if (run.training.mode==="won") {
+            exitRequested()
+            return
+        }
+        Tutorial.advance(run)
+        syncTrainingView()
+        publish()
+        keyTargetFocus()
+    }
+
     function updateAim(x, y, dt) {
         const progress = !aimInitialized || frost <= 0 ? 1 : Math.min(1, dt * (18 - frost * 21))
         if (progress <= 0)
@@ -786,10 +806,7 @@ FocusScope {
                 Tutorial.update(play.run,step,play.sealing && !!play.sealState && !play.turning,play.fireHeld && !!sight,sight,!play.turning)
                 play.accumulated-=step
             }
-            if (play.run.training && play.run.training.front!==play.frontId) {
-                play.frontId=play.run.playerFront;play.previousFront=play.frontId
-                play.run.training.front=play.frontId
-            }
+            play.syncTrainingView()
             if (play.trainingBlocked) play.fireHeld=false
             play.shotFlash=Math.max(0,play.shotFlash-frameTime*play.gameSpeed)
             if (play.weapon.spinup) play.rotaryAngle=(play.rotaryAngle+play.spin*frameTime*play.gameSpeed*1440)%360
@@ -1746,6 +1763,8 @@ FocusScope {
             abilityState: { play.revision; return play.abilityTile(Rules.slotInput(play.run,0)) }
             shortcut: "Q"
             motion: play.motion
+            details:ability ? Gear.itemDetails(play.run,"active",{id:ability.id,level:abilityState.level}) : ""
+            onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
         }
         Meter {
             width: parent.width
@@ -1845,10 +1864,22 @@ FocusScope {
             abilityState: { play.revision; return play.abilityTile(Rules.slotInput(play.run,1)) }
             shortcut: "E"
             motion: play.motion
+            details:ability ? Gear.itemDetails(play.run,"active",{id:ability.id,level:abilityState.level}) : ""
+            onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
         }
         Column {
+            id:ammoReadout
             width: parent.width
             spacing: 5
+            HoverHandler {id:gunHover; enabled:play.fighting && !play.weapon.debugOnly}
+            Ui.FieldHint {
+                anchorItem:ammoReadout
+                hovered:gunHover.hovered
+                chapter:"weapons"
+                entryId:play.weapon.id
+                details:{play.revision;return gunHover.hovered ? Gear.itemDetails(play.run,"weapon",Gear.current(play.run)) : play.weapon.title}
+                onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
+            }
             Text {
                 text: {
                     play.revision
@@ -2474,7 +2505,7 @@ FocusScope {
             Text {id:trainingText;width:parent.width;text:{play.revision;return play.run.training ? Tutorial.text(play.run) : ""}
                 color:"#efe0d6";font.pixelSize:15;wrapMode:Text.WordWrap}
             Ui.ActionButton {objectName:"tutorialContinue";text:play.run.training && play.run.training.mode==="won" ? "Return to Home" : "Ready";primary:true
-                onClicked: {if (play.run.training.mode==="won") play.exitRequested();else {Tutorial.advance(play.run);play.publish();play.keyTargetFocus()}}}
+                onClicked:play.advanceTraining()}
         }
     }
     Column {

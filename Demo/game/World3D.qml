@@ -180,7 +180,7 @@ View3D {
         brightness: world.detail === 2 ? 2.15 : 1.8
         castsShadow:world.detail === 2
         shadowMapQuality:Light.ShadowMapQualityMedium
-        shadowFactor:.69
+        shadowFactor:69
         shadowMapFar:3800
         softShadowQuality:Light.PCF4
     }

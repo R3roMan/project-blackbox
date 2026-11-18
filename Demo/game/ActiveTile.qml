@@ -7,6 +7,8 @@ Rectangle {
     required property string shortcut
     required property var abilityState
     property bool motion: true
+    property string details: ""
+    signal entryRequested(string chapter, string id)
     readonly property var ability: abilityState.ability
     readonly property string label: ability ? ability.title : abilityState.available ? "Empty" : "Locked"
 
@@ -17,6 +19,24 @@ Rectangle {
     border.color: ability ? Gear.rarities[ability.rarity].color : "#61637a"
     Accessible.name: shortcut + " " + label
 
+    HoverHandler {id:inspect; enabled:!!tile.ability}
+    Ui.FieldHint {
+        anchorItem:tile
+        hovered:inspect.hovered
+        details:tile.details
+        chapter:"abilities"
+        entryId:tile.ability?.id || ""
+        onEntryRequested:function(chapter,id) {tile.entryRequested(chapter,id)}
+    }
+    Ui.AbilityGlyph {
+        visible:!!tile.ability
+        anchors.top:parent.top
+        anchors.topMargin:6
+        anchors.horizontalCenter:parent.horizontalCenter
+        width:28; height:28
+        entry:tile.ability
+        tint:tile.border.color
+    }
     UpgradeRim {
         anchors.fill: parent
         tint: tile.abilityState.upgradeColor

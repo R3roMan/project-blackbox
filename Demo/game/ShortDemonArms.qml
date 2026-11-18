@@ -15,11 +15,11 @@ Node {
         model:[-1,1]
         Node {
             required property int modelData
-            x:43*modelData
+            x:48*modelData
             y:15
             z:18
             scale:Qt.vector3d(modelData,1,1)
-            eulerRotation.z:5+Math.sin(arms.clock*5)*4
+            eulerRotation.z:modelData*(5+Math.sin(arms.clock*5)*4)
             eulerRotation.x:-Math.max(0,arms.strike)*46+Math.min(0,arms.strike)*20
             Model {source:"#Sphere"; scale:Qt.vector3d(.25,.30,.26); materials:[flesh]}
             Model {
