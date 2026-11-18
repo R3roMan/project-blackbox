@@ -26,6 +26,14 @@ ScrollView {
         SpinBox {from:20;to:240;editable:true;value:Native.Desktop.config.frameLimit;onValueModified:Native.Desktop.setOption("frameLimit",value)}
         Label {text:"3D quality"}
         ComboBox {model:["Low","Standard","High"];currentIndex:Native.Desktop.config.detail;onActivated:Native.Desktop.setOption("detail",currentIndex)}
+        Label {text:"Text size"}
+        ComboBox {
+            model:["100%","115%","130%","145%"]
+            readonly property var scales:[1,1.15,1.3,1.45]
+            currentIndex:Math.max(0,scales.indexOf(Native.Desktop.config.textScale))
+            onActivated:Native.Desktop.setOption("textScale",scales[currentIndex])
+        }
+        CheckBox {text:"Save at wave checkpoints";checked:Native.Desktop.config.autoSave;onClicked:Native.Desktop.setOption("autoSave",checked)}
         CheckBox {text:"Sound";checked:Native.Desktop.config.sound;onClicked:Native.Desktop.setOption("sound",checked)}
         CheckBox {text:"Animation";checked:Native.Desktop.config.motion;onClicked:Native.Desktop.setOption("motion",checked)}
         CheckBox {text:"Show wave timer";checked:Native.Desktop.config.showTimer;onClicked:Native.Desktop.setOption("showTimer",checked)}
@@ -43,7 +51,7 @@ ScrollView {
         Label {text:"Game screen name · blank uses the first Blackbox desktop"}
         TextField {Layout.fillWidth:true;text:Native.Desktop.config.screenName;placeholderText:"e.g. DP-1";onEditingFinished:Native.Desktop.setOption("screenName",text)}
         Button {text:"Save current run";onClicked:Native.Desktop.command("save")}
-        Button {text:"Continue saved run";enabled:Native.Desktop.savedRun().length>0;onClicked:Native.Desktop.command("continue")}
+        Button {text:"Continue saved run";enabled:Native.Desktop.hasSave;onClicked:Native.Desktop.command("continue")}
         Label {Layout.fillWidth:true;text:"No system services, network settings or KDE components are replaced. Remove the Blackbox packages to return to your usual setup.";wrapMode:Text.WordWrap}
     }
     FileDialog {id:imagePicker;title:"Choose wallpaper";fileMode:FileDialog.OpenFile;nameFilters:["Images (*.png *.jpg *.jpeg *.webp)"];onAccepted:Native.Desktop.setOption("wallpaper_"+settings.choosing,String(selectedFile))}

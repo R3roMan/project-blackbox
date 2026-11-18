@@ -16,7 +16,7 @@ ApplicationWindow {
     height: 750
     minimumWidth: 760
     minimumHeight: 530
-    title: "Project Blackbox · Field demo"
+    title: "Project Blackbox · Grimoire build"
     visible: true
     color: "#110e19"
 
@@ -26,14 +26,37 @@ ApplicationWindow {
         || view.softwareBackend || graphicsFailed
     property bool graphicsFailed: false
     property string page: "home"
-    property bool sound: Qt.application.arguments.indexOf("--mute") === -1
-    property bool motion: true
+    property bool sound: display.audioEnabled && !Qt.application.arguments.includes("--mute")
+    property bool motion: display.animationEnabled
+    onSoundChanged:if (!Qt.application.arguments.includes("--mute")) display.audioEnabled=sound
+    onMotionChanged:display.animationEnabled=motion
     property bool tutorial:false
     property string pendingResume:""
+    property string bookChapter:""
+    property string bookEntry:""
+    readonly property bool bookVisible:bookChapter.length>0
+
+    function openBook(chapter,id) {
+        bookEntry=id || ""
+        bookChapter=chapter
+    }
     property string settingsStatus:""
     readonly property var known: readCodex(codex.entries)
     readonly property var profile: Progress.read(codex.career)
     readonly property var unlocks: Progress.unlocked(profile,codex.unlockAchievements)
+    readonly property var continuedRun:page==="home" ? SaveData.savedChoice(codex.savedRun,codex.previousRun,unlocks) : null
+    readonly property string continueSummary: !continuedRun ? "No saved run" : continuedRun.training ? "Tutorial checkpoint"
+        : "Wave "+continuedRun.wave+" · "+continuedRun.difficulty+(continuedRun.debug ? " · Practice" : "")
+            +(continuedRun.restored ? " · Recovered save" : "")
+
+    function saveRun(data) {
+        if (!SaveData.decodeRun(data,unlocks)) return false
+        if (codex.savedRun && SaveData.decodeRun(codex.savedRun,unlocks))
+            codex.previousRun=codex.savedRun
+        codex.savedRun=data
+        codex.sync()
+        return codex.savedRun===data
+    }
 
     Settings {
         id: codex
@@ -43,6 +66,7 @@ ApplicationWindow {
         property string career: "{}"
         property bool unlockAchievements: false
         property string savedRun:""
+        property string previousRun:""
     }
 
     Settings {
@@ -58,7 +82,12 @@ ApplicationWindow {
         property int detail:1
         property string transitionStyle:"cinematic"
         property real transitionStrength:1
+        property real textScale:1
+        property bool autoSave:true
+        property bool audioEnabled:true
+        property bool animationEnabled:true
     }
+    Binding { target:Ui.UiMetrics; property:"textScale"; value:display.textScale }
 
     Shortcut {
         sequence: "F11"
@@ -91,23 +120,22 @@ ApplicationWindow {
     }
 
     function goHome() {
+        bookChapter=""
         page = "home"
     }
 
     function beginGame(continuing) {
         tutorial=false
-        if (continuing && !SaveData.decodeRun(codex.savedRun,window.unlocks)) {
-            settingsStatus = "That saved run could not be read. Import a valid backup or start a new game."
-            page = "settings"
-            return
-        }
-        pendingResume = continuing ? codex.savedRun : ""
+        const saved = continuing ? continuedRun : null
+        if (continuing && !saved) return
+        pendingResume = saved ? saved.data : ""
         page = "play"
     }
 
     function displayValues() {
         return {framing:display.framing,quality:display.quality,zoom:display.zoom,mouseTurns:display.mouseTurns,
-            frameLimit:display.frameLimit,showTimer:display.showTimer,detail:display.detail,transitionStyle:display.transitionStyle,transitionStrength:display.transitionStrength}
+            frameLimit:display.frameLimit,showTimer:display.showTimer,detail:display.detail,transitionStyle:display.transitionStyle,transitionStrength:display.transitionStrength,
+            textScale:display.textScale,autoSave:display.autoSave}
     }
 
     function changeDisplay(key,value) {
@@ -116,7 +144,8 @@ ApplicationWindow {
 
     function exportProgress(file) {
         const store = backupStore.createObject(window,{location:file})
-        const payload = SaveData.bundle(profile,known,codex.unlockAchievements,displayValues(),sound,motion,codex.savedRun)
+        const payload = SaveData.bundle(profile,known,codex.unlockAchievements,displayValues(),sound,motion,
+            SaveData.savedChoice(codex.savedRun,codex.previousRun,unlocks)?.data || "")
         store.setValue("payload",payload)
         store.sync()
         store.destroy()
@@ -134,6 +163,8 @@ ApplicationWindow {
         codex.entries = JSON.stringify(incoming.discoveries)
         codex.career = JSON.stringify(incoming.profile)
         codex.unlockAchievements = incoming.achievementsOverride
+        // Keep recovery data for the imported run independent of the previous profile.
+        codex.previousRun = ""
         codex.savedRun = incoming.runSave
         for (const key of Object.keys(incoming.display))
             display[key] = incoming.display[key]
@@ -181,6 +212,26 @@ ApplicationWindow {
             : window.page === "controls" || window.page === "codex" ? referencePage : galleryPage
     }
 
+    Loader {
+        id:runBook
+        anchors.fill:parent
+        z:30
+        active:window.page==="play" && window.bookVisible
+        sourceComponent:Ui.ReferencePage {
+            artDirectory:window.art
+            firstTab:window.bookChapter || "enemies"
+            firstEntry:window.bookEntry
+            known:window.known
+            unlocks:window.unlocks
+            career:window.profile
+            achievementsUnlocked:codex.unlockAchievements
+            motion:window.motion
+            overlay:true
+            onUnlockToggleRequested:codex.unlockAchievements=!codex.unlockAchievements
+            onCloseRequested:window.bookChapter=""
+        }
+    }
+
     readonly property Game.PlayScene currentPlay: page === "play" && view.item && view.item.objectName === "playScene" ? view.item as Game.PlayScene : null
     Component.onCompleted: {
         if (Screen.width * Screen.devicePixelRatio >= 3840 && Screen.height * Screen.devicePixelRatio >= 2000)
@@ -192,11 +243,11 @@ ApplicationWindow {
         sourceComponent: Game.Music {
             enabledSound: window.sound
             activeWindow: window.activeHome
-            track: window.currentPlay ? window.currentPlay.musicTrack
+            track: window.bookVisible ? "book" : window.currentPlay ? window.currentPlay.musicTrack
                 : window.page === "home" || window.page === "controls" || window.page === "codex" || window.page === "achievements"
                     ? (window.page==="codex" || window.page==="achievements" ? "book" : "home") : ""
-            quiet: window.currentPlay ? window.currentPlay.paused : false
-            variation: window.currentPlay ? window.currentPlay.musicVariation : ""
+            quiet: !window.bookVisible && window.currentPlay ? window.currentPlay.paused : false
+            variation: !window.bookVisible && window.currentPlay ? window.currentPlay.musicVariation : ""
         }
     }
 
@@ -230,8 +281,8 @@ ApplicationWindow {
             Column {
                 anchors.verticalCenter: parent.verticalCenter
                 x: Math.max(34, parent.width * 0.069)
-                width: Math.min(parent.width - x - 28, 510)
-                spacing: 15
+                width: Math.min(parent.width - x - 28, 602)
+                spacing: 12
 
                 Text {
                     text: "HOME SHRINE"
@@ -268,7 +319,8 @@ ApplicationWindow {
                     spacing:8
                     Ui.ActionButton {
                         objectName:"continueRun"
-                        visible:codex.savedRun.length>0
+                        enabled:!!window.continuedRun
+                        Accessible.description:window.continueSummary
                         text:"Continue"
                         primary:true
                         implicitWidth:144
@@ -278,17 +330,24 @@ ApplicationWindow {
                     Ui.ActionButton {
                         objectName:"openPlay"
                         text:"New game"
-                        primary:codex.savedRun.length === 0
+                        primary:!window.continuedRun
                         implicitWidth:174
                         implicitHeight:47
                         onClicked:window.beginGame(false)
                     }
                 }
-                Row {
-                    spacing: 8
+                Text {
+                    text:window.continueSummary
+                    color:window.continuedRun ? "#efd2b5" : "#beb0c1"
+                    font.family:"Inter"
+                    font.pixelSize:Ui.UiMetrics.text(13)
+                }
+                Flow {
+                    width:parent.width
+                    spacing:8
                     Ui.ActionButton {objectName:"openTutorial";text:"Tutorial battle";onClicked:{window.tutorial=true;window.pendingResume="";window.page="play"}}
                     Ui.ActionButton { objectName: "openControls"; text: "Controls"; onClicked: window.page = "controls" }
-                    Ui.ActionButton { objectName: "openCodex"; text: "Galleries"; onClicked: window.page = "codex" }
+                    Ui.ActionButton { objectName: "openCodex"; text: "Grimoire"; onClicked: window.page = "codex" }
                     Ui.ActionButton { objectName: "openAchievements"; text: "Achievements"; onClicked: window.page = "achievements" }
                     Ui.ActionButton {objectName:"openSettings"; text:"Settings"; onClicked:window.page="settings"}
                 }
@@ -317,7 +376,7 @@ ApplicationWindow {
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
                 anchors.margins: 25
-                text: window.software ? "Software playfield" : "Gameplay demo"
+                text: window.software ? "Software playfield" : ""
                 color: "#ded0d7"
                 font.family: "IBM Plex Mono"
                 font.pixelSize: 12
@@ -329,6 +388,7 @@ ApplicationWindow {
         id: referencePage
         Ui.ReferencePage {
             artDirectory: window.art
+            motion:window.motion
             firstTab: window.page === "controls" ? "controls" : "enemies"
             known: window.known
             career:window.profile
@@ -343,6 +403,7 @@ ApplicationWindow {
         id: achievementsPage
         Ui.ReferencePage {
             artDirectory:window.art
+            motion:window.motion
             firstTab:"achievements"
             known:window.known
             unlocks:window.unlocks
@@ -375,6 +436,9 @@ ApplicationWindow {
             id: play
             artDirectory: window.art
             tutorial:window.tutorial
+            bookVisible:window.bookVisible
+            enabled:!bookVisible
+            onCodexRequested:function(chapter,id) { window.openBook(chapter,id) }
             frameLimit:display.frameLimit
             showTimer:display.showTimer
             onFrameLimitRequested:function(value) {display.frameLimit=value}
@@ -389,7 +453,14 @@ ApplicationWindow {
             graphicsDetail:display.detail
             transitionStyle:display.transitionStyle
             transitionStrength:display.transitionStrength
-            onSaveRequested:function(data) {codex.savedRun=data; codex.sync()}
+            autoSave:display.autoSave
+            onSaveRequested:function(data,automatic) {
+                const saved=window.saveRun(data)
+                if (!automatic || !saved)
+                    play.saveNotice=saved ? "Saved · Wave "+(play.wave || play.upcomingStage.wave) : "Save failed"
+            }
+            onTextScaleRequested:function(value) { display.textScale=value }
+            onAutoSaveRequested:function(value) { display.autoSave=value }
             onDetailRequested:function(value) {display.detail=value}
             onTransitionStyleRequested:function(value) {display.transitionStyle=value}
             onTransitionStrengthRequested:function(value) {display.transitionStrength=value}

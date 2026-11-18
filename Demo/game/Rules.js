@@ -62,8 +62,8 @@ function directionToward(view, targetView) {
 function create(seed, unlocks) {
     const run = {
         seed:seed >>> 0, rng:seed >>> 0, phase:"ready", time:0, wave:0, waveTime:0,
-        difficulty:"normal", startAt:1, debug:false, debugBuild:"standard", debugUnlockAll:false,
-        nextStage:null,stage:null,desktop:null,training:null,abilityEvents:[],salvoTime:0,salvoBonus:0,runeReady:0,sprayTime:0,
+        difficulty:"normal", startAt:1, debug:false, debugBuild:"standard", debugUnlockAll:false,debugWeather:"",
+        nextStage:null,stage:null,desktop:null,training:null,abilityEvents:[],salvoTime:0,salvoBonus:0,runeReady:0,sprayTime:0,vampireReady:0,
         careerUnlocks:unlocks || [], playerFront:"front", viewReady:true, weatherEffect:"clear", nextFirePulse:0,
         abyssSeal:{progress:0,closed:false}, grab:null, hypnosis:null, inkStains:false, dizzyLeft:0,
         fearCut:false, souls:0, scytheSouls:0, boneTime:0, boneRank:0, windAt:20, gustLeft:0,scareTime:0,
@@ -146,11 +146,21 @@ function configure(run, difficulty, startAt, build) {
     run.debug = startAt !== 1
     if (!run.debug) {
         run.debugBuild = "standard"
+        run.debugWeather = ""
         if (run.debugUnlockAll)
             applyDebugUnlocks(run, false)
     } else if (["standard","star","random"].includes(build)) {
         run.debugBuild = build
     }
+    prepareStage(run)
+    return true
+}
+
+function setPracticeWeather(run, enabled) {
+    if (run.phase !== "ready" || !run.debug)
+        return false
+    run.debugWeather = enabled ? "bloodMoon" : ""
+    run.nextStage = null
     prepareStage(run)
     return true
 }
@@ -477,11 +487,11 @@ function blindness(run) {
 }
 
 function night(run) {
-    return run.weatherEffect === "night" || run.weatherEffect === "incursion"
+    return Conditions.isNight(run.weatherEffect)
 }
 
 function blindRank(run) {
-    return Math.max(run.elements.blind,night(run) ? 1 : 0)
+    return Math.max(run.elements.blind,run.weatherEffect === "bloodMoon" ? 2 : night(run) ? 1 : 0)
 }
 
 function blindStrength(run) {
@@ -643,7 +653,8 @@ function makeSchedule(run) {
 function prepareStage(run) {
     const wave = run.phase === "ready" && run.debug ? run.startAt : run.wave+1
     if (!run.nextStage || run.nextStage.wave !== wave || run.nextStage.difficulty !== run.difficulty)
-        run.nextStage = Mission.planWave(wave,run.seed,run.difficulty,run.desktop?.resonance)
+        run.nextStage = Mission.planWave(wave,run.seed,run.difficulty,run.desktop?.resonance,
+            run.debug ? run.debugWeather : "")
     return run.nextStage
 }
 
@@ -651,7 +662,7 @@ function attackInterval(enemy) {
     const creature = enemyTypes[enemy.type]
     const interval = enemy.type === "faeel" ? creature.interval
         : (creature.ship && enemy.turrets ? Ship.frequency(enemy) : creature.interval) * Mission.attackIntervalScale
-    return interval/(enemy.night ? 1.05 : 1)
+    return interval/(enemy.bloodMoon ? 1.10 : enemy.night ? 1.05 : 1)
 }
 
 function startWave(run) {
@@ -731,7 +742,7 @@ function startWave(run) {
     run.parry = run.counterTarget = run.meleeRush = run.honedHit = run.breachRounds = run.lockfeed = 0
     run.waveTime = 0
     run.abilityEvents=[]
-    run.salvoTime=run.sprayTime=0
+    run.salvoTime=run.sprayTime=run.vampireReady=0
     run.deathCoins = run.coinsSent = run.guardFlash = 0
     run.nextCoin = rank(run,"deathMint") ? .85 + random(run) * .76 : 0
     run.ambientAt = 3.5 + ambientRandom(run) * 5
@@ -762,11 +773,13 @@ function startWave(run) {
     run.pending = stage.schedule.map(function(entry) { return Object.assign({},entry) })
     run.waveSize = stage.enemyCount
     run.weatherEffect = stage.weather
+    if (run.weatherEffect === "bloodMoon")
+        record(run,"bloodMoonNights")
     run.nextFirePulse = 0
     run.nextFrostPulse = 5
     const sky = Conditions.entries[run.weatherEffect]
     const cue = {inferno:"inferno",incursion:"voidIntrusion",winter:"winterArrival",windy:"windArrival",
-        glitch:"glitchArrival",night:"nightArrival",rain:"rainArrival",meteor:"meteorArrival"}
+        glitch:"glitchArrival",night:"nightArrival",bloodMoon:"bloodMoonArrival",rain:"rainArrival",meteor:"meteorArrival"}
     announce(run,"Wave "+run.wave+(sky.id === "clear" ? " incoming" : " · "+sky.title),cue[sky.id] || "wave")
     return true
 }
@@ -777,12 +790,14 @@ function spawn(run, entry) {
         return null
     const preset = Mission.difficulty(run.difficulty)
     const dark = night(run)
+    const bloodMoon = run.weatherEffect === "bloodMoon"
     const scale = enemyScale(run.wave, run.difficulty) * (entry.tuning || 1) * (dark ? 1.05 : 1)
     const health = creature.health * scale * preset.health
     const enemy = {
         id: run.nextId++, type: entry.type, front: entry.front, lane: entry.lane, depth: creature.distance || Mission.spawnDistance,
-        hp:health,maxHp:health,baseHp:health,damage:creature.damage * scale * preset.damage,
-        travelSpeed:creature.speed * preset.speed * (dark ? 1.05 : 1), night:dark,
+        hp:health,maxHp:health,baseHp:health,damage:creature.damage * scale * preset.damage * (bloodMoon ? 1.15/1.05 : 1),
+        travelSpeed:creature.speed * preset.speed * (bloodMoon ? 1.20 : dark ? 1.05 : 1),
+        night:dark,bloodMoon:bloodMoon,crumble:0,
         dodgeIn:0, dodgeOffset:0, dodgeLift:0, dodgeAge:0, dodgeAim:0,
         dodgeLaneGoal:0, dodgeLiftGoal:0, maneuverIn:0,
         lateral:entry.lane || 0, driftHeight:0, driftLane:entry.lane || 0, heightGoal:0,
@@ -884,11 +899,8 @@ function summon(run, entry) {
 }
 
 function roomToSpawn(run, entry) {
-    const spec=enemyTypes[entry.type]
     const total=run.training ? 5 : Mission.maxConcurrent(run.wave,run.difficulty)
-    const voids=run.enemies.filter(function(enemy) {return enemyTypes[enemy.type].abyss && !["illusion","boss"].includes(enemyTypes[enemy.type].role)}).length
-    return run.enemies.length + (spec.triad ? 3 : 1) <= total
-        && (!spec.abyss || spec.role === "illusion" || spec.role === "boss" || voids < 3)
+    return run.enemies.length + (enemyTypes[entry.type].triad ? 3 : 1) <= total
 }
 
 function rebuildLinks(run) {
@@ -1091,15 +1103,23 @@ function remove(run, index, paid, source) {
         if (echo && current.reload > 0)
             current.reload = Math.max(.01, current.reload - .24 * echo)
     }
+    const pact = rank(run,"bloodPact")
+    if (pact && source === "gun" && run.time >= run.vampireReady) {
+        recoverBlood(run,1.5+pact)
+        run.vampireReady=run.time+1.5
+    }
     const battery = rank(run, "wardBattery")
     if (battery && run.waveKills % 6 === 0)
         raiseBarrier(run, 2.3 + battery * 1.25, 1)
     const role = enemyTypes[enemy.type].role
-    const value = goldPerKill(run.wave) * (role === "boss" ? 10 : enemy.type === "gojemarus" ? 5 : 1) + rank(run,"liquidAssets")
+    const baseGold = goldPerKill(run.wave) * (role === "boss" ? 10 : enemy.type === "gojemarus" ? 5 : 1) + rank(run,"liquidAssets")
+    const value = run.weatherEffect === "bloodMoon" ? Math.round(baseGold*1.25) : baseGold
     run.gold += value
     record(run, "goldEarned", value)
     if (role === "boss") {
         record(run, "bossKills")
+        if (run.weatherEffect === "bloodMoon")
+            record(run,"bloodMoonBosses")
         if (run.waveTime-(enemy.engagedAt || 0)<35)
             record(run,"fastBosses")
         if (!run.bossHurt) {
@@ -1428,6 +1448,20 @@ function chainElectric(run, origin, damage, level, extraReach) {
     }
 }
 
+function recoverBlood(run, amount) {
+    const heal = Math.max(0,Math.min(amount,Gear.maxHealth(run)-run.health))
+    if (heal > 0) {
+        run.health += heal
+        run.powerFlash = Math.max(run.powerFlash,.21)
+    }
+    return heal
+}
+
+function feedVeinDrinker(run, amount) {
+    const bonus = Gear.kitBonus(run,"vampirism","veinDrinker")
+    return recoverBlood(run,Math.min(bonus ? 3.5 : 2.5,amount*(.16+bonus)))
+}
+
 function bankDamage(run, enemy, amount) {
     const before = enemy.barrier
     if (!before)
@@ -1576,7 +1610,7 @@ function blood(run, enemy, style, fatal) {
     const crystal = enemy.type === "nightosphere" && fatal
     enemy.bloodAt = run.time + .083
     enemy.bled = fatal
-    const life = fatal ? (boss ? 2.8 : 1.52) : .48
+    const life = fatal ? (boss ? 2.36 : 1.12) : .42
     run.gore.push(Object.assign(arcPoint(enemy), { id:run.nextId++, front:enemy.front, type:enemy.type,
         style:typeof style === "string" ? style : "gun",
         life:life, span:life, fatal:fatal, boss:boss, size:enemySize(enemy), dark:!!spec.abyss, crystal:crystal,
@@ -1605,7 +1639,7 @@ function splitBody(run, enemy, blade) {
     if (!["katana","chainsaw","darksaber","emberslash","mechasword","duoknives","reaperscythe","breakerGlaive","fearScythe"].includes(blade)
         || ["meteor","nightosphere","hallucination"].includes(enemy.type))
         return
-    const life = enemyTypes[enemy.type].role === "boss" ? 1.62 : 1.30
+    const life = enemyTypes[enemy.type].role === "boss" ? 1.42 : 1.02
     run.splits.push(Object.assign(arcPoint(enemy),{ id:run.nextId++,front:enemy.front,type:enemy.type,
         size:enemySize(enemy),blade:blade,life:life,duration:life }))
     if (run.splits.length > 9)
@@ -1718,6 +1752,8 @@ function wound(run, enemy, amount, source, element, level, impact) {
     const damage = amount * multiplier * frosted * (enemy.eyesTime > 0 ? 2 : 1)
     const dealt = bankDamage(run, enemy, impact && impact.breakBarrier && shield > 0 ? Math.max(shield,damage) : damage)
     const shattered = shield > 0 && !enemy.barrier
+    if (dealt > 0 && !shield && source === "gun" && enemy.weaponSource === "veinDrinker")
+        feedVeinDrinker(run,Math.min(enemy.hp,dealt))
     enemy.hp -= dealt
     if (dealt > 0 && enemy.hp > 0 && source !== "burn" && source !== "mirror") {
         if (enemy.type === "endme" && enemy.eyeCount > 0 && !--enemy.eyeCount) {
@@ -3015,6 +3051,18 @@ function expansionActive(run, id, stats, view, aimId, available) {
     const pointed = local.find(function(enemy) { return enemy.id === aimId })
         || local.reduce(function(near, foe) { return !near || foe.depth < near.depth ? foe : near }, null)
     switch (id) {
+    case "bloodLibation": {
+        const victims = local.filter(function(foe) { return foe.depth<=720 })
+        if (!victims.length) return false
+        let drained = 0
+        for (const foe of victims) {
+            const before = foe.hp
+            wound(run,foe,12*(1+.22*strength)*outgoing(run),"ability")
+            drained += Math.max(0,before-Math.max(0,foe.hp))
+        }
+        recoverBlood(run,Math.min(12,drained*.35))
+        return "bloodDrain"
+    }
     case "doorstop":
     case "kilnRing": {
         const close = local.filter(function(foe) { return foe.depth <= 500 })
@@ -3823,9 +3871,9 @@ function abilityVisual(run,id,view,stats,aim) {
     const kind=ability.element || (/frost|freeze|cryo|thaw|winter|borrowed/i.test(id) ? "freeze"
         : /burn|ember|fire|flame/i.test(id) ? "burn" : /arc|volt|electric|spark|static/i.test(id) ? "electric"
         : /poison|spore|yellow|venom|slime|sticky/i.test(id) ? "poison" : /void|rift|seal|soul|black|shade/i.test(id) ? "void"
-        : /heal|repair|renew|mend/i.test(id) ? "heal" : /shield|guard|ward|parry/i.test(id) ? "guard"
+        : /bloodLibation/i.test(id) ? "blood" : /heal|repair|renew|mend/i.test(id) ? "heal" : /shield|guard|ward|parry/i.test(id) ? "guard"
         : /grenade|blast|bomb|breach|detonat|explos/i.test(id) ? "explosive" : /wind|draft|dodge|step/i.test(id) ? "wind" : "rune")
-    const colors={freeze:"#93e8ff",burn:"#ff6c28",electric:"#e4b5ff",poison:"#a7df3e",void:"#a581e9",heal:"#73f0b5",guard:"#6fcaff",explosive:"#ffbe68",wind:"#b6eddb",rune:Gear.rarities[ability.rarity].color}
+    const colors={freeze:"#93e8ff",burn:"#ff6c28",electric:"#e4b5ff",poison:"#a7df3e",void:"#a581e9",blood:"#ff4962",heal:"#73f0b5",guard:"#6fcaff",explosive:"#ffbe68",wind:"#b6eddb",rune:Gear.rarities[ability.rarity].color}
     run.abilityEvents=run.abilityEvents.slice(-3)
     run.abilityEvents.push({id:run.nextId++,ability:id,front:view,kind:kind,color:colors[kind],x:aim ? aim.x : .5,y:aim ? aim.y : .48,
         life:ability.rarity==="legendary" ? 1.5 : ability.rarity==="epic" ? 1.15 : .8,span:ability.rarity==="legendary" ? 1.5 : ability.rarity==="epic" ? 1.15 : .8,
@@ -3941,6 +3989,8 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
         lowerShield(run)
         announce(run,"The face is too close","crufiScream")
     }
+    if (source?.type === "blandromedus" && payload?.drain && !burningTick)
+        feedHeal(run,source,.045)
     run.hurtThisWave = true
     if (run.enemies.some(function(enemy) {return enemyTypes[enemy.type].role === "boss" && !enemy.waitingBoss}))
         run.bossHurt = true
@@ -4004,14 +4054,15 @@ function launchBolts(run, enemy, creature) {
             elevation:elevation(enemy) + (creature.serpent ? 59 : creature.sniper ? 26 : 0),
             depth:enemy.depth-(creature.distance ? 135 : 0),duration:duration,remaining:duration + stagger,
             damage:enemy.damage * (burst === 5 ? .40 : burst > 1 ? .72 : 1) * Elements.damageFactor(enemy.elements),
-            color:creature.serpent ? "#e4c1ff" : creature.accent, source:enemy.type, sourceId:enemy.id, element:creature.element || "",
+            color:enemy.type === "nightosphere" ? "#cb63ff" : creature.serpent ? "#e4c1ff" : creature.accent, source:enemy.type, sourceId:enemy.id, element:creature.element || "",
             hp:creature.boltHealth || 0, maximum:creature.boltHealth || 0,sniper:!!creature.sniper,voidShot:!!creature.voidBoss || !!creature.ink,
-            ink:!!creature.ink,localOnly:!!creature.ink || ["nightosphere","lalaBubu"].includes(enemy.type),
+            ink:!!creature.ink,localOnly:!!creature.ink || ["nightosphere","lalaBubu","blandromedus"].includes(enemy.type),
+            crystal:enemy.type === "nightosphere",drain:!!creature.vampire,
             elementLevel:creature.elementLevel || 0, electricStun:creature.electricStun || 0,
             critChance:(creature.crit || 0) + (enemy.linked ? .14 : 0),blindAtFire:enemy.elements.blind })
     }
     run.boltRoster += 1
-    announce(run, null, creature.ink ? "inkFire" : enemy.type === "nightosphere" ? "orbBolt" : creature.voidBoss ? "voidFire" : creature.sniper ? "sniperFire"
+    announce(run, null, creature.ink ? "inkFire" : enemy.type === "nightosphere" ? "orbBolt" : creature.vampire ? "bloodBolt" : creature.voidBoss ? "voidFire" : creature.sniper ? "sniperFire"
         : creature.serpent ? "snakeBolt" : creature.triad ? "magnetFire" : "bolt")
 }
 
@@ -4495,7 +4546,7 @@ function landBites(run, bites) {
 function strike(run, enemy, creature) {
     if (enemy.type === "lalaBubu" && enemy.front !== run.playerFront)
         return
-    enemy.attackFlash = enemy.type === "lucifoverus" ? .45 : .33
+    enemy.attackFlash = enemy.type === "lucifoverus" ? .22 : .33
     const damage = enemy.damage * Elements.damageFactor(enemy.elements) * (enemy.cursed ? .8 : 1)
     if (enemy.type === "fearme") {
         if (enemy.front !== run.playerFront || !run.viewReady)
@@ -4523,7 +4574,7 @@ function strike(run, enemy, creature) {
     } else if (enemy.type === "faeel") {
         damagePlayer(run,damage,enemy.front,enemy.type,false,{sourceId:enemy.id,element:"electric",elementLevel:2,forceStun:2})
         announce(run,null,"faeelBite")
-    } else if (creature.role === "alien" || creature.serpent || creature.voidBoss || ["nightosphere","skorochiyus"].includes(enemy.type)) {
+    } else if (creature.role === "alien" || creature.serpent || creature.voidBoss || creature.vampire || ["nightosphere","skorochiyus"].includes(enemy.type)) {
         launchBolts(run, enemy, creature)
     } else if (enemy.type === "gigafinterus") {
         launchBreath(run, enemy)
@@ -4778,18 +4829,18 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         spawn(run, run.reinforcements.shift())
     while (run.pending.length && run.pending[0].at <= run.waveTime && roomToSpawn(run,run.pending[0])) {
         const next = run.pending[0].type
-        const ordinaryVoid = run.weatherEffect !== "incursion" && enemyTypes[next].abyss && enemyTypes[next].role !== "boss"
-        if (enemyTypes[next].role === "boss" && (run.enemies.length || run.bolts.length)
-            || ordinaryVoid && run.enemies.some(function(enemy) {
-                return !enemy.summoned && enemyTypes[enemy.type].abyss && enemyTypes[enemy.type].role !== "boss"
-            })
-            || next === "mystery" && run.enemies.some(function(enemy) { return enemy.type === "mystery" }))
+        if (enemyTypes[next].role === "boss" && (run.enemies.length || run.bolts.length))
             break
         spawn(run, run.pending.shift())
     }
     rebuildLinks(run)
 
     tickHoles(run,dt)
+    // Check the queues too. Statues do not collapse while another species is
+    // still scheduled or waiting to reinforce the current wave.
+    const statuesAlone = run.enemies.length && run.enemies.every(function(enemy) { return enemy.type === "jos" })
+        && run.pending.every(function(entry) { return entry.type === "jos" })
+        && run.reinforcements.every(function(entry) { return entry.type === "jos" })
     const bites = []
     const hastened = new Set(run.enemies.filter(function(enemy) {
         return enemy.type === "gojemarus" && enemy.warp <= 0 && enemy.age < 10.72
@@ -4797,6 +4848,15 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
     for (let index = run.enemies.length - 1; index >= 0; index -= 1) {
         const enemy = run.enemies[index]
         const creature = enemyTypes[enemy.type]
+        if (enemy.type === "jos" && statuesAlone && !enemy.warp) {
+            if (!enemy.crumble) announce(run,"The last statues are crumbling","stoneBreak")
+            enemy.crumble = (enemy.crumble || 0)+dt
+            if (enemy.crumble >= 1) {
+                blood(run,enemy,"collapse",true)
+                remove(run,index,false)
+                continue
+            }
+        } else if (enemy.crumble) enemy.crumble = 0
         if (enemy.waitingBoss) {
             if (enemy.front === run.playerFront && run.viewReady)
                 engageBoss(run,enemy)
@@ -4994,7 +5054,9 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
             if (pinned || blindDrift)
                 continue
             const before = enemy.depth
-            enemy.depth = Math.max(creature.reach, enemy.depth - enemy.travelSpeed * movement * dt * (enemy.anger ? 1.63 : 1))
+            const charge = creature.chargeSpeed && enemy.depth-creature.reach <= creature.chargeDistance
+                && enemy.attack<=creature.windup ? creature.chargeSpeed : 1
+            enemy.depth = Math.max(creature.reach, enemy.depth - enemy.travelSpeed * movement * dt * charge * (enemy.anger ? 1.63 : 1))
             if (enemy.type === "fhantamegus") {
                 const visibleLane = enemy.depth * .26
                 enemy.lane = Math.max(-visibleLane, Math.min(visibleLane, enemy.lane))
@@ -5138,6 +5200,8 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
             record(run, "lowHealthWaves")
         if (run.weatherEffect === "rain")
             record(run, "rainWaves")
+        if (run.weatherEffect === "bloodMoon")
+            record(run,"bloodMoonClears")
         Elements.clearPoison(run.elements)
         run.fearCut = false
         const cap = Gear.maxHealth(run)
@@ -5171,7 +5235,7 @@ function charging(enemy) {
     if (creature.soulDrain)
         return enemy.depth <= creature.reach
     const ranged = creature.rangedInterval && enemy.depth > creature.reach && enemy.depth <= 1380 && enemy.ranged <= .83
-    const approaching = enemy.firstStrike && !creature.ship && enemy.depth - creature.reach < enemy.travelSpeed * .95
+    const approaching = enemy.firstStrike && !creature.ship && enemy.depth - creature.reach < (creature.chargeDistance || enemy.travelSpeed*.95)
     return !!enemy.special || enemy.attackFlash > 0 || enemy.beamWarning > 0 || ranged || approaching
         || enemy.depth <= creature.reach && enemy.attack <= creature.windup
 }

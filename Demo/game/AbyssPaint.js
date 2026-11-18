@@ -105,8 +105,21 @@ function draw(ctx, foe, skin, accent, time, tell, lamp, mirror) {
             ctx.fillStyle = i%5 ? "#130920" : accent
             ctx.fillRect(.5+Math.cos(angle)*radius,.52+Math.sin(angle)*radius,.014+i%3*.006,.025)
         }
-        shape(ctx,[.50,.15,.74,.31,.82,.53,.65,.79,.41,.85,.19,.59,.25,.37],skin,.017,accent)
-        shape(ctx,[.5,.15,.57,.44,.82,.53,.65,.79,.57,.63,.41,.85,.19,.59,.57,.44],"#1b0f2c",.009,"#bf72e4")
+        ctx.save()
+        ctx.translate(.5,.49)
+        ctx.rotate(-time*.85+.33)
+        const heart=ctx.createLinearGradient(-.17,-.17,.17,.15)
+        heart.addColorStop(0,"#fff0ff")
+        heart.addColorStop(.46,"#e77bff")
+        heart.addColorStop(1,"#8521c5")
+        shape(ctx,[0,-.24,.16,-.072,.15,.115,-.028,.236,-.168,.06,-.12,-.13],heart,.012,"#f2b6ff")
+        ctx.restore()
+        ctx.save()
+        ctx.translate(.5,.49)
+        ctx.rotate(time*.37)
+        shape(ctx,[0,-.34,.24,-.18,.32,.04,.15,.30,-.09,.36,-.31,.10,-.25,-.12],"rgba(133,63,179,.27)",.017,"#bd75e4")
+        shape(ctx,[0,-.34,.07,-.05,.32,.04,.15,.30,.07,.14,-.09,.36,-.31,.10,.07,-.05],"rgba(190,130,244,.13)",.009,"#deacfb")
+        ctx.restore()
         return
     }
     if (["tenmani","shadow","hallucination","endme"].includes(kind)) {

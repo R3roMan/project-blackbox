@@ -164,6 +164,18 @@ function encodeRun(run) {
     return JSON.stringify({version:1,savedAt:new Date().toISOString(),run:run})
 }
 
+function savedChoice(current, previous, unlocks) {
+    for (const candidate of [current,previous]) {
+        if (!candidate) continue
+        const run = decodeRun(candidate,unlocks)
+        if (run) {
+            return {data:candidate,wave:run.wave || run.startAt,difficulty:Mission.difficulty(run.difficulty).title,
+                phase:run.phase,debug:run.debug,training:!!run.training,restored:candidate!==current}
+        }
+    }
+    return null
+}
+
 function bundle(profile, discoveries, override, display, sound, motion, runSave) {
     return JSON.stringify({format:"PROJECT-BLACKBOX",version:1,exportedAt:new Date().toISOString(),
         profile:profile,discoveries:discoveries,achievementsOverride:override,display:display,sound:sound,motion:motion,runSave:runSave})
@@ -187,6 +199,8 @@ function decodeBundle(text) {
     if (d.frameLimit===undefined) d.frameLimit=60
     if (d.showTimer===undefined) d.showTimer=false
     if (!Number.isInteger(d.frameLimit) || d.frameLimit<20 || d.frameLimit>240 || typeof d.showTimer!=="boolean") return null
+    if (d.textScale!==undefined && ![1,1.15,1.3,1.45].includes(d.textScale)) return null
+    if (d.autoSave!==undefined && typeof d.autoSave!=="boolean") return null
     if (data.runSave !== "" && !decodeRun(data.runSave,[]))
         return null
     return data

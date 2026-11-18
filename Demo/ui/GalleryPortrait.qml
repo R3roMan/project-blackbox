@@ -11,13 +11,14 @@ Rectangle {
     required property var entry
     readonly property string kind: entry.glyph ? "weather" : entry.role ? "enemy" : entry.category === "Weapon" ? "weapon"
         : entry.category || !entry.form ? "ability" : "pet"
+    property bool engraved:false
     property color tint: "#a8c4f0"
     property string enemyTier: ""
     property real ember: 0
-    color: "#141b2b"
+    color: engraved ? "transparent" : "#141b2b"
     border.color: entry.abyss ? Qt.lighter(Encounters.tierColors[enemyTier] || tint,1.47)
         : enemyTier ? Encounters.tierColors[enemyTier] : "#36435a"
-    border.width: enemyTier === "Overlord" || entry.abyss ? 2 : 1
+    border.width: engraved ? 0 : enemyTier === "Overlord" || entry.abyss ? 2 : 1
     radius: 5
     clip: true
 
@@ -115,45 +116,7 @@ Rectangle {
         }
     }
     Component {
-        id: abilityArt
-        Canvas {
-            id: icon
-            onWidthChanged: requestPaint()
-            onHeightChanged: requestPaint()
-            Connections {
-                target: portrait
-                function onEntryChanged() { icon.requestPaint() }
-                function onTintChanged() { icon.requestPaint() }
-            }
-            onPaint: {
-                const ctx = getContext("2d")
-                ctx.reset()
-                ctx.clearRect(0, 0, width, height)
-                const radius = Math.min(width, height) * .34
-                ctx.translate(width / 2, height / 2)
-                ctx.strokeStyle = portrait.tint
-                ctx.fillStyle = portrait.tint
-                ctx.lineWidth = 1.8
-                const name = portrait.entry.id
-                const seed = Array.from(name).reduce(function(score, character) { return score + character.charCodeAt(0) }, 0)
-                const sides = portrait.entry.category === "Active" ? 3 + seed % 5 : 6
-                ctx.beginPath()
-                for (let i = 0; i <= sides; i += 1) {
-                    const angle = 2 * Math.PI * i / sides - Math.PI * .5
-                    ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius)
-                }
-                ctx.stroke()
-                const kind = portrait.entry.element || (name.includes("cryo") ? "freeze" : name.includes("grenade") || name === "frag" ? "explosive"
-                    : name === "sunfall" ? "burn" : "")
-                ctx.fillStyle = kind ? Elements.kinds[kind].color : portrait.tint
-                for (let i = 0; i < 4 + seed % 3; i += 1) {
-                    const angle = i * 2.4 + seed * .219
-                    const distance = (.16 + (i % 3) * .16) * radius
-                    ctx.beginPath()
-                    ctx.arc(Math.cos(angle) * distance, Math.sin(angle) * distance, 2 + i % 3, 0, Math.PI * 2)
-                    ctx.fill()
-                }
-            }
-        }
+        id:abilityArt
+        AbilityGlyph { entry:portrait.entry; tint:portrait.tint; onPaper:portrait.engraved }
     }
 }

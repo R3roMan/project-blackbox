@@ -53,6 +53,9 @@ var achievements = [
     {id:"silentTrident",title:"Silence the trident",metric:"hitlessLuci",target:1,requirement:"Defeat Lucifoverus without losing health during his encounter.",group:"active",reward:"oathWard"},
     {id:"royalReserve",title:"Royal reserve",metric:"bestWallet",target:3500,requirement:"Hold 3,500 unspent gold at once in one run.",group:"weapon",reward:"kingsRansom"},
     {id:"moneyMoves",title:"Money moves",metric:"bestRunSpent",target:5000,requirement:"Spend 5,000 gold in one run, including weapon and ability costs.",group:"passive",reward:"liquidAssets"},
+    {id:"scarletDawn",title:"Scarlet dawn",metric:"bloodMoonClears",target:1,requirement:"Survive your first Blood Moon Night.",group:"passive",reward:"bloodPact"},
+    {id:"threeRedNights",title:"Three red nights",metric:"bloodMoonNights",target:3,requirement:"Witness three Blood Moon Nights in regular play.",group:"weapon",reward:"veinDrinker"},
+    {id:"redOverlord",title:"Moon over the Overlord",metric:"bloodMoonBosses",target:1,requirement:"Defeat an Overlord during a Blood Moon Night.",group:"active",reward:"bloodLibation"},
     {id:"lastCustomer",title:"The last customer",metric:"completeShops",target:1,requirement:"Buy and claim every listing during a single shop visit.",group:"active",reward:"liquidation"}
 ]
 

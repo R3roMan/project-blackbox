@@ -7,190 +7,731 @@ import "../game/Pets.js" as Pets
 import "../game/Progress.js" as Progress
 import "../game/Encounters.js" as Encounters
 import "../game/Conditions.js" as Conditions
-import "../game/EnemyLore.js" as Lore
+import "CodexData.js" as Book
 
-Item {
-    id:page
-    objectName:"referencePage"
+FocusScope {
+    id: page
+    objectName: "referencePage"
     required property url artDirectory
     required property string firstTab
     required property var known
     required property var unlocks
-    property var career:({})
-    property bool achievementsUnlocked:false
+    property string firstEntry: ""
+    property var career: ({})
+    property bool achievementsUnlocked: false
+    property bool motion: true
+    property bool overlay: false
     signal unlockToggleRequested()
     signal closeRequested()
-    property string tab:firstTab
-    property string enemyTier:"All"
-    property bool revealAll:false
-    property string enemyOrigin:"All"
-    property string enemySort:"Name"
-    property string weaponClass:"All"
-    property string weaponSort:"Name"
-    property int pageIndex:0
-    property real opening:0
-    property real flip:0
-    property bool closing:false
-    property int pendingPage:0
-    readonly property var enemyEntries:Object.values(Rules.enemyTypes).filter(function(e){return !["meteor","hallucination"].includes(e.id)
-        && (enemyTier==="All" || Encounters.tier(e.id)===enemyTier) && (enemyOrigin==="All" || e.origin===enemyOrigin)
-    }).sort(function(a,b){const p=enemySort==="Kills" ? "enemyKills_" : "enemyDeaths_";return (enemySort==="Name" ? 0 : (career[p+b.id]||0)-(career[p+a.id]||0)) || a.title.localeCompare(b.title)})
-    readonly property var weaponEntries:Object.values(Gear.weapons).filter(function(w){return !w.debugOnly && (weaponClass==="All" || Gear.weaponClass(w)===weaponClass)})
-        .sort(function(a,b){return (weaponSort==="Kills" ? (career["weaponKills_"+b.id]||0)-(career["weaponKills_"+a.id]||0) : 0) || a.title.localeCompare(b.title)})
+    property string tab: firstTab
+    property string enemyTier: "All"
+    property bool revealAll: false
+    property string enemyOrigin: "All"
+    property string enemySort: "Debut wave"
+    property string weaponClass: "All"
+    property string weaponSort: "Name"
+    property int pageIndex: 0
+
+    property real opening: 0
+    property real flip: 0
+    property int flipDirection: 1
+    property bool closing: false
+    property int pendingPage: 0
+    property var history: []
+    readonly property bool compact: width < 880 || height < 625
+    readonly property color ink: "#352125"
+    readonly property int paperText: UiMetrics.text(compact ? 15 : 17)
+    readonly property string chapterTitle: Book.chapters.find(function(chapter) { return chapter.id === tab })?.title || ""
+    readonly property var enemyEntries: Object.values(Rules.enemyTypes).filter(function(e) {
+        return !["meteor","hallucination"].includes(e.id) && (enemyTier === "All" || Encounters.tier(e.id) === enemyTier)
+            && (enemyOrigin === "All" || e.origin === enemyOrigin)
+    }).sort(function(a,b) {
+        const key = enemySort === "Kills" ? "enemyKills_" : "enemyDeaths_"
+        const first = Encounters.firstWave(a.id), second = Encounters.firstWave(b.id)
+        const debutOrder = (first < 0 ? 10000 : first)-(second < 0 ? 10000 : second)
+        return (enemySort === "Debut wave" ? debutOrder : enemySort === "Name" ? 0
+            : (career[key+b.id] || 0)-(career[key+a.id] || 0)) || a.title.localeCompare(b.title)
+    })
+    readonly property var weaponEntries: Object.values(Gear.weapons).filter(function(w) {
+        return !w.debugOnly && (weaponClass === "All" || Gear.weaponClass(w) === weaponClass)
+    }).sort(function(a,b) {
+        return (weaponSort === "Kills" ? (career["weaponKills_"+b.id] || 0)-(career["weaponKills_"+a.id] || 0) : 0)
+            || a.title.localeCompare(b.title)
+    })
     readonly property var abilityEntries: {
-        const entries=Object.values(Gear.activeAbilities).concat(Object.values(Gear.passives))
-        for(const group of Object.keys(Gear.slotPowers))
-            for(const power of Gear.slotPowers[group]) entries.push(Object.assign({category:Gear.groupLabels[group]+" slot effect"},Gear.slotPowerAt(power,0)))
-        return entries
+        const list = Object.values(Gear.activeAbilities).concat(Object.values(Gear.passives))
+        for (const group of Object.keys(Gear.slotPowers))
+            for (const power of Gear.slotPowers[group])
+                list.push(Object.assign({category:Gear.groupLabels[group]+" slot effect"},Gear.slotPowerAt(power,0)))
+        return list.sort(function(a,b) { return a.title.localeCompare(b.title) })
     }
-    readonly property var displayed:tab==="enemies" ? enemyEntries : tab==="weapons" ? weaponEntries : tab==="abilities" ? abilityEntries
-        : tab==="weather" ? Object.values(Conditions.entries) : tab==="pets" ? Pets.pets : tab==="achievements" ? Progress.achievements : []
-    readonly property var entry:displayed[Math.max(0,Math.min(pageIndex,displayed.length-1))] || null
-    readonly property bool seen:!entry ? false : revealAll || tab==="enemies" ? !!entry && (revealAll || known.enemies.includes(entry.id))
-        : tab==="abilities" ? known.abilities.includes(entry.id) || unlocks.includes(entry.id) || !entry.locked : true
-    readonly property color ink:"#352326"
-    readonly property color tierColor:entry && tab==="enemies" ? Encounters.tierColors[Encounters.tier(entry.id)] : entry && entry.rarity ? (Gear.rarities[entry.rarity]?.color || "#ecc0ae") : "#7b3f38"
-    readonly property string heading:!entry ? "An empty chapter" : !seen ? "Unknown" : entry.title
-    readonly property string description:!entry ? "There is nothing written here yet." : !seen ? "Its name has not reached these pages. Meet it in the field."
-        : tab==="weapons" ? Gear.itemDetails(null,"weapon",{id:entry.id,level:0})
-        : tab==="abilities" ? (["Active","Passive"].includes(entry.category) ? Gear.itemDetails(null,entry.category==="Active" ? "active" : "passive",{id:entry.id,level:0}) : entry.description)
-        : tab==="achievements" ? entry.requirement+"\n\nReward · "+(entry.group==="pet" ? Pets.spec(entry.reward).title : Gear.catalogs[entry.group][entry.reward].title)
-        : tab==="enemies" ? entry.description+"\n\nBase stats\nHealth   "+entry.health+" HP     Attack   "+entry.damage
-            +"\nMovement   "+entry.speed+" units/s     Reach   "+entry.reach+" units"
-            +"\nAttack interval   "+entry.interval+" s     Wind-up   "+entry.windup+" s"
-            +(entry.barrier ? "\nBarrier   "+entry.barrier+" HP" : "")
-        : entry.description
-    function closeBook() {if (!closing) {closing=true;coverClose.start()}}
-    function turnTo(index,chapter) {
-        if (turnPages.running) return
-        if (chapter && chapter!==tab) {tab=chapter;pendingPage=0;pageIndex=0;skipPages.start()}
-        else {pendingPage=Math.max(0,Math.min(displayed.length-1,index));if (pendingPage!==pageIndex) turnPages.start()}
+    readonly property var displayed: tab === "enemies" ? enemyEntries : tab === "weapons" ? weaponEntries
+        : tab === "abilities" ? abilityEntries : tab === "weather" ? Object.values(Conditions.entries)
+        : tab === "pets" ? Pets.pets : tab === "achievements" ? Progress.achievements
+        : tab === "kits" ? Book.kitEntries() : Book.manual
+    readonly property var entry: displayed[Math.max(0,Math.min(pageIndex,displayed.length-1))] || null
+    readonly property bool seen: visibleEntry(entry)
+    readonly property bool controller: tab === "controls" && entry?.id === "controller"
+    readonly property color tierColor: entry && tab === "enemies" ? Encounters.tierColors[Encounters.tier(entry.id)]
+        : entry && entry.rarity ? Gear.rarities[entry.rarity]?.color || "#af7957" : "#984b41"
+    readonly property string heading: !entry ? "An empty chapter" : seen ? entry.title : "Unknown"
+    readonly property string description: !entry ? "There is nothing written here yet."
+        : !seen ? "Its name has yet to reach these pages. Meet it in the field."
+        : Book.entryText(entry,tab)
+    readonly property string caption: !seen || !entry ? "" : tab === "enemies"
+        ? entry.origin+" · "+Encounters.tier(entry.id)+" · "+(Encounters.firstWave(entry.id) === 0
+            ? "Tutorial" : Encounters.firstWave(entry.id) === -1 ? "Blood Moon" : "Wave "+Encounters.firstWave(entry.id))
+        : tab === "weapons" ? Gear.weaponClass(entry)+" · "+Gear.rarities[entry.rarity].label
+        : tab === "abilities" ? entry.category+(entry.rarity ? " · "+Gear.rarities[entry.rarity].label : "")
+        : tab === "pets" ? "Companion" : tab === "kits" ? "Three-piece set" : chapterTitle
+
+    function visibleEntry(record) {
+        if (!record) return false
+        if (revealAll) return true
+        if (tab === "enemies") return known.enemies.includes(record.id)
+        if (tab === "abilities") return known.abilities.includes(record.id) || unlocks.includes(record.id) || !record.locked
+        return true
     }
-    onTabChanged:pageIndex=0
-    onEnemyTierChanged:pageIndex=0
-    onEnemyOriginChanged:pageIndex=0
-    onWeaponClassChanged:pageIndex=0
-    Shortcut {sequence:"Escape";onActivated:page.closeBook()}
-    Shortcut {sequence:"Left";enabled:tab!=="controls";onActivated:page.turnTo(pageIndex-1,"")}
-    Shortcut {sequence:"Right";enabled:tab!=="controls";onActivated:page.turnTo(pageIndex+1,"")}
-    Component.onCompleted:coverOpen.start()
-    NumberAnimation {id:coverOpen;target:page;property:"opening";from:0;to:1;duration:900;easing.type:Easing.InOutCubic}
-    SequentialAnimation {id:coverClose;NumberAnimation {target:page;property:"opening";to:0;duration:620;easing.type:Easing.InOutCubic} ScriptAction {script:page.closeRequested()}}
-    SequentialAnimation {id:turnPages;NumberAnimation {target:page;property:"flip";from:0;to:.5;duration:180} ScriptAction {script:page.pageIndex=page.pendingPage} NumberAnimation {target:page;property:"flip";to:1;duration:180} ScriptAction {script:page.flip=0}}
-    SequentialAnimation {id:skipPages;loops:4;NumberAnimation {target:page;property:"flip";from:0;to:1;duration:115} ScriptAction {script:page.flip=0}}
-    Rectangle {anchors.fill:parent;color:"#110c12"}
-    Image {anchors.fill:parent;source:String(page.artDirectory)+"shrine.png";fillMode:Image.PreserveAspectCrop;opacity:.10;sourceSize.width:1440}
+
+    function closeBook() {
+        if (closing) return
+        closing = true
+        if (!motion) {
+            closeRequested()
+            return
+        }
+        coverOpen.stop()
+        coverClose.start()
+    }
+
+    function rememberPage() {
+        history = history.concat([{chapter:tab,id:entry?.id || "",origin:enemyOrigin,tier:enemyTier,
+            weaponClass:weaponClass,enemySort:enemySort,weaponSort:weaponSort}]).slice(-30)
+    }
+
+    function showEntry(chapter, id) {
+        const changed = tab !== chapter
+        tab = chapter
+        let index = displayed.findIndex(function(record) { return record.id === id })
+        if (id && index < 0 && chapter === "enemies" && Rules.enemyTypes[id]) {
+            enemyTier = enemyOrigin = "All"
+            index = displayed.findIndex(function(record) { return record.id === id })
+        } else if (id && index < 0 && chapter === "weapons" && Gear.weapons[id]) {
+            weaponClass = "All"
+            index = displayed.findIndex(function(record) { return record.id === id })
+        }
+        if (id && index < 0) return false
+        pageIndex = Math.max(0,index)
+        if (changed && motion) {
+            flipDirection = 1
+            skipPages.restart()
+        }
+        return true
+    }
+
+    function jumpTo(chapter, id) {
+        if (closing || !Book.chapters.some(function(record) { return record.id === chapter })
+            || chapter === tab && (!id || entry?.id === id)) return
+        turnPages.stop()
+        skipPages.stop()
+        flip = 0
+        rememberPage()
+        if (!showEntry(chapter,id))
+            back()
+    }
+
+    function follow(destination) {
+        const slash = destination.indexOf("/")
+        if (slash > 0)
+            jumpTo(destination.slice(0,slash),decodeURIComponent(destination.slice(slash+1)))
+    }
+
+    function back() {
+        if (!history.length || closing) return
+        turnPages.stop()
+        skipPages.stop()
+        flip = 0
+        const previous = history[history.length-1]
+        history = history.slice(0,-1)
+        enemyOrigin = previous.origin
+        enemyTier = previous.tier
+        weaponClass = previous.weaponClass
+        enemySort = previous.enemySort
+        weaponSort = previous.weaponSort
+        showEntry(previous.chapter,previous.id)
+    }
+
+    function turnTo(index) {
+        if (closing || turnPages.running || !displayed.length) return
+        pendingPage = Math.max(0,Math.min(displayed.length-1,index))
+        if (pendingPage === pageIndex) return
+        flipDirection = pendingPage > pageIndex ? 1 : -1
+        skipPages.stop()
+        if (motion)
+            turnPages.start()
+        else
+            pageIndex = pendingPage
+    }
+
+    onTabChanged: pageIndex = 0
+    onEnemyTierChanged: pageIndex = 0
+    onEnemyOriginChanged: pageIndex = 0
+    onWeaponClassChanged: pageIndex = 0
+    Shortcut { sequence:"Escape"; enabled:!page.closing; onActivated:page.closeBook() }
+    Shortcut { sequence:"Alt+Left"; enabled:page.history.length > 0; onActivated:page.back() }
+    Shortcut { sequence:"Left"; enabled:page.activeFocus && !leafPicker.popup.visible; onActivated:page.turnTo(page.pageIndex-1) }
+    Shortcut { sequence:"Right"; enabled:page.activeFocus && !leafPicker.popup.visible; onActivated:page.turnTo(page.pageIndex+1) }
+    Component.onCompleted: {
+        if (firstEntry.length)
+            showEntry(firstTab,firstEntry)
+        if (motion)
+            coverOpen.start()
+        else
+            opening = 1
+        forceActiveFocus()
+    }
+
+    NumberAnimation { id:coverOpen; target:page; property:"opening"; from:0; to:1; duration:900; easing.type:Easing.InOutCubic }
+    SequentialAnimation {
+        id:coverClose
+        NumberAnimation { target:page; property:"opening"; to:0; duration:620; easing.type:Easing.InOutCubic }
+        ScriptAction { script:page.closeRequested() }
+    }
+    SequentialAnimation {
+        id:turnPages
+        NumberAnimation { target:page; property:"flip"; from:0; to:.5; duration:170; easing.type:Easing.InQuad }
+        ScriptAction { script:page.pageIndex=page.pendingPage }
+        NumberAnimation { target:page; property:"flip"; to:1; duration:175; easing.type:Easing.OutQuad }
+        ScriptAction { script:page.flip=0 }
+    }
+    SequentialAnimation {
+        id:skipPages
+        loops:4
+        NumberAnimation { target:page; property:"flip"; from:0; to:1; duration:110 }
+        ScriptAction { script:page.flip=0 }
+    }
+
+    Rectangle { anchors.fill:parent; color:page.overlay ? "#ec130d15" : "#130e16" }
+    Image { anchors.fill:parent; source:String(page.artDirectory)+"shrine.png"; fillMode:Image.PreserveAspectCrop; opacity:page.overlay ? 0 : .12; sourceSize.width:1440 }
+    MouseArea { anchors.fill:parent; acceptedButtons:Qt.AllButtons; onWheel:function(wheel){wheel.accepted=true} }
+
     ColumnLayout {
-        anchors.fill:parent;anchors.margins:page.width<900 ? 12 : 24;spacing:10
+        id:frame
+        width:Math.min(parent.width-(page.compact ? 20 : 44),1350)
+        anchors.horizontalCenter:parent.horizontalCenter
+        anchors.top:parent.top
+        anchors.bottom:parent.bottom
+        anchors.margins:page.compact ? 9 : 20
+        spacing:page.compact ? 5 : 9
+
         RowLayout {
             Layout.fillWidth:true
-            Text {text:page.tab==="controls" ? "Field manual" : "THE BLACK GRIMOIRE";color:"#e7c8a6";font.family:"serif";font.pixelSize:page.width<900 ? 22 : 30;font.letterSpacing:2;Layout.fillWidth:true}
-            ActionButton {objectName:"revealGallery";text:page.revealAll ? "Discoveries" : "Reveal all";visible:page.tab!=="controls";primary:page.revealAll;onClicked:page.revealAll=!page.revealAll}
-            ActionButton {objectName:"unlockAchievements";text:page.achievementsUnlocked ? "Restore earned" : "Debug unlocks";primary:page.achievementsUnlocked;hintText:"Toggle all achievement rewards for future runs. Your earned progress is preserved.";onClicked:page.unlockToggleRequested()}
-            ActionButton {text:"Close · Esc";onClicked:page.closeBook()}
+            spacing:7
+            Text {
+                Layout.fillWidth:true
+                text:"The Black Grimoire"
+                color:"#f1d4b1"
+                font.family:"DejaVu Serif"
+                font.pixelSize:UiMetrics.text(page.compact ? 20 : 28)
+                font.bold:true
+                elide:Text.ElideRight
+            }
+            ActionButton {
+                objectName:"referenceBack"
+                text:"↶ Back"
+                visible:page.history.length>0
+                onClicked:page.back()
+            }
+            ActionButton { objectName:"revealGallery"; text:page.revealAll ? "Show discoveries" : "Reveal all"; primary:page.revealAll; onClicked:page.revealAll=!page.revealAll }
+            ActionButton {
+                objectName:"unlockAchievements"
+                text:page.achievementsUnlocked ? "Restore earned" : "Debug unlocks"
+                visible:page.tab==="achievements"
+                primary:page.achievementsUnlocked
+                hintText:"Toggle achievement rewards for future runs. Your earned progress is preserved."
+                onClicked:page.unlockToggleRequested()
+            }
+            ActionButton { objectName:"closeReference"; text:page.overlay ? "Return to run" : "Close"; onClicked:page.closeBook() }
         }
+
         Flow {
-            Layout.fillWidth:true;Layout.preferredHeight:childrenRect.height;spacing:5
-            Repeater {model:[{id:"enemies",title:"Demons"},{id:"weapons",title:"Weapons"},{id:"abilities",title:"Abilities"},{id:"pets",title:"Pets"},{id:"kits",title:"Kits"},{id:"weather",title:"Weather"},{id:"achievements",title:"Medals"},{id:"controls",title:"Controls"}]
-                ActionButton {required property var modelData;objectName:"gallery-"+modelData.id;text:modelData.title;implicitHeight:32;primary:page.tab===modelData.id;onClicked:page.turnTo(0,modelData.id)}}
-        }
-        RowLayout {
-            Layout.fillWidth:true;visible:page.tab==="enemies" || page.tab==="weapons"
-            ComboBox {objectName:"galleryOriginFilter";visible:page.tab==="enemies";model:["All","Hellborne","Space","Void"];Layout.preferredWidth:150;currentIndex:model.indexOf(page.enemyOrigin);onActivated:page.enemyOrigin=currentText}
-            ComboBox {objectName:"galleryWeaponFilter";visible:page.tab==="weapons";model:["All","Guns","Staffs","Melee"];Layout.preferredWidth:150;currentIndex:model.indexOf(page.weaponClass);onActivated:page.weaponClass=currentText}
-            ComboBox {visible:page.tab==="enemies";model:["All","Normal","Ascended","Nightmare","Overlord"];Layout.preferredWidth:150;onActivated:page.enemyTier=currentText}
-            Item {Layout.fillWidth:true}
-            ComboBox {objectName:"galleryStatsSort";model:page.tab==="enemies" ? ["Name","Kills","Deaths"] : ["Name","Kills"];onActivated:{if(page.tab==="enemies") page.enemySort=currentText;else page.weaponSort=currentText}}
-        }
-        Item {
-            id:bookArea
-            Layout.fillWidth:true;Layout.fillHeight:true
-            ControlsReference {anchors.fill:parent;visible:page.tab==="controls"}
-            Loader {anchors.fill:parent;active:page.tab==="kits";sourceComponent:KitGallery {}}
-            Rectangle {
-                id:binding
-                visible:!["controls","kits"].includes(page.tab)
-                anchors.centerIn:parent;width:Math.min(1180,parent.width-16);height:parent.height-8
-                color:"#1a1016";border.color:"#503132";border.width:5;radius:8
-                Rectangle {anchors.fill:parent;anchors.margins:9;color:"#6c4732";radius:4}
-                Row {
-                    anchors.fill:parent;anchors.margins:14;spacing:0
-                    Repeater {
-                        model:2
-                        Rectangle {
-                            required property int index
-                            width:parent.width/2;height:parent.height;color:index ? "#dac398" : "#cdb58e"
-                            gradient:Gradient {orientation:Gradient.Horizontal;GradientStop {position:0;color:index ? "#ad916c" : "#d8c29c"} GradientStop {position:.12;color:"#d8c29c"} GradientStop {position:.88;color:"#d8c29c"} GradientStop {position:1;color:index ? "#d0b589" : "#a98c68"}}
-                            Canvas {
-                                anchors.fill:parent
-                                onPaint: {
-                                    const c=getContext("2d");c.reset();c.fillStyle="#873030"
-                                    for(let i=0;i<18;i++){const x=((i*97+index*23)%101)/101*width,y=i%2 ? height-((i*43)%65) : ((i*73)%37);c.globalAlpha=.18+i%4*.05;c.beginPath();c.ellipse(x,y,4+i%5*4,2+i%7*3);c.fill()}
-                                    c.strokeStyle="#6e2827";c.lineWidth=2;c.globalAlpha=.23;c.beginPath();c.moveTo(width*.1,height*.95);c.bezierCurveTo(width*.4,height*.77,width*.15,height*.6,width*.25,height*.45);c.stroke()
-                                }
-                            }
-                        }
-                    }
-                }
-                RowLayout {
-                    anchors.fill:parent;anchors.margins:28;spacing:24;opacity:1-page.flip*.45
-                    ColumnLayout {
-                        Layout.fillWidth:true;Layout.fillHeight:true;Layout.preferredWidth:1;spacing:10
-                        Text {text:page.tab.toUpperCase();color:"#70483a";font.family:"serif";font.letterSpacing:3;font.pixelSize:13;Layout.alignment:Qt.AlignHCenter}
-                        Rectangle {
-                            Layout.fillWidth:true;Layout.fillHeight:true;Layout.maximumHeight:440
-                            color:"#ccb58e";border.color:page.tierColor;border.width:2;radius:2
-                            Loader {anchors.fill:parent;anchors.margins:5;active:page.seen && !!page.entry;sourceComponent:page.tab==="achievements" ? medalArt : sketchArt}
-                            Text {anchors.centerIn:parent;text:"?";visible:!page.seen;font.family:"serif";font.italic:true;font.pixelSize:Math.min(parent.width,parent.height)*.72;color:"#55413c";rotation:-9}
-                        }
-                        Text {
-                            Layout.fillWidth:true;wrapMode:Text.WordWrap;horizontalAlignment:Text.AlignHCenter
-                            text:!page.seen ? "Unrecorded" : page.tab==="enemies" ? page.entry.origin+" · "+Encounters.tier(page.entry.id)+" · first wave "+Encounters.firstWave(page.entry.id)
-                                : page.tab==="weapons" ? Gear.weaponClass(page.entry)+" · "+Gear.rarities[page.entry.rarity].label : page.tab==="abilities" ? page.entry.category+(page.entry.rarity ? " · "+Gear.rarities[page.entry.rarity].label : "") : ""
-                            color:page.seen && page.tab==="enemies" ? ({Hellborne:"#8c3028",Space:"#245b78",Void:"#694076"})[page.entry.origin] || "#713d32" : "#713d32";font.pixelSize:12;font.bold:true
-                        }
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth:true;Layout.fillHeight:true;Layout.preferredWidth:1;spacing:12
-                        Text {text:page.heading;color:page.ink;font.family:"serif";font.pixelSize:Math.min(30,page.width*.035);font.bold:true;Layout.fillWidth:true;wrapMode:Text.WordWrap}
-                        Rectangle {height:2;Layout.fillWidth:true;color:"#8c4b3e";opacity:.6}
-                        ScrollView {
-                            Layout.fillWidth:true;Layout.fillHeight:true;contentWidth:availableWidth;clip:true
-                            Text {width:parent.width;text:page.description || "";color:page.ink;font.family:"serif";font.pixelSize:page.width<900 ? 15 : 18;lineHeight:1.25;wrapMode:Text.WordWrap}
-                        }
-                        Text {visible:page.seen && ["enemies","weapons","achievements"].includes(page.tab);Layout.fillWidth:true;wrapMode:Text.WordWrap;color:"#713c35";font.family:"serif";font.pixelSize:13
-                            text:!page.entry ? "" : page.tab==="enemies" ? "Slain: "+(page.career["enemyKills_"+page.entry.id]||0)+" · Deaths: "+(page.career["enemyDeaths_"+page.entry.id]||0)
-                                : page.tab==="weapons" ? "Enemies killed with: "+(page.career["weaponKills_"+page.entry.id]||0)
-                                : "Progress: "+Math.min(page.entry.target,page.career[page.entry.metric]||0)+" / "+page.entry.target+(page.achievementsUnlocked || Progress.complete(page.career,page.entry) ? " · UNLOCKED" : "")}
-                        Text {Layout.alignment:Qt.AlignHCenter;text:(page.pageIndex+1)+" / "+page.displayed.length;color:"#775442";font.family:"serif";font.pixelSize:14}
-                    }
-                }
-                Rectangle {
-                    width:parent.width/2-14;height:parent.height-28;x:parent.width/2;y:14;visible:page.flip>0
-                    color:"#ddc9a5";opacity:Math.sin(page.flip*Math.PI)
-                    transform:Rotation {origin.x:0;origin.y:binding.height/2;axis {x:0;y:1;z:0}
-                    angle:-180*page.flip}
-                    Rectangle {anchors.top:parent.top;anchors.left:parent.left;width:parent.width*.4;height:2;color:"#a1443d"}
-                }
-                Rectangle {
-                    id:cover
-                    anchors.fill:parent;visible:page.opening<.999;color:"#151019";border.color:"#563236";border.width:7;radius:7;z:5
-                    transform:Rotation {origin.x:0;origin.y:cover.height/2;axis {x:0;y:1;z:0}
-                    angle:-145*page.opening}
-                    Text {anchors.top:parent.top;anchors.topMargin:30;anchors.horizontalCenter:parent.horizontalCenter;text:"PROJECT BLACKBOX";font.family:"serif";font.pixelSize:25;font.letterSpacing:5;color:"#ad7d59"}
-                    Canvas {anchors.centerIn:parent;width:Math.min(parent.width*.55,parent.height*.70);height:width
-                        onPaint:{const c=getContext("2d");const r=width*.42;c.reset();c.translate(width/2,height/2);c.strokeStyle="#9b1e31";c.lineWidth=7;c.shadowColor="#be1e34";c.shadowBlur=14;c.beginPath();c.arc(0,0,r,0,6.283);c.stroke();c.beginPath();for(let i=0;i<=5;i++){let a=-Math.PI/2+i*Math.PI*.8;c.lineTo(Math.cos(a)*r,Math.sin(a)*r)}c.stroke();c.lineWidth=2;for(let i=0;i<8;i++){c.beginPath();c.moveTo((i-4)*r*.18,r*.5);c.lineTo((i-4)*r*.18,r*(.75+i%3*.22));c.stroke()}}}
-                    Text {anchors.bottom:parent.bottom;anchors.bottomMargin:30;anchors.horizontalCenter:parent.horizontalCenter;text:"NAMES WRITTEN IN BLOOD";font.family:"serif";font.pixelSize:15;color:"#bd8f70";font.letterSpacing:3}
+            Layout.alignment:Qt.AlignHCenter
+            Layout.fillWidth:true
+            Layout.preferredHeight:childrenRect.height
+            spacing:5
+            Repeater {
+                model:Book.chapters
+                ActionButton {
+                    required property var modelData
+                    objectName:"gallery-"+modelData.id
+                    text:modelData.title
+                    leftPadding:page.compact ? 9 : 13
+                    rightPadding:leftPadding
+                    implicitHeight:Math.max(29,UiMetrics.text(15)+12)
+                    primary:page.tab===modelData.id
+                    onClicked:page.jumpTo(modelData.id,"")
                 }
             }
         }
+
         RowLayout {
-            visible:!["controls","kits"].includes(page.tab);Layout.fillWidth:true
-            ActionButton {objectName:"bookPrevious";text:"← Previous";enabled:page.pageIndex>0;onClicked:page.turnTo(page.pageIndex-1,"")}
-            ComboBox {Layout.fillWidth:true;model:page.displayed.map(function(e){return page.tab==="enemies" && !page.revealAll && !page.known.enemies.includes(e.id) ? "Unknown" : e.title});currentIndex:page.pageIndex;onActivated:page.turnTo(currentIndex,"")}
-            ActionButton {objectName:"bookNext";text:"Next →";enabled:page.pageIndex<page.displayed.length-1;onClicked:page.turnTo(page.pageIndex+1,"")}
+            Layout.alignment:Qt.AlignHCenter
+            spacing:5
+            visible:page.tab==="enemies" || page.tab==="weapons"
+            LeafPicker {
+                objectName:"galleryOriginFilter"
+                visible:page.tab==="enemies"
+                model:["All origins","Hellborne","Space","Void"]
+                currentIndex:Math.max(0,model.indexOf(page.enemyOrigin))
+                onActivated:page.enemyOrigin=currentIndex ? currentText : "All"
+            }
+            LeafPicker {
+                objectName:"galleryWeaponFilter"
+                visible:page.tab==="weapons"
+                model:["All weapons","Guns","Staffs","Melee"]
+                currentIndex:Math.max(0,model.indexOf(page.weaponClass))
+                onActivated:page.weaponClass=currentIndex ? currentText : "All"
+            }
+            LeafPicker {
+                visible:page.tab==="enemies"
+                model:["All ranks","Normal","Ascended","Nightmare","Overlord"]
+                currentIndex:Math.max(0,model.indexOf(page.enemyTier))
+                onActivated:page.enemyTier=currentIndex ? currentText : "All"
+            }
+            LeafPicker {
+                objectName:"galleryStatsSort"
+                model:page.tab==="enemies" ? ["Debut wave","Name","Kills","Deaths"] : ["Name","Kills"]
+                currentIndex:model.indexOf(page.tab==="enemies" ? page.enemySort : page.weaponSort)
+                onActivated:if (page.tab==="enemies") page.enemySort=currentText; else page.weaponSort=currentText
+            }
+        }
+
+        Item {
+            id: bookArea
+            Layout.fillWidth:true
+            Layout.fillHeight:true
+            Rectangle {
+                id: binding
+                objectName:"hardcoverBook"
+                anchors.centerIn:parent
+                width:Math.min(parent.width-12,Math.max(484,parent.height*1.56))
+                height:Math.min(parent.height-3,width/1.27)
+                radius:9
+                color:"transparent"
+                opacity:1
+                scale:.9+.1*page.opening
+
+                Rectangle {
+                    x:page.opening<.92 ? parent.width/2-2 : 0
+                    width:parent.width-x
+                    height:parent.height
+                    y:2
+                    radius:6
+                    color:"#160f14"
+                    border.color:"#8d5a42"
+                }
+                Repeater {
+                    model:5
+                    Rectangle {
+                        required property int index
+                        x:(page.opening<.92 ? binding.width/2 : 14)+index*.6; y:11+index*2
+                        width:binding.width-x-14-index*.6; height:binding.height-22
+                        radius:2
+                        color:index%2 ? "#9e7954" : "#c1a17a"
+                    }
+                }
+                Item {
+                    id: leaves
+                    anchors.fill:parent
+                    anchors.leftMargin:14
+                    anchors.rightMargin:14
+                    anchors.topMargin:10
+                    anchors.bottomMargin:21
+                    opacity:1
+                    Row {
+                        anchors.fill:parent
+                        BookPaper { width:parent.width/2; height:parent.height; seed:page.entry?.id.length || 0; opacity:page.opening>=.92 ? 1 : 0 }
+                        BookPaper { width:parent.width/2; height:parent.height; seed:page.entry?.id.length || 0; rightPage:true }
+                    }
+                    Rectangle {
+                        anchors.horizontalCenter:parent.horizontalCenter
+                        height:parent.height
+                        width:12
+                        visible:page.opening>=.92
+                        gradient:Gradient {
+                            orientation:Gradient.Horizontal
+                            GradientStop { position:0; color:"#00513a2e" }
+                            GradientStop { position:.49; color:"#6a513a2e" }
+                            GradientStop { position:.51; color:"#a2574230" }
+                            GradientStop { position:1; color:"#00513a2e" }
+                        }
+                    }
+
+                    RowLayout {
+                        anchors.fill:parent
+                        anchors.leftMargin:page.compact ? 15 : 22
+                        anchors.rightMargin:anchors.leftMargin
+                        anchors.topMargin:page.compact ? 10 : 17
+                        anchors.bottomMargin:38
+                        spacing:page.compact ? 24 : 36
+                        visible:!page.controller && page.opening>=.92
+                        opacity:1-Math.sin(page.flip*Math.PI)*.38
+                        enabled:!page.closing && page.opening > .65 && !turnPages.running
+
+                        ColumnLayout {
+                            Layout.fillWidth:true
+                            Layout.fillHeight:true
+                            Layout.preferredWidth:1
+                            spacing:6
+                            Text {
+                                Layout.alignment:Qt.AlignHCenter
+                                text:page.chapterTitle.toUpperCase()
+                                color:"#6d4139"
+                                font.family:"DejaVu Serif"
+                                font.letterSpacing:2
+                                font.pixelSize:UiMetrics.text(12)
+                            }
+                            Item {
+                                Layout.fillWidth:true
+                                Layout.fillHeight:true
+                                Rectangle {
+                                    id: artFrame
+                                    anchors.centerIn:parent
+                                    width:Math.min(parent.width,parent.height*1.23)
+                                    height:parent.height
+                                    color:"#9fe5d1ac"
+                                    border.color:Qt.darker(page.tierColor,1.35)
+                                    radius:3
+                                    Loader {
+                                        anchors.fill:parent
+                                        anchors.margins:5
+                                        active:page.seen && !!page.entry
+                                        sourceComponent:page.tab==="achievements" ? medalArt : page.tab==="kits" ? kitArt
+                                            : page.tab==="controls" ? manualArt : sketchArt
+                                    }
+                                    Text {
+                                        anchors.centerIn:parent
+                                        text:"?"
+                                        visible:!page.seen
+                                        font.family:"DejaVu Serif"
+                                        font.italic:true
+                                        font.pixelSize:Math.min(parent.width,parent.height)*.68
+                                        color:"#784844"
+                                        rotation:-9
+                                    }
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth:true
+                                visible:page.caption.length>0
+                                wrapMode:Text.WordWrap
+                                horizontalAlignment:Text.AlignHCenter
+                                text:page.caption
+                                color:"#6b3733"
+                                font.family:"DejaVu Serif"
+                                font.pixelSize:UiMetrics.text(12)
+                                font.bold:true
+                            }
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth:true
+                            Layout.fillHeight:true
+                            Layout.preferredWidth:1
+                            spacing:page.compact ? 6 : 11
+                            Text {
+                                objectName:"bookEntryTitle"
+                                text:page.heading
+                                color:page.ink
+                                font.family:"DejaVu Serif"
+                                font.pixelSize:UiMetrics.text(page.compact ? 20 : 27)
+                                font.bold:true
+                                Layout.fillWidth:true
+                                maximumLineCount:2
+                                elide:Text.ElideRight
+                                wrapMode:Text.WordWrap
+                            }
+                            Rectangle { Layout.fillWidth:true; height:1; color:"#a46a58" }
+                            ScrollView {
+                                id: descriptionScroll
+                                objectName:"bookDescriptionScroll"
+                                Layout.fillWidth:true
+                                Layout.fillHeight:true
+                                contentWidth:availableWidth
+                                clip:true
+                                ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
+                                Text {
+                                    objectName:"bookDescription"
+                                    width:Math.max(0,descriptionScroll.availableWidth-11)
+                                    text:page.description
+                                    textFormat:Text.RichText
+                                    color:page.ink
+                                    font.family:"DejaVu Serif"
+                                    font.pixelSize:page.paperText
+                                    lineHeight:1.12
+                                    wrapMode:Text.WordWrap
+                                    onLinkActivated:function(destination) { page.follow(destination) }
+                                    HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                                    onTextChanged:if (descriptionScroll.contentItem) descriptionScroll.contentItem.contentY = 0
+                                }
+                            }
+                            Text {
+                                visible:page.seen && ["enemies","weapons","achievements"].includes(page.tab)
+                                Layout.fillWidth:true
+                                wrapMode:Text.WordWrap
+                                color:"#753a34"
+                                font.family:"DejaVu Serif"
+                                font.pixelSize:UiMetrics.text(12)
+                                text:!page.entry ? "" : page.tab==="enemies" ? "Slain "+(page.career["enemyKills_"+page.entry.id]||0)
+                                    +" · Deaths "+(page.career["enemyDeaths_"+page.entry.id]||0)
+                                    : page.tab==="weapons" ? "Kills with this weapon "+(page.career["weaponKills_"+page.entry.id]||0)
+                                    : Math.min(page.entry.target,page.career[page.entry.metric]||0)+" / "+page.entry.target
+                                        +(page.achievementsUnlocked || Progress.complete(page.career,page.entry) ? " · Unlocked" : "")
+                            }
+                        }
+                    }
+                    Loader {
+                        anchors.fill:parent
+                        anchors.margins:13
+                        anchors.bottomMargin:40
+                        active:page.controller && page.opening>=.92
+                        sourceComponent:ScrollView {
+                            contentWidth:availableWidth
+                            clip:true
+                            ControllerReference { width:parent.width; height:width>660 ? 410 : 510 }
+                        }
+                    }
+
+                    PageCorner {
+                        visible:page.opening>=.92
+                        objectName:"bookPrevious"
+                        anchors.left:parent.left
+                        anchors.bottom:parent.bottom
+                        backwards:true
+                        enabled:page.pageIndex>0 && !page.closing
+                        onClicked:page.turnTo(page.pageIndex-1)
+                    }
+                    PageCorner {
+                        visible:page.opening>=.92
+                        objectName:"bookNext"
+                        anchors.right:parent.right
+                        anchors.bottom:parent.bottom
+                        enabled:page.pageIndex<page.displayed.length-1 && !page.closing
+                        onClicked:page.turnTo(page.pageIndex+1)
+                    }
+                    Text {
+                        anchors.horizontalCenter:parent.horizontalCenter
+                        anchors.bottom:parent.bottom
+                        anchors.bottomMargin:9
+                        visible:page.opening>=.92
+                        text:(page.displayed.length ? page.pageIndex+1 : 0)+" / "+page.displayed.length
+                        color:"#5b3930"
+                        font.family:"DejaVu Serif"
+                        font.pixelSize:UiMetrics.text(12)
+                    }
+                    Rectangle {
+                        width:parent.width/2
+                        height:parent.height
+                        x:page.flipDirection>0 ? parent.width/2 : 0
+                        visible:page.flip>0
+                        color:"#d6bd91"
+                        opacity:.88*Math.sin(page.flip*Math.PI)
+                        border.color:"#a48568"
+                        transform:Rotation {
+                            origin.x:page.flipDirection>0 ? 0 : leaves.width/2
+                            origin.y:leaves.height/2
+                            axis {x:0;y:1;z:0}
+                            angle:-page.flipDirection*180*page.flip
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: cover
+                    width:binding.width*.52
+                    height:binding.height
+                    x:binding.width*.48
+                    visible:page.opening<.995
+                    readonly property bool frontFace:page.opening<.50
+                    color:frontFace ? "#241720" : "#d4b78b"
+                    border.color:frontFace ? "#815342" : "#a88a62"
+                    border.width:6
+                    radius:8
+                    z:5
+                    transform:Rotation {
+                        origin.x:0
+                        origin.y:cover.height/2
+                        axis {x:0;y:1;z:0}
+                        angle:-180*page.opening
+                    }
+                    BookPaper {
+                        anchors.fill:parent
+                        anchors.margins:6
+                        visible:!cover.frontFace
+                    }
+                    Rectangle { anchors.fill:parent; anchors.margins:13; color:"transparent"; border.color:"#795340"; radius:3; visible:cover.frontFace }
+                    Rectangle {
+                        anchors.left:parent.left
+                        anchors.top:parent.top
+                        anchors.bottom:parent.bottom
+                        visible:cover.frontFace
+                        width:Math.max(12,parent.width*.071)
+                        radius:4
+                        gradient:Gradient {
+                            orientation:Gradient.Horizontal
+                            GradientStop {position:0; color:"#5e3e3c"}
+                            GradientStop {position:.5; color:"#2b1c20"}
+                            GradientStop {position:1; color:"#110b10"}
+                        }
+                    }
+                    Text {
+                        anchors.top:parent.top
+                        anchors.topMargin:parent.height*.14
+                        anchors.horizontalCenter:parent.horizontalCenter
+                        visible:cover.frontFace
+                        text:"BLACK GRIMOIRE"
+                        font.family:"DejaVu Serif"
+                        font.pixelSize:Math.min(parent.width*.072,UiMetrics.text(25))
+                        font.letterSpacing:2
+                        font.bold:true
+                        color:"#dab087"
+                    }
+                    Canvas {
+                        anchors.centerIn:parent
+                        visible:cover.frontFace
+                        width:Math.min(parent.width*.67,parent.height*.53)
+                        height:width
+                        onPaint: {
+                            const c=getContext("2d"), r=width*.41
+                            c.reset()
+                            c.translate(width/2,height/2)
+                            c.strokeStyle="#b62438"
+                            c.lineWidth=Math.max(2,width*.025)
+                            c.beginPath()
+                            c.arc(0,0,r,0,Math.PI*2)
+                            c.stroke()
+                            c.beginPath()
+                            for (let i=0;i<=5;i++) {
+                                const a=-Math.PI/2+i*Math.PI*.8
+                                c.lineTo(Math.cos(a)*r,Math.sin(a)*r)
+                            }
+                            c.stroke()
+                        }
+                    }
+                    BloodStain { anchors.bottom:parent.bottom; anchors.right:parent.right; width:parent.width*.5; height:width*.45; visible:cover.frontFace; mirrorX:true; mirrorY:true }
+                }
+            }
+        }
+
+        LeafPicker {
+            id:leafPicker
+            objectName:"bookLeafPicker"
+            Layout.alignment:Qt.AlignHCenter
+            Layout.maximumWidth:Math.min(frame.width,500)
+            implicitContentWidthPolicy:ComboBox.WidestText
+            model:page.displayed.map(function(record) { return page.visibleEntry(record) ? record.title : "Unknown" })
+            currentIndex:page.pageIndex
+            onActivated:page.turnTo(currentIndex)
+            Accessible.name:"Jump to a page in "+page.chapterTitle
         }
     }
-    Component {id:sketchArt;GalleryPortrait {entry:page.entry;tint:page.tierColor;layer.enabled:GraphicsInfo.api!==GraphicsInfo.Software;layer.effect:ShaderEffect {fragmentShader:Qt.resolvedUrl("../shaders/pencil.frag.qsb")}}}
-    Component {id:medalArt;Medal {medalId:page.entry.id;group:page.entry.group;metric:page.entry.metric;earned:page.achievementsUnlocked || Progress.complete(page.career,page.entry)}}
+
+    component LeafPicker: ComboBox {
+        font.family:"Inter"
+        font.pixelSize:UiMetrics.text(page.compact ? 12 : 13)
+        implicitContentWidthPolicy:ComboBox.WidestText
+        implicitHeight:Math.max(30,font.pixelSize+12)
+        leftPadding:11
+        rightPadding:26
+        palette.base:"#231b26"
+        palette.window:"#231b26"
+        palette.text:"#f6ded0"
+        palette.buttonText:"#f6ded0"
+        palette.highlight:"#673748"
+        background:Rectangle {
+            radius:5
+            color:parent.hovered ? "#382736" : "#241b26"
+            border.color:parent.activeFocus ? "#ffc091" : "#76544f"
+        }
+    }
+
+    component PageCorner: Button {
+        id: corner
+        property bool backwards:false
+        width:Math.max(54,UiMetrics.text(42))
+        height:34
+        padding:0
+        z:2
+        hoverEnabled:true
+        text:backwards ? "❮" : "❯"
+        Accessible.name:backwards ? "Turn to previous page" : "Turn to next page"
+        opacity:enabled ? 1 : .25
+        font.family:"DejaVu Serif"
+        font.pixelSize:UiMetrics.text(25)
+        contentItem:Text {
+            text:corner.text; font:corner.font
+            color:corner.hovered ? "#8e172a" : "#67372e"
+            horizontalAlignment:Text.AlignHCenter
+            verticalAlignment:Text.AlignVCenter
+        }
+        background:Canvas {
+            onPaint:{
+                const c=getContext("2d")
+                c.reset()
+                c.translate(corner.backwards ? 0 : width,0)
+                c.scale(corner.backwards ? 1 : -1,1)
+                c.fillStyle="rgba(124,63,51,.23)"
+                c.beginPath()
+                c.moveTo(0,0); c.lineTo(width, height); c.lineTo(0,height)
+                c.closePath(); c.fill()
+            }
+        }
+    }
+
+    Component {
+        id:sketchArt
+        GalleryPortrait {
+            entry:page.entry
+            engraved:true
+            tint:page.tierColor
+            layer.enabled:GraphicsInfo.api!==GraphicsInfo.Software && page.tab!=="abilities"
+            layer.effect:ShaderEffect { fragmentShader:Qt.resolvedUrl("../shaders/pencil.frag.qsb") }
+        }
+    }
+    Component {
+        id:medalArt
+        Medal { medalId:page.entry.id; group:page.entry.group; metric:page.entry.metric; earned:page.achievementsUnlocked || Progress.complete(page.career,page.entry) }
+    }
+    Component {
+        id:manualArt
+        Text {
+            text:page.entry.id==="look" ? "✥" : page.entry.id==="fight" ? "⚔" : "⌘"
+            font.family:"DejaVu Serif"
+            font.pixelSize:Math.min(width,height)*.42
+            color:"#763a34"
+            horizontalAlignment:Text.AlignHCenter
+            verticalAlignment:Text.AlignVCenter
+        }
+    }
+    Component {
+        id:kitArt
+        ColumnLayout {
+            spacing:5
+            Repeater {
+                model:page.tab==="kits" && page.entry
+                    ? [Gear.weapons[page.entry.weapon],Gear.activeAbilities[page.entry.active],Gear.passives[page.entry.passive]].filter(Boolean) : []
+                GalleryPortrait {
+                    required property var modelData
+                    entry:modelData
+                    engraved:true
+                    tint:Gear.rarities[entry.rarity].color
+                    Layout.fillWidth:true
+                    Layout.fillHeight:true
+                    Layout.preferredHeight:1
+                    TapHandler { onTapped:page.jumpTo(modelData.category==="Weapon" ? "weapons" : "abilities",modelData.id) }
+                    HoverHandler { cursorShape:Qt.PointingHandCursor }
+                    Accessible.name:modelData.title
+                }
+            }
+        }
+    }
 }

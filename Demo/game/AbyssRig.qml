@@ -55,9 +55,9 @@ Node {
 
     Model {
         objectName: String(beast.enemy.id)
-        pickable: beast.live
-        source: beast.crystal ? "#Cube" : "#Sphere"
-        eulerRotation: beast.crystal ? Qt.vector3d(29,beast.clock*37,46) : Qt.vector3d(0,0,0)
+        visible:!beast.crystal
+        pickable: beast.live && visible
+        source: "#Sphere"
         y: beast.kind === "endme" ? -28 : beast.skull ? 22 : 0
         scale: beast.leviathan ? Qt.vector3d(2.70,1.27,1.95)
             : beast.kind === "endme" ? Qt.vector3d(.48,2.05,.40)
@@ -67,9 +67,44 @@ Node {
             : beast.skull ? Qt.vector3d(1.25,.99,.91)
             : beast.kind === "lantis" ? Qt.vector3d(1.51,1.30,1.08)
             : beast.kind === "hallucination" ? Qt.vector3d(.69+beast.enemy.illusionForm*.11,.93+(beast.enemy.illusionForm%3)*.3,.71)
-            : beast.crystal ? Qt.vector3d(.76,.76,.76) : Qt.vector3d(1.06,.83,.97)
+            : Qt.vector3d(1.06,.83,.97)
         opacity: beast.leviathan ? .60 : beast.ink ? .82 : 1
         materials: [beast.skull ? pale : skin]
+    }
+
+    Loader3D {
+        active:beast.crystal
+        sourceComponent:Node {
+            AmethystGeometry {id:facets}
+            PrincipledMaterial {
+                id:glass
+                baseColor:"#8a8e53ba"
+                roughness:.13
+                metalness:.27
+                emissiveFactor:Qt.vector3d(.115,.031,.2)
+                alphaMode:PrincipledMaterial.Blend
+                cullMode:Material.NoCulling
+            }
+            PrincipledMaterial {
+                id:heart
+                baseColor:"#d78aff"
+                roughness:.16
+                emissiveFactor:Qt.vector3d(.78,.32,1)
+            }
+            Model {
+                geometry:facets
+                objectName:String(beast.enemy.id)
+                pickable:beast.live
+                eulerRotation:Qt.vector3d(13+beast.clock*8,beast.clock*29,19)
+                materials:[glass]
+            }
+            Model {
+                geometry:facets
+                eulerRotation:Qt.vector3d(46-beast.clock*53,28-beast.clock*63,-beast.clock*28)
+                scale:Qt.vector3d(.49,.55,.49)
+                materials:[heart]
+            }
+        }
     }
 
     Repeater3D {

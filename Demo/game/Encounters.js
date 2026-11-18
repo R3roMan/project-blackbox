@@ -149,7 +149,7 @@ var enemyTypes = {
     },
     lucifoverus: {
         id:"lucifoverus",title:"Lucifoverus",role:"boss",angel:true,health:143,damage:26,
-        speed:264,pace:"Very high",reach:323,interval:.92,windup:.70,crit:.14,
+        speed:264,pace:"Very high",reach:323,interval:.92,windup:.70,crit:.14,chargeDistance:510,chargeSpeed:2.85,
         skin:"#81263c",accent:"#ffce99",size:2.31,shake:[25,21,.51,105],
         immune:true,
         description:"Its trident deals a random level 1 status and has a 14% critical chance. It retreats to another wallpaper after striking and recovers for five seconds. Elemental statuses cannot stop it."
@@ -271,6 +271,10 @@ var enemyTypes = {
 enemyTypes.papapoganus={id:"papapoganus",title:"Papapoganus",role:"ground",sprayer:true,poisonImmune:true,
     health:57,damage:1.3,speed:114,pace:"Medium",reach:735,interval:6.8,windup:1.35,
     skin:"#878384",accent:"#e5d76c",size:1.72,shake:[2,2,.12,65],description:"A smiling, perforated horror with a poisonous yellow spray."}
+enemyTypes.blandromedus={id:"blandromedus",title:"Blandromedus",role:"ground",vampire:true,
+    health:83,damage:16,speed:143,pace:"Medium",reach:810,interval:4.25,windup:1.05,
+    skin:"#efdac3",accent:"#ff435c",size:1.76,shake:[9,10,.4,58],element:"weaken",elementLevel:3,
+    boltTime:1.22,boltHealth:5.2,description:"A Blood Moon vampire with a hanging eye and violet wings. Its blood shots inflict Weaken III and it regenerates health when a shot lands."}
 enemyTypes.oblogabgalus={id:"oblogabgalus",title:"Oblogabgalus",role:"boss",trainer:true,tutorialOnly:true,
     health:60,damage:7,speed:138,pace:"Medium",reach:800,interval:3.8,windup:1.2,
     skin:"#bd9b4c",accent:"#fff0a0",size:2.25,shake:[6,7,.25,40],description:"Your first lesson has teeth."}
@@ -336,7 +340,7 @@ var attackStyles = {
     helesepeptium:"snakeLightning", fetaSpotter:"rifleLock", nosferapabakus:"feedingBite",voidGlitch:"fracture",
     tenmani:"tendrils", lantis:"jawSnap", shadow:"executioner", faeel:"snakeLightning", nightosphere:"hexPuff",
     endme:"claws", archfellanus:"trident", reapfast:"jawSnap", hallucination:"lunge", lalaBubu:"strafingBolt",
-    papapoganus:"soulCry",oblogabgalus:"headbutt",fearme:"executioner",skorochiyus:"jawSnap",harvester:"soulCry",crufixicatus:"invertedBite"
+    papapoganus:"soulCry",blandromedus:"bloodSpit",oblogabgalus:"headbutt",fearme:"executioner",skorochiyus:"jawSnap",harvester:"soulCry",crufixicatus:"invertedBite"
 }
 
 var difficulties = {
@@ -360,6 +364,8 @@ function boss(wave) {
 }
 
 function firstWave(type) {
+    if (type === "blandromedus")
+        return -1
     if (type === "oblogabgalus")
         return 0
     if (type === "saslimigus")
@@ -376,6 +382,7 @@ function firstWave(type) {
 }
 
 var enemyRanks = {
+    blandromedus:"Nightmare",
     battlestar:"Nightmare", skarabatunus:"Nightmare", mystery:"Nightmare", seraphijus:"Nightmare", mothergalian:"Nightmare",
     capablancamus:"Nightmare", trispiramahedus:"Nightmare", helesepeptium:"Nightmare",
     fetaSpotter:"Nightmare", nosferapabakus:"Nightmare", nightosphere:"Nightmare", endme:"Nightmare",
@@ -400,20 +407,20 @@ function weather(wave) {
     return "clear"
 }
 
-function inferno(wave, seed) {
+function inferno(wave, seed, rate) {
     if (wave < 9)
         return false
     let roll = (seed ^ Math.imul(wave,0x9e3779b1)) >>> 0
     roll = Math.imul(roll ^ (roll >>> 16),0x45d9f3b) >>> 0
-    return ((roll ^ (roll >>> 16)) >>> 0) < .10 * 4294967296
+    return ((roll ^ (roll >>> 16)) >>> 0) < .10 * (rate ?? 1) * 4294967296
 }
 
-function incursion(wave, seed) {
-    return wave >= 18 && !boss(wave) && (wave === 18 || inferno(wave,seed ^ 0xe17a1463))
+function incursion(wave, seed, rate) {
+    return wave >= 18 && !boss(wave) && (wave === 18 || inferno(wave,seed ^ 0xe17a1463,rate))
 }
 
-function winter(wave, seed) {
-    return wave >= 12 && !boss(wave) && (wave === 12 || inferno(wave,seed ^ 0x710e20fa))
+function winter(wave, seed, rate) {
+    return wave >= 12 && !boss(wave) && (wave === 12 || inferno(wave,seed ^ 0x710e20fa,rate))
 }
 
 function waveSize(wave, preset) {
@@ -472,24 +479,30 @@ function waveBudget(wave, preset) {
     }
 }
 
-function stageWeather(wave, seed) {
-    if (incursion(wave,seed))
+function stageWeather(wave, seed, preset) {
+    const rate = Conditions.frequency(preset)
+    if (incursion(wave,seed,rate))
         return "incursion"
     const ordinary = weather(wave)
-    if (ordinary !== "clear")
-        return ordinary
-    if (winter(wave,seed))
+    const landmark = wave === 5 || wave === 8
+    if (ordinary !== "clear" && (landmark || rate >= 1 || Conditions.roll(wave,seed,0x17c8fa34)<rate))
+        return ordinary === "night" ? Conditions.nightVariant(wave,seed) : ordinary
+    // The original ordinary night schedule avoids round tens. Roll a night
+    // independently on those encounters so every Overlord can be fought under it.
+    if (boss(wave) && Conditions.roll(wave,seed,0x601ee819) < .125*rate)
+        return Conditions.nightVariant(wave,seed)
+    if (winter(wave,seed,rate))
         return "winter"
-    const drifting = Conditions.drifting(wave,seed)
+    const drifting = Conditions.drifting(wave,seed,rate)
     if (drifting)
         return drifting
     if (wave >= 11 && !boss(wave) && !introductions.some(function(entry) { return entry.wave === wave })
-        && Conditions.roll(wave,seed,0x7c193a31) < .067)
+        && Conditions.roll(wave,seed,0x7c193a31) < .067*rate)
         return "meteor"
-    return inferno(wave,seed) ? "inferno" : "clear"
+    return inferno(wave,seed,rate) ? "inferno" : "clear"
 }
 
-function planWave(wave, seed, preset, resonance) {
+function planWave(wave, seed, preset, resonance, forcedWeather) {
     let state = (seed ^ Math.imul(wave,0x9e3779b1) ^ Math.imul(difficulty(preset).extra+1,0x85ebca6b)) >>> 0
     const random = function() {
         state = (Math.imul(state,1664525)+1013904223) >>> 0
@@ -497,7 +510,7 @@ function planWave(wave, seed, preset, resonance) {
     }
     const budget = waveBudget(wave,preset)
     const ranks = Object.assign({},budget.ranks)
-    const condition = stageWeather(wave,seed)
+    const condition = forcedWeather || stageWeather(wave,seed,preset)
     const groups = []
     const fresh = introductions.find(function(entry) { return entry.wave === wave })
     const pool = introductions.filter(function(entry) { return entry.wave < wave }).map(function(entry) {
@@ -518,6 +531,12 @@ function planWave(wave, seed, preset, resonance) {
             ranks[rank] = count
         }
         ranks[rank] -= count
+    }
+    if (condition === "bloodMoon") {
+        const rank = ranks.Nightmare > 0 ? "Nightmare" : ranks.Ascended > 0 ? "Ascended" : "Normal"
+        ranks[rank] -= 1
+        groups.push({type:"blandromedus",count:1,front:"front",fresh:true})
+        reserved.add("blandromedus")
     }
     if ((wave >= 21 && Conditions.roll(wave,seed,0x46e158d3)<.94 || condition === "incursion")
         && !reserved.has("crawler") && ranks.Normal > 0) {

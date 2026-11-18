@@ -15,6 +15,22 @@ Item {
     objectName:"blackboxDesktopHost"
     property string screenName:Screen.name
     property bool claimed:false
+    property bool useWorkArea:false
+    property rect workArea:Qt.rect(0,0,width,height)
+    readonly property real areaLeft:useWorkArea ? Math.max(0,workArea.x) : 0
+    readonly property real areaTop:useWorkArea ? Math.max(0,workArea.y) : 0
+    readonly property real areaRight:useWorkArea ? Math.max(0,width-workArea.x-workArea.width) : 0
+    readonly property real areaBottom:useWorkArea ? Math.max(0,height-workArea.y-workArea.height) : 0
+    property string saveStatus:""
+    function writeCheckpoint(data,automatic) {
+        if (data.length && Native.Desktop.saveRun(data)) {
+            saveStatus="Saved"
+            if (!automatic && battle.item) battle.item.saveNotice="Saved · Wave "+battle.item.wave
+        } else if (!automatic && battle.item) {
+            saveStatus="Save failed"
+            battle.item.saveNotice=saveStatus
+        }
+    }
     property string ownershipToken:Date.now().toString(36)+"-"+Math.random().toString(36)
     function claimVisible() {
         if(visible && (!preferredScreen || preferredScreen===screenName)) claimed=Native.Desktop.claim(screenName,ownershipToken)
@@ -29,6 +45,13 @@ Item {
     onVisibleChanged:claimVisible()
     property bool bookOpen:false
     property string bookTab:"enemies"
+    property string bookEntry:""
+    function openBook(chapter,id) {
+        bookTab=chapter
+        bookEntry=id || ""
+        bookOpen=true
+    }
+    Binding { target:Ui.UiMetrics; property:"textScale"; value:host.options.textScale || 1; when:host.claimed }
     property var stored:JSON.parse(Native.Desktop.progress())
     property var records:stored.profile || stored
     property var discovered:stored.discoveries && stored.discoveries.enemies ? stored.discoveries : ({enemies:[],abilities:[]})
@@ -45,7 +68,7 @@ Item {
         if(!claimed || !battle.item)return
         const game=battle.item,run=game.run
         const actives=run.slots.active.map(function(slot,i){return slot.item ? {title:Gear.activeAbilities[slot.item.id].title,id:slot.item.id,cooldown:Rules.activeCooldown(run,slot.item.id),duration:Rules.abilityRecovery(run,slot)} : {title:"Empty",cooldown:0,duration:1}})
-        Native.Desktop.publish({atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
+        Native.Desktop.publish({canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(home && mode==="play" && battle.item)battle.item.keyTargetFocus()
     Component.onCompleted: {claimVisible();report()}
@@ -71,14 +94,23 @@ Item {
     Loader {
         id:battle
         anchors.fill:parent
+        anchors.leftMargin:host.areaLeft
+        anchors.topMargin:host.areaTop
+        anchors.rightMargin:host.areaRight
+        anchors.bottomMargin:host.areaBottom
         active:host.claimed
-        visible:host.mode==="play" && !host.bookOpen
+        visible:host.mode==="play"
         sourceComponent:Game.PlayScene {
             id:game
             resumeState:Native.Desktop.parkedRun()
             artDirectory:Qt.resolvedUrl("../V0.1/kde/contents/images/")
             backgroundFiles:host.backgrounds
-            allowed:host.home && host.mode==="play" && !host.bookOpen
+            allowed:host.home && host.mode==="play"
+            bookVisible:host.bookOpen
+            enabled:!bookVisible
+            onCodexRequested:function(chapter,id) { host.openBook(chapter,id) }
+            software:GraphicsInfo.api===GraphicsInfo.Software
+            autoSave:host.options.autoSave
             sound:host.options.sound
             motion:host.options.motion
             frameLimit:host.options.frameLimit
@@ -87,7 +119,9 @@ Item {
             showTimer:host.options.showTimer
             unlockedGear:Progress.unlocked(host.records,host.options.achievementOverride)
             knownEnemies:host.discovered.enemies
-            onSaveRequested:function(data){Native.Desktop.saveRun(data);game.saveNotice="Run saved in desktop settings"}
+            onSaveRequested:function(data,automatic) { host.writeCheckpoint(data,automatic) }
+            onAutoSaveRequested:function(value) { Native.Desktop.setOption("autoSave",value) }
+            onTextScaleRequested:function(value) { Native.Desktop.setOption("textScale",value) }
             onTimerRequested:function(value){Native.Desktop.setOption("showTimer",value)}
             onFrameLimitRequested:function(value){Native.Desktop.setOption("frameLimit",value)}
             onSoundRequested:Native.Desktop.setOption("sound",!sound)
@@ -122,13 +156,20 @@ Item {
             const game=battle.item
             if(name==="new") {Native.Desktop.setOption("mode","play");game.resetRun()}
             else if(name==="continue") {
-                const restored=SaveData.decodeRun(Native.Desktop.savedRun(),Progress.unlocked(host.records,host.options.achievementOverride))
-                if(restored) {Native.Desktop.setOption("mode","play");game.run=restored;game.frontId=restored.playerFront;game.previousFront=game.frontId;game.paused=true;game.publish()}
+                const unlocks=Progress.unlocked(host.records,host.options.achievementOverride)
+                const saved=SaveData.savedChoice(Native.Desktop.savedRun(),Native.Desktop.previousRun(),unlocks)
+                if (saved) {
+                    Native.Desktop.setOption("mode","play")
+                    game.restoreRun(SaveData.decodeRun(saved.data,unlocks))
+                }
             } else if(name==="pause" || name==="settings" || name==="loadout") game.pauseRun(name==="settings" ? "settings" : "build")
-            else if(name==="begin") {if(host.home)game.startWave()}
-            else if(name==="resume") {if(host.home) {game.paused=false;game.keyTargetFocus()}}
-            else if(name==="save") Native.Desktop.saveRun(SaveData.encodeRun(game.run))
-            else if(host.home && host.mode==="play" && !game.paused) {
+            else if(name==="begin" && !host.bookOpen && host.home) {
+                Native.Desktop.setOption("mode","play")
+                game.startWave()
+            }
+            else if(name==="resume") {if(host.home && !host.bookOpen) {game.paused=false;game.keyTargetFocus()}}
+            else if(name==="save") game.saveCheckpoint(false)
+            else if(host.home && host.mode==="play" && !game.paused && !host.bookOpen) {
                 if(name==="reload")game.reloadGun()
                 if(name==="q" || name==="e") {Rules.useAbility(game.run,name==="q" ? 0 : 1,game.frontId,0,null);game.publish()}
                 if(name==="weapon1" || name==="weapon2")game.equipWeapon(name==="weapon1" ? 0 : 1)
@@ -139,20 +180,25 @@ Item {
         }
     }
     Loader {
-        anchors.fill:parent;active:host.bookOpen;z:40
+        anchors.fill:parent
+        anchors.leftMargin:host.areaLeft
+        anchors.topMargin:host.areaTop
+        anchors.rightMargin:host.areaRight
+        anchors.bottomMargin:host.areaBottom
+        active:host.bookOpen;z:40
         sourceComponent:Ui.ReferencePage {
             artDirectory:Qt.resolvedUrl("../V0.1/kde/contents/images/")
-            firstTab:host.bookTab;known:host.discovered;unlocks:Progress.unlocked(host.records,host.options.achievementOverride);career:host.records
+            firstTab:host.bookTab;firstEntry:host.bookEntry;overlay:host.mode==="play";motion:host.options.motion;known:host.discovered;unlocks:Progress.unlocked(host.records,host.options.achievementOverride);career:host.records
             achievementsUnlocked:host.options.achievementOverride
             onUnlockToggleRequested:Native.Desktop.setOption("achievementOverride",!host.options.achievementOverride)
             onCloseRequested:host.bookOpen=false
         }
     }
-    Loader {active:host.options.sound;sourceComponent:Game.Music {enabledSound:host.options.sound;activeWindow:host.home;track:host.bookOpen ? "book" : host.mode==="play" && battle.item ? battle.item.musicTrack : "home";quiet:host.bookOpen ? false : battle.item ? battle.item.paused : false;variation:battle.item ? battle.item.musicVariation : ""}}
+    Loader {active:host.options.sound;sourceComponent:Game.Music {enabledSound:host.options.sound;activeWindow:host.home;track:host.bookOpen ? "book" : host.mode==="play" && battle.item ? battle.item.musicTrack : "home";quiet:host.bookOpen ? false : battle.item ? battle.item.paused : false;variation:!host.bookOpen && battle.item ? battle.item.musicVariation : ""}}
     Row {
-        anchors.left:parent.left;anchors.bottom:parent.bottom;anchors.margins:12;spacing:6;z:60
-        visible:host.home && (!battle.item || battle.item.paused || host.mode!=="play" || battle.item.phase!=="combat")
-        Ui.ActionButton {text:"Grimoire";onClicked:{if(battle.item)battle.item.pauseRun("build");host.bookOpen=true}}
+        anchors.left:parent.left;anchors.bottom:parent.bottom;anchors.leftMargin:host.areaLeft+10;anchors.bottomMargin:host.areaBottom+10;spacing:6;z:60
+        visible:host.home && !host.bookOpen && host.mode!=="play"
+        Ui.ActionButton {text:"Grimoire";onClicked:host.openBook("enemies","")}
         Ui.ActionButton {text:"Desktop settings";onClicked:settingsDrawer.open()}
     }
     Rectangle {

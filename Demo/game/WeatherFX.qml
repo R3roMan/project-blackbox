@@ -6,15 +6,19 @@ Item {
     required property string condition
     required property real time
     required property bool motion
+    property bool starSky:false
+    readonly property bool redNight:condition==="bloodMoon"
+    readonly property bool moonVisible:starSky && ["night","bloodMoon","incursion"].includes(condition)
+
     property real gust: 0
 
     Rectangle {
         anchors.fill: parent
-        visible: ["night","rain","inferno","winter","incursion"].includes(weatherFx.condition)
+        visible: ["night","bloodMoon","rain","inferno","winter","incursion"].includes(weatherFx.condition)
         gradient: Gradient {
-            GradientStop { position: 0; color: weatherFx.condition === "inferno" ? "#75381821" : weatherFx.condition === "incursion" ? "#bb130a22" : weatherFx.condition === "night" ? "#ba0a193d" : "#54435a71" }
-            GradientStop { position: .50; color: weatherFx.condition === "inferno" ? "#30b64027" : weatherFx.condition === "incursion" ? "#8722143b" : weatherFx.condition === "night" ? "#74071138" : "#41353b59" }
-            GradientStop { position: 1; color: weatherFx.condition === "inferno" ? "#a5d64614" : weatherFx.condition === "winter" ? "#77739cc5" : weatherFx.condition === "night" ? "#6a101a30" : "#46324958" }
+            GradientStop { position: 0; color: weatherFx.redNight ? "#ac731027" : weatherFx.condition === "inferno" ? "#75381821" : weatherFx.condition === "incursion" ? "#bb130a22" : weatherFx.condition === "night" ? "#ba0a193d" : "#54435a71" }
+            GradientStop { position: .50; color: weatherFx.redNight ? "#82501225" : weatherFx.condition === "inferno" ? "#30b64027" : weatherFx.condition === "incursion" ? "#8722143b" : weatherFx.condition === "night" ? "#74071138" : "#41353b59" }
+            GradientStop { position: 1; color: weatherFx.redNight ? "#9b2a0b1a" : weatherFx.condition === "inferno" ? "#a5d64614" : weatherFx.condition === "winter" ? "#77739cc5" : weatherFx.condition === "night" ? "#6a101a30" : "#46324958" }
         }
     }
     Rectangle {
@@ -27,6 +31,54 @@ Item {
         gradient: Gradient {
             GradientStop { position: 0; color: "#426279c3" }
             GradientStop { position: 1; color: "transparent" }
+        }
+    }
+    Canvas {
+        id:lunarDisc
+        objectName:"starSkyMoon"
+        readonly property real diameter:Math.min(weatherFx.width,weatherFx.height)*.44
+        x:weatherFx.width*.68-width/2
+        y:weatherFx.height*.35-height/2
+        width:diameter
+        height:diameter
+        visible:weatherFx.moonVisible
+        onWidthChanged:requestPaint()
+        onVisibleChanged:if (visible) requestPaint()
+        Connections {
+            target:weatherFx
+            function onRedNightChanged() { lunarDisc.requestPaint() }
+        }
+        onPaint: {
+            const ctx=getContext("2d"), centre=width*.5, r=width*.275, red=weatherFx.redNight
+            ctx.reset()
+            const corona=ctx.createRadialGradient(centre,centre,r*.87,centre,centre,width*.495)
+            corona.addColorStop(0,red ? "rgba(254,88,52,.70)" : "rgba(200,217,253,.67)")
+            corona.addColorStop(.37,red ? "rgba(232,32,52,.34)" : "rgba(152,180,248,.29)")
+            corona.addColorStop(1,"transparent")
+            ctx.fillStyle=corona
+            ctx.fillRect(0,0,width,height)
+            ctx.translate(centre,centre)
+            ctx.scale(r,r)
+            ctx.beginPath()
+            ctx.arc(0,0,1,0,Math.PI*2)
+            const reflected=ctx.createRadialGradient(-.31,-.38,.04,0,0,1)
+            reflected.addColorStop(0,red ? "#ffd0a0" : "#fffcda")
+            reflected.addColorStop(.74,red ? "#e35142" : "#dbddda")
+            reflected.addColorStop(1,red ? "#9d2c45" : "#959ebd")
+            ctx.fillStyle=reflected
+            ctx.fill()
+            ctx.save()
+            ctx.clip()
+            for (let i=0;i<43;i++) {
+                const angle=i*2.39996
+                const distance=((i*.38197)%1)*.94
+                const size=.028+(i%4)*.019
+                ctx.fillStyle=red ? "rgba(112,15,34,.22)" : "rgba(49,65,101,.18)"
+                ctx.beginPath()
+                ctx.ellipse(Math.cos(angle)*distance-size,Math.sin(angle)*distance-size,size*2,size*1.47)
+                ctx.fill()
+            }
+            ctx.restore()
         }
     }
     EffectCanvas {

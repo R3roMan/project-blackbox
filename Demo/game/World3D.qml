@@ -478,6 +478,8 @@ View3D {
         }
     }
 
+    AmethystGeometry { id:shotCrystal }
+
     Repeater3D {
         model: boltList
         Node {
@@ -494,21 +496,24 @@ View3D {
             }
             Model {
                 visible:!projectile.bolt.bubble
-                source: projectile.bolt.shard || projectile.bolt.sniper || projectile.bolt.element === "freeze" && projectile.shipBolt ? "#Cube"
+                geometry:projectile.bolt.crystal ? shotCrystal : null
+                source: projectile.bolt.crystal ? "" : projectile.bolt.shard || projectile.bolt.sniper || projectile.bolt.element === "freeze" && projectile.shipBolt ? "#Cube"
                     : projectile.bolt.fang || projectile.shipBolt && projectile.bolt.element === "burn" ? "#Cone" : "#Sphere"
                 objectName: String(projectile.actorId)
                 pickable: { world.revision; return Rules.pickableBolt(projectile.bolt, world.frontId, world.meleeReturn) }
                 position: Qt.vector3d(projectile.point.lane, projectile.point.elevation, -projectile.point.depth)
-                eulerRotation.z: projectile.bolt.shard || projectile.shipBolt || projectile.bolt.fang ? (world.motion ? world.elapsed * 650 : 25) : 0
+                eulerRotation.z: projectile.bolt.crystal ? (world.motion ? world.elapsed*-325 : 30)
+                    : projectile.bolt.shard || projectile.shipBolt || projectile.bolt.fang ? (world.motion ? world.elapsed * 650 : 25) : 0
                 scale: bolt.bubble ? Qt.vector3d(1.3,1.3,1.3) : bolt.returning ? Qt.vector3d(.24,.24,1.05)
                     : bolt.fang ? Qt.vector3d(.53,1.05,.45) : bolt.core ? Qt.vector3d(.51, .51, .95) : bolt.slug ? Qt.vector3d(.45,.32,.58)
-                    : bolt.shard ? Qt.vector3d(.35,.12,.64)
+                    : bolt.crystal ? Qt.vector3d(.43,.58,.40) : bolt.shard ? Qt.vector3d(.35,.12,.64)
                     : bolt.voidShot ? Qt.vector3d(.48,.46,1.15) : bolt.sniper ? Qt.vector3d(.15,.15,1.63)
                     : projectile.shipBolt ? Qt.vector3d(.39,.39,.71)
                     : bolt.hp ? Qt.vector3d(.28, .28, .67) : Qt.vector3d(.17, .17, .64)
                 materials: PrincipledMaterial {
                     baseColor: bolt.voidShot ? "#211027" : bolt.color
-                    lighting: PrincipledMaterial.NoLighting
+                    lighting: bolt.crystal ? PrincipledMaterial.FragmentLighting : PrincipledMaterial.NoLighting
+                    emissiveFactor:bolt.crystal ? Qt.vector3d(.66,.16,.86) : Qt.vector3d(0,0,0)
                 }
                 opacity: bolt.bubble ? .53 + Math.sin(world.elapsed*6+projectile.actorId)*.15 : 1
             }

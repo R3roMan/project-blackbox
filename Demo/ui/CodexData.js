@@ -1,0 +1,153 @@
+.pragma library
+.import "../game/Loadout.js" as Gear
+.import "../game/Encounters.js" as Mission
+.import "../game/Elements.js" as Elements
+.import "../game/EnemyLore.js" as Lore
+.import "../game/Conditions.js" as Conditions
+.import "../game/Pets.js" as Pets
+
+var chapters = [
+    { id:"enemies", title:"Demons" }, { id:"weapons", title:"Weapons" },
+    { id:"abilities", title:"Abilities" }, { id:"pets", title:"Pets" },
+    { id:"kits", title:"Kits" }, { id:"weather", title:"Weather" },
+    { id:"achievements", title:"Medals" }, { id:"controls", title:"Manual" }
+]
+
+var manual = [
+    { id:"look", title:"Look and aim", category:"Aiming",
+        rows:[["A / D · ← / →","Turn to the adjacent front. Move back through the Shrine to cross sides."],
+            ["W / S · ↑ / ↓","Look up to Star Sky or down to the Abyss from the Shrine."],
+            ["Mouse edges","Cross an edge once to turn. Move away from it before turning again."],
+            ["Hold Shift","Scope in at the aim point and lock the current view."],
+            ["F11","Toggle full screen."]],
+        description:"Threat markers show where a demon is approaching. A boss receives a separate marker before it enters." },
+    { id:"fight", title:"Fire and defend", category:"Combat",
+        rows:[["Left mouse","Aim and fire. Hold to repeat with automatic weapons."],
+            ["R / right mouse","Reload, draw a thrown weapon, perform a melee trick, or cast a charged staff spell."],
+            ["Hold Space","Raise your field shield. Release it to fire. A successful block spends a charge."],
+            ["Perfect guard","Raise the shield within 0.2 seconds of impact for a shorter recharge."],
+            ["Hold F in the Abyss","Seal the pool for the current wave. Partial work stays when you turn away."]],
+        description:"Use Tutorial battle from Home to practise shooting, reload timing, blocks and switching fronts." },
+    { id:"loadout", title:"Build and survive", category:"Loadout",
+        rows:[["1 / 2 / wheel","Select your weapon."],["Q / E","Cast the corresponding active ability. Each has its own cooldown."],
+            ["T / Esc","Pause to inspect loadout, inventory and settings."],
+            ["Between waves","Check the next roster and rearrange your items. Hover an entry and use + for its Grimoire page."],
+            [". / 1×","Toggle the timer with period. Use the speed button to choose half, normal or double speed."]],
+        description:"Passives take effect while equipped. A weapon, a passive and an active from one kit activate its listed bonus." },
+    { id:"controller", title:"Controller reference", category:"Controller",
+        description:"Reference diagram for the gamepad layout." }
+]
+
+function escape(text) {
+    return String(text).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;").replace(/'/g,"&#39;")
+}
+
+function link(chapter, id, label) {
+    return '<a style="color:#781525; font-weight:600" href="'+chapter+"/"+encodeURIComponent(id)+'">'+escape(label)+"</a>"
+}
+
+function kitKey(kit) { return kit.key || kit.weapon }
+
+function groupChapter(group) {
+    return group === "weapon" ? "weapons" : group === "pet" ? "pets" : "abilities"
+}
+
+function kitEntries() {
+    return Gear.kits.map(function(kit) {
+        return Object.assign({id:kitKey(kit),category:"Kit"},kit)
+    }).sort(function(a,b) { return a.title.localeCompare(b.title) })
+}
+
+var destinations = [
+    {chapter:"enemies", entries:Mission.enemyTypes},
+    {chapter:"weapons", entries:Gear.weapons},
+    {chapter:"abilities", entries:Object.assign({},Gear.activeAbilities,Gear.passives)},
+    {chapter:"weather", entries:Conditions.entries}
+]
+
+function references() {
+    const results = []
+    for (const group of destinations) {
+        for (const entry of Object.values(group.entries)) {
+            if (!entry.debugOnly && !["meteor","hallucination"].includes(entry.id))
+                results.push({chapter:group.chapter,id:entry.id,title:entry.title})
+        }
+    }
+    for (const kit of Gear.kits)
+        results.push({chapter:"kits",id:kitKey(kit),title:kit.title})
+    return results.sort(function(a,b) { return b.title.length-a.title.length })
+}
+
+var relatedEntries = references()
+
+function linkText(text, chapter, id) {
+    const source = String(text || "")
+    const matches = []
+    for (const target of relatedEntries) {
+        if (target.chapter === chapter && target.id === id)
+            continue
+        const title = target.title.replace(/[.*+?^$(){}|\[\]\\]/g,"\\$&")
+        // Single generic words such as Guard can be ordinary prose. Only
+        // match their exact case. Longer catalogue names match in either case.
+        const flags = target.title.includes(" ") ? "gi" : "g"
+        const pattern = new RegExp("(^|[^A-Za-z0-9])("+title+")(?=$|[^A-Za-z0-9])",flags)
+        let match
+        while ((match = pattern.exec(source)) !== null) {
+            const start = match.index + match[1].length
+            const end = start + match[2].length
+            if (!matches.some(function(span) { return start < span.end && end > span.start }))
+                matches.push({start:start,end:end,html:link(target.chapter,target.id,match[2])})
+        }
+    }
+    let html = ""
+    let cursor = 0
+    for (const span of matches.sort(function(a,b) { return a.start-b.start })) {
+        html += escape(source.slice(cursor,span.start)) + span.html
+        cursor = span.end
+    }
+    return (html+escape(source.slice(cursor))).replace(/\n/g,"<br>")
+}
+
+function kitLinks(entry, group) {
+    return Gear.kits.filter(function(kit) { return kit[group] === entry.id })
+        .map(function(kit) { return link("kits",kitKey(kit),kit.title) }).join(" · ")
+}
+
+function entryText(entry, chapter) {
+    if (!entry) return ""
+    if (chapter === "enemies") {
+        const notes = Lore.tactics[entry.id] || ""
+        const skills = entry.element && Elements.kinds[entry.element]
+            ? "<br>On hit · "+escape(Elements.kinds[entry.element].title)+" "+(entry.elementLevel || 1) : ""
+        const health = '<br><br><b>Base combat stats</b><br>Health '+entry.health+' HP · Damage '+entry.damage
+        const attack = "<br>Speed "+entry.speed+" u/s · Reach "+entry.reach+" u"
+            +"<br>Attack interval "+entry.interval+" s · Tell "+entry.windup+" s"
+        const bonuses = (entry.crit ? " · "+Math.round(entry.crit*100)+"% critical" : "")
+            +(entry.barrier ? "<br>Barrier "+entry.barrier+" HP" : "")
+        return linkText(entry.description,chapter,entry.id)
+            +(notes ? "<br><br><b>Field notes</b><br>"+linkText(notes,chapter,entry.id) : "")
+            +health+attack+bonuses+skills
+    }
+    if (chapter === "kits")
+        return "<b>Complete set</b><br>"+linkText(entry.bonus,chapter,entry.id)
+            +"<br><br><b>Weapon</b> · "+link("weapons",entry.weapon,Gear.weapons[entry.weapon].title)
+            +"<br><b>Active</b> · "+link("abilities",entry.active,Gear.activeAbilities[entry.active].title)
+            +"<br><b>Passive</b> · "+link("abilities",entry.passive,Gear.passives[entry.passive].title)
+    if (chapter === "weapons" || chapter === "abilities") {
+        const group = chapter === "weapons" ? "weapon" : entry.category === "Active" ? "active"
+            : entry.category === "Passive" ? "passive" : ""
+        const details = group ? Gear.itemDetails(null,group,{id:entry.id,level:0}) : entry.description
+        const kits = group ? kitLinks(entry,group) : ""
+        return linkText(details,chapter,entry.id)+(kits ? "<br><br><b>Kit pages</b><br>"+kits : "")
+    }
+    if (chapter === "controls")
+        return (entry.rows || []).map(function(row) { return "<b>"+escape(row[0])+"</b><br>"+escape(row[1]) })
+            .join("<br><br>")+"<br><br>"+escape(entry.description)
+    if (chapter === "achievements") {
+        const item = entry.group === "pet" ? Pets.spec(entry.reward) : Gear.catalogs[entry.group][entry.reward]
+        return linkText(entry.requirement,chapter,entry.id)+"<br><br><b>Reward</b><br>"
+            +link(groupChapter(entry.group),entry.reward,item.title)
+    }
+    return linkText(entry.description,chapter,entry.id)
+}

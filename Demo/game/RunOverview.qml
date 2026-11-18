@@ -18,6 +18,7 @@ ColumnLayout {
     required property bool motion
     property bool dense: false
     readonly property bool editable: { revision; return Rules.canEditLoadout(run) }
+    signal entryRequested(string chapter, string id)
     signal tabRequested(string name)
     signal swapRequested(string group, int from, int to)
     signal debugGearRequested(string group, string id, int slot)
@@ -30,6 +31,9 @@ ColumnLayout {
     required property bool mouseTurns
     property int frameLimit:60
     property bool showTimer:false
+    property bool autoSave:true
+    signal autoSaveRequested(bool enabled)
+    signal textScaleRequested(real scale)
     signal frameLimitRequested(int value)
     signal timerRequested(bool value)
     property int graphicsDetail:1
@@ -173,6 +177,9 @@ ColumnLayout {
         zoom: overview.wallpaperZoom
         frameLimit:overview.frameLimit
         showTimer:overview.showTimer
+        autoSave:overview.autoSave
+        onAutoSaveChangedByUser:function(value) { overview.autoSaveRequested(value) }
+        onTextScaleChangedByUser:function(value) { overview.textScaleRequested(value) }
         onFrameLimitChangedByUser:function(value) {overview.frameLimitRequested(value)}
         onTimerChangedByUser:function(value) {overview.timerRequested(value)}
         detail:overview.graphicsDetail
@@ -238,24 +245,17 @@ ColumnLayout {
             }
             color: "#e1c5ac"
         }
-        ScrollView {
-            id:loadoutScroll
+        InventoryPanel {
+            id:fullLoadout
             Layout.fillWidth:true
-            Layout.preferredHeight:overview.dense ? 225 : Math.min(380,fullLoadout.implicitHeight)
-            contentWidth:availableWidth
-            clip:true
-            ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
-            InventoryPanel {
-                id:fullLoadout
-                width:loadoutScroll.availableWidth-10
-                run:overview.run
-                revision:overview.revision
-                animate:overview.motion
-                dense:overview.dense
-                editable:overview.editable
-                onMoved:function(cell,group,slot) {overview.inventoryRequested(cell,group,slot)}
-                onSwapped:function(group,from,to) {overview.swapRequested(group,from,to)}
-            }
+            run:overview.run
+            revision:overview.revision
+            animate:overview.motion
+            dense:overview.dense
+            editable:overview.editable
+            onEntryRequested:function(chapter,id) { overview.entryRequested(chapter,id) }
+            onMoved:function(cell,group,slot) { overview.inventoryRequested(cell,group,slot) }
+            onSwapped:function(group,from,to) { overview.swapRequested(group,from,to) }
         }
         ScrollView {
             id: kitScroll

@@ -45,6 +45,17 @@ EffectCanvas {
                     const a=i*Math.PI*2/spokes;c.save();c.rotate(a);c.beginPath();c.moveTo(r*.25,0);c.lineTo(r,0);c.moveTo(r*.65,-12);c.lineTo(r*.78,0);c.lineTo(r*.65,12);c.stroke();c.restore()
                 }
                 c.beginPath();c.arc(0,0,r,0,Math.PI*2);c.stroke()
+            } else if (e.kind==="blood") {
+                for (let i=0;i<18;i++) {
+                    const angle=i*2.39996-p*1.9
+                    const reach=(1.10-p*.82)*r*(.65+i%3*.16)
+                    const px=Math.cos(angle)*reach, py=Math.sin(angle)*reach*.52
+                    c.beginPath()
+                    c.moveTo(px,py-14)
+                    c.bezierCurveTo(px-3,py-6,px-12,py+4,px-5,py+10)
+                    c.bezierCurveTo(px+4,py+17,px+11,py+6,px,py-14)
+                    c.fill()
+                }
             } else if (e.kind==="guard" || e.kind==="heal") {
                 c.beginPath()
                 if (e.kind==="guard") {c.moveTo(-r*.45,-r*.45);c.lineTo(r*.45,-r*.45);c.quadraticCurveTo(r*.50,r*.25,0,r*.55);c.quadraticCurveTo(-r*.50,r*.25,-r*.45,-r*.45)}

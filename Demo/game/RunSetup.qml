@@ -9,6 +9,8 @@ ColumnLayout {
     required property int startAt
     required property string build
     required property bool unlockAll
+    property bool bloodMoon:false
+    signal practiceWeatherRequested(bool enabled)
     signal unlocksRequested(bool enabled)
     signal configurationChanged(string difficulty, int startAt, string build)
     property bool debugEnabled: false
@@ -57,7 +59,7 @@ ColumnLayout {
     RowLayout {
         visible: setup.debugEnabled
         spacing: 6
-        Label {color:"#e4d5e0"; text: "Practice build" }
+        Label {color:"#e4d5e0"; text: "Build" }
         Repeater {
             model: [{id:"standard", label:"Standard"}, {id:"random", label:"Scaled random"}, {id:"star", label:"Star Destroyer+"}]
             Ui.ActionButton {
@@ -77,5 +79,14 @@ ColumnLayout {
             text: "Unlock all gear"
             onToggled: setup.unlocksRequested(checked)
         }
+    }
+    CheckBox {
+        property bool practice:setup.debugEnabled
+        visible:practice
+        objectName:"debugBloodMoon"
+        text:"Blood Moon practice"
+        checked:setup.bloodMoon
+        palette.windowText:"#f1ccd2"
+        onToggled:setup.practiceWeatherRequested(checked)
     }
 }

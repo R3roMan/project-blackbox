@@ -15,6 +15,7 @@ ColumnLayout {
     property int selectedCell: -1
     property string transferMessage: ""
     readonly property var selectedItem: { revision; return selectedCell >= 0 ? run.inventory[selectedCell] : null }
+    signal entryRequested(string chapter, string id)
     signal moved(int cell, string group, int slot)
     signal swapped(string group, int from, int to)
     spacing: dense ? 6 : 8
@@ -48,6 +49,7 @@ ColumnLayout {
         animate: inventory.animate
         editable: inventory.editable
         inventorySelection: inventory.selectedCell
+        onEntryRequested:function(chapter,id) { inventory.entryRequested(chapter,id) }
         onInventoryPlaced: function(cell, group, slot) { inventory.move(cell, group, slot) }
         onSwapped: function(group, from, to) { inventory.swapped(group, from, to) }
     }
@@ -88,6 +90,9 @@ ColumnLayout {
                 Accessible.name: "Inventory " + (index + 1) + ", " + text
                 hintEnabled: hovered && !!spec
                 hintDelay: 420
+                entryChapter:entry?.group==="weapon" ? "weapons" : "abilities"
+                entryId:spec?.id && !spec.debugOnly ? spec.id : ""
+                onEntryRequested:function(chapter,id) { inventory.entryRequested(chapter,id) }
                 hintText: storage.spec ? storage.text + " · " + Gear.groupLabels[storage.entry.group]
                     + "\n" + Gear.itemDetails(inventory.run,storage.entry.group,storage.entry.item) : ""
                 z: dragGear.dragging ? 10 : 0

@@ -39,7 +39,12 @@ FocusScope {
     property int graphicsDetail:1
     property string transitionStyle:"cinematic"
     property real transitionStrength:1
-    signal saveRequested(string data)
+    property bool bookVisible:false
+    signal codexRequested(string chapter, string id)
+    property bool autoSave:false
+    signal saveRequested(string data, bool automatic)
+    signal autoSaveRequested(bool enabled)
+    signal textScaleRequested(real value)
     signal detailRequested(int value)
     signal transitionStyleRequested(string value)
     signal transitionStrengthRequested(real value)
@@ -436,6 +441,31 @@ FocusScope {
         seenEvent = run.event
     }
 
+    function saveCheckpoint(automatic) {
+        if (automatic && (!autoSave || run.debug || run.training)) return
+        const saved=SaveData.encodeRun(run)
+        if (saved) saveRequested(saved,automatic)
+        else if (!automatic) saveNotice="Save unavailable"
+    }
+
+    function restoreRun(restored) {
+        turn.stop()
+        turnAnimation.stop()
+        turnRatio=1
+        paused=true
+        run=restored
+        frontId=previousFront=restored.playerFront
+        reportedMetrics=Object.assign({},restored.metrics)
+        reportedProgress=restored.progress
+        seenEvent=restored.event
+        seenRoster=seenBolts=seenGifts=seenSmokes=-1
+        selectedOffer=""
+        saveNotice=""
+        setup.debugEnabled=restored.debug && !restored.training
+        publish()
+        Qt.callLater(giveMenuFocus)
+    }
+
     function startWave() {
         if (!allowed || paused)
             return
@@ -444,6 +474,7 @@ FocusScope {
         if (!Rules.startWave(run))
             return
         readyBattle()
+        saveCheckpoint(true)
     }
 
     function readyBattle() {
@@ -488,7 +519,7 @@ FocusScope {
         previousFront = "front"
         frontId = "front"
         setup.debugEnabled = false
-        run = Rules.create(run.seed + 1, unlockedGear)
+        run = run.training ? Tutorial.create(run.seed+1,unlockedGear) : Rules.create(run.seed+1,unlockedGear)
         publish()
         Qt.callLater(giveMenuFocus)
     }
@@ -615,7 +646,7 @@ FocusScope {
     }
 
     function giveMenuFocus() {
-        if (!allowed || fighting)
+        if (!allowed || fighting || bookVisible)
             return
         const choice = phase === "reward" && !paused
             ? rewardList.itemAt(0) : phase === "bossReward" && !paused ? boonList.itemAt(0) : primaryAction
@@ -676,21 +707,19 @@ FocusScope {
         else
             Qt.callLater(giveMenuFocus)
     }
-    onPhaseChanged: if (phase !== "combat") Qt.callLater(giveMenuFocus)
+    onPhaseChanged: if (phase !== "combat") {
+        saveNotice=""
+        Qt.callLater(giveMenuFocus)
+    }
     onPausedChanged: if (!fighting) Qt.callLater(giveMenuFocus)
     onUnlockedGearChanged: Rules.updateCareerUnlocks(run, unlockedGear)
     Component.onCompleted: {
         const restored = !tutorial && resumeState ? SaveData.decodeRun(resumeState,unlockedGear) : null
-        run = restored || (tutorial ? Tutorial.create(seed,unlockedGear) : Rules.create(seed, unlockedGear))
-        if (restored) {
-            frontId = run.playerFront
-            previousFront = frontId
-            reportedMetrics = Object.assign({},run.metrics)
-            reportedProgress = run.progress
-            seenEvent = run.event
-            paused = true
+        if (restored) restoreRun(restored)
+        else {
+            run = tutorial ? Tutorial.create(seed,unlockedGear) : Rules.create(seed,unlockedGear)
+            publish()
         }
-        publish()
         Qt.callLater(giveMenuFocus)
     }
     onFightingChanged: {
@@ -701,6 +730,17 @@ FocusScope {
             heldShiftKeys = []
             crossedMouseEdges = 0
             Rules.holdShield(run,false)
+        }
+    }
+    onBookVisibleChanged: {
+        if (bookVisible) {
+            fireHeld = false
+            sealing = false
+            heldShiftKeys = []
+            Rules.holdShield(run,false)
+        } else if (allowed) {
+            if (fighting) keyTargetFocus()
+            else giveMenuFocus()
         }
     }
     onStunnedChanged: if (stunned) sealing = false
@@ -724,7 +764,7 @@ FocusScope {
     Timer {
         interval:Math.max(4,Math.round(1000/play.frameLimit))
         repeat:true
-        running:play.fighting
+        running:play.fighting && !play.bookVisible
         property real previous:0
         onRunningChanged:previous=Date.now()
         onTriggered: {
@@ -749,6 +789,7 @@ FocusScope {
             play.shotFlash=Math.max(0,play.shotFlash-frameTime*play.gameSpeed)
             if (play.weapon.spinup) play.rotaryAngle=(play.rotaryAngle+play.spin*frameTime*play.gameSpeed*1440)%360
             play.publish()
+            if (play.phase!=="combat" && play.phase!=="defeat") play.saveCheckpoint(true)
             if (sight && Rules.queuedShot(play.run)) play.fire(play.pointer.x,play.pointer.y,true)
             else if (play.canShoot && play.fireHeld && aim.containsMouse) play.fire(play.pointer.x,play.pointer.y)
         }
@@ -756,7 +797,7 @@ FocusScope {
 
     Keys.priority: Keys.BeforeItem
     Keys.onPressed: function(event) {
-        if (!fighting)
+        if (!fighting || bookVisible)
             return
         if (trainingBlocked) return
         switch (event.key) {
@@ -816,21 +857,22 @@ FocusScope {
     }
     Shortcut {
         sequence: "Escape"
+        enabled: !play.bookVisible
         context: Qt.WindowShortcut
         onActivated: play.handleEscape()
     }
     Shortcut {
         sequences: ["Return", "Enter"]
         context: Qt.WindowShortcut
-        enabled: play.allowed && !play.fighting && primaryAction.activeFocus && primaryAction.visible
+        enabled: play.allowed && !play.bookVisible && !play.fighting && primaryAction.activeFocus && primaryAction.visible
         onActivated: play.mainAction()
     }
 
-    Shortcut {sequence:".";enabled:play.allowed;onActivated:play.timerRequested(!play.showTimer)}
+    Shortcut {sequence:".";enabled:play.allowed && !play.bookVisible;onActivated:play.timerRequested(!play.showTimer)}
 
     Shortcut {
         sequence: "T"
-        enabled: play.allowed && (play.fighting || play.lab || play.paused || play.phase === "between" || play.phase === "ready")
+        enabled: play.allowed && !play.bookVisible && (play.fighting || play.lab || play.paused || play.phase === "between" || play.phase === "ready")
         onActivated: {
             if (play.paused && play.pauseTab === "inventory")
                 play.mainAction()
@@ -839,8 +881,14 @@ FocusScope {
         }
     }
 
+    Shortcut {
+        sequence:"I"
+        enabled:play.allowed && !play.bookVisible
+        onActivated:play.codexRequested("enemies","")
+    }
+
     HoverHandler {
-        enabled: play.fighting && play.mouseTurns
+        enabled: play.fighting && !play.bookVisible && play.mouseTurns
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         blocking: false
         onPointChanged: play.edgeTurn(point.position.x,point.position.y)
@@ -987,6 +1035,7 @@ FocusScope {
     }
     WeatherFX {
         anchors.fill: parent
+        starSky:play.frontId === "up"
         condition: play.fighting && (play.weather !== "meteor" || play.frontId === "up") ? play.weather : "clear"
         gust: { play.revision; return play.run.gustLeft }
         opacity: 1 - play.blindness
@@ -1044,15 +1093,15 @@ FocusScope {
     Loader {
         id: heldWeapon
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.horizontalCenterOffset: play.weaponAim.x * play.width * (play.compactLayout ? .038 : play.projectedMode ? .059 : .043)
+        anchors.horizontalCenterOffset: play.weaponAim.x * play.width * (play.handWeapon ? .033 : .018)
         anchors.bottom: parent.bottom
         anchors.bottomMargin: play.handWeapon ? -5
-            : -14 - play.weaponAim.y*play.height*.025 - Math.min(1,(play.magnification-1)*4)*play.height*.117
+            : 4 + play.height*.011 - play.weaponAim.y*play.height*.018 - Math.min(1,(play.magnification-1)*4)*play.height*.117
         width: play.width * (play.handWeapon ? .77 : play.weapon.chargeEachShot ? .49 : play.compactLayout ? .55 : .59)
         height: play.height * (play.handWeapon ? .89 : play.weapon.chargeEachShot ? .39 : .47)
         active: play.fighting
         transformOrigin: Item.Bottom
-        rotation: play.projectedMode && !play.handWeapon ? play.weaponAim.x*7 - play.weaponAim.y*3 : 0
+        rotation: play.projectedMode && !play.handWeapon ? play.weaponAim.x*4 - play.weaponAim.y*2 : 0
         readonly property point muzzle: {
             x; y; rotation
             return item ? item.mapToItem(play,item.muzzle) : Qt.point(play.width*.5,play.height*.73)
@@ -1890,18 +1939,20 @@ FocusScope {
     }
     Rectangle {
         id: selectionPanel
+        objectName:"fieldPanel"
         anchors.horizontalCenter:parent.horizontalCenter
         // Switching a bottom anchor and a centre anchor in the same update
         // can leave Qt holding a stretched height when reopening preparation.
         y: play.preparing && !play.paused
             ? parent.height - height - (play.compactLayout ? 14 : 26)
             : (parent.height - height) / 2
-        width: Math.min(parent.width - 40,play.preparing ? 1120 : 804)
+        width: Math.min(parent.width - (play.compactLayout ? 24 : 56),play.preparing ? 1120 : play.lab ? 960 : 870)
         opacity: play.fighting ? 0 : 1
         Behavior on opacity { enabled:!play.paused; NumberAnimation { duration: play.motion ? 145 : 0 } }
         readonly property int inset: play.compactLayout ? 13 : 22
-        implicitHeight: screen.implicitHeight + inset * 2
-        height: implicitHeight
+        implicitHeight: screen.implicitHeight + menuFooter.implicitHeight + inset * 2 + 9
+        // Always reserve a separate forecast area on preparation screens.
+        height: Math.min(implicitHeight, parent.height * (play.preparing && !play.paused ? .63 : .91))
         radius: 7
         color: play.phase === "shop" ? "#211823" : "#f71b1622"
         border.color: play.phase === "shop" ? "#8498ba" : "#94616f"
@@ -1924,22 +1975,34 @@ FocusScope {
             blood: play.phase === "defeat" ? 1 : play.paused ? .88 : play.phase === "ready" ? .20 : .43
         }
 
-        ColumnLayout {
-            id: screen
-            width: parent.width - parent.inset * 2
-            anchors.centerIn: parent
-            spacing: play.compactLayout ? 8 : 12
+        ScrollView {
+            id: sheetScroll
+            anchors.left:parent.left
+            anchors.right:parent.right
+            anchors.top:parent.top
+            anchors.bottom:menuFooter.top
+            anchors.leftMargin:selectionPanel.inset
+            anchors.rightMargin:selectionPanel.inset
+            anchors.topMargin:selectionPanel.inset
+            anchors.bottomMargin:9
+            contentWidth:availableWidth
+            clip:true
+            ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
+            ColumnLayout {
+                id: screen
+                width:sheetScroll.availableWidth-(sheetScroll.contentHeight>sheetScroll.availableHeight ? 10 : 0)
+                spacing:play.compactLayout ? 8 : 12
 
             Text {
                 Layout.fillWidth: true
-                visible: !play.preparing && play.phase !== "shop" || play.paused
+                visible: (!play.preparing && play.phase !== "shop") || play.paused
                 text: play.paused ? "Paused · Wave " + play.wave : play.phase === "ready" ? "Defend the Shrine"
                     : play.phase === "bossReward" ? "Boss defeated"
                     : play.phase === "reward" ? (play.selectedOffer ? "Choose a " + play.selectedGroup + " slot" : "Droid Lab rewards")
                     : play.phase === "between" ? "Wave " + (play.wave + 1) + " incoming"
                     : play.phase === "defeat" ? "The Shrine fell" : ""
                 font.family: "Inter"
-                font.pixelSize: play.compactLayout ? 26 : 33
+                font.pixelSize: Ui.UiMetrics.text(play.compactLayout ? 24 : 30)
                 font.weight: Font.Bold
                 color: "#fff1e8"
                 wrapMode: Text.WordWrap
@@ -1975,6 +2038,8 @@ FocusScope {
                 startAt: { play.revision; return play.run.startAt }
                 build: { play.revision; return play.run.debugBuild }
                 unlockAll: { play.revision; return play.run.debugUnlockAll }
+                bloodMoon: { play.revision; return play.run.debugWeather === "bloodMoon" }
+                onPracticeWeatherRequested:function(value) { if (Rules.setPracticeWeather(play.run,value)) play.publish() }
                 onUnlocksRequested: function(enabled) {
                     if (Rules.applyDebugUnlocks(play.run, enabled))
                         play.publish()
@@ -1989,6 +2054,7 @@ FocusScope {
                 active:play.phase === "between" && !play.paused
                 visible:active
                 sourceComponent: StagePreparation {
+                    onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
                     run:play.run
                     revision:play.revision
                     compact:play.compactLayout
@@ -2004,6 +2070,7 @@ FocusScope {
                 }
             }
             StarterPicker {
+                onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
                 Layout.fillWidth: true
                 visible: play.draftingWeapon && !play.paused
                 weapons: play.startingWeapons
@@ -2038,6 +2105,7 @@ FocusScope {
                 active: play.paused
                 visible: active
                 sourceComponent: RunOverview {
+                    onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
                     run: play.run
                     revision: play.revision
                     tab: play.pauseTab
@@ -2050,6 +2118,9 @@ FocusScope {
                     mouseTurns: play.mouseTurns
                     frameLimit:play.frameLimit
                     showTimer:play.showTimer
+                    autoSave:play.autoSave
+                    onAutoSaveRequested:function(value) { play.autoSaveRequested(value) }
+                    onTextScaleRequested:function(value) { play.textScaleRequested(value) }
                     onFrameLimitRequested:function(value) {play.frameLimitRequested(value)}
                     onTimerRequested:function(value) {play.timerRequested(value)}
                     graphicsDetail:play.graphicsDetail
@@ -2084,6 +2155,7 @@ FocusScope {
                 active: play.phase === "shop" && !play.paused
                 visible: active
                 sourceComponent: BossShop {
+                    onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
                     run: play.run
                     revision: play.revision
                     compact: play.compactLayout
@@ -2111,6 +2183,7 @@ FocusScope {
                         return play.phase === "reward" ? play.run.offers : []
                     }
                     delegate: RewardCard {
+                        onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
                         required property var modelData
                         Layout.fillWidth: true
                         offer: modelData
@@ -2145,6 +2218,7 @@ FocusScope {
                 }
             }
             LoadoutGrid {
+                onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
                 Layout.fillWidth: true
                 compact: true
                 dense: play.compactLayout
@@ -2171,74 +2245,80 @@ FocusScope {
                 }
                 Item { Layout.fillWidth: true }
             }
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: 4
-                spacing: 7
-                Ui.ActionButton {
-                    id: primaryAction
-                    objectName: "primaryPlayAction"
-                    primary: true
-                    enabled: play.allowed
-                    visible: play.paused || ["ready","between","defeat"].includes(play.phase)
-                    text: {
-                        play.revision
-                        return play.paused ? "Resume" : play.preparing ? "Begin wave " + play.upcomingStage.wave
-                            : "Retry"
-                    }
-                    Accessible.description: "You can also press Enter."
-                    onClicked: play.mainAction()
+            }
+        }
+        RowLayout {
+            id:menuFooter
+            anchors.left:parent.left
+            anchors.right:parent.right
+            anchors.bottom:parent.bottom
+            anchors.margins:selectionPanel.inset
+            spacing: 7
+            Ui.ActionButton {
+                id: primaryAction
+                objectName: "primaryPlayAction"
+                primary: true
+                enabled: play.allowed
+                visible: play.paused || ["ready","between","defeat"].includes(play.phase)
+                text: {
+                    play.revision
+                    return play.paused ? "Resume" : play.preparing ? "Begin wave " + play.upcomingStage.wave
+                        : "Retry"
                 }
-                Ui.ActionButton {
-                    objectName: "refreshSelection"
-                    visible: play.selecting && !play.paused
-                    enabled: play.refreshes > 0
-                    text: "Refresh · " + play.refreshes
-                    onClicked: play.refreshSelection()
+                Accessible.description: "You can also press Enter."
+                onClicked: play.mainAction()
+            }
+            Ui.ActionButton {
+                objectName: "refreshSelection"
+                visible: play.selecting && !play.paused
+                enabled: play.refreshes > 0
+                text: "Refresh · " + play.refreshes
+                onClicked: play.refreshSelection()
+            }
+            Ui.ActionButton {
+                objectName: "skipSelection"
+                visible: play.selecting && !play.paused
+                enabled: !play.unclaimedPurchase
+                text: play.phase === "ready" ? "Skip pet" : play.phase === "shop"
+                    ? play.unclaimedPurchase ? "Claim your purchase" : "Leave shop" : "Skip"
+                onClicked: play.skipSelection()
+            }
+            Item { Layout.fillWidth: true }
+            Ui.ActionButton {
+                objectName:"openRunGrimoire"
+                visible:play.paused || play.preparing
+                text:"Grimoire"
+                onClicked:play.codexRequested("enemies","")
+            }
+            Ui.ActionButton {
+                visible: play.preparing && !play.paused
+                text: "Display"
+                onClicked: play.pauseRun("settings")
+            }
+            Ui.ActionButton {
+                objectName: "restartRun"
+                visible: play.paused
+                text: "Restart"
+                onClicked: {
+                    play.paused = false
+                    play.resetRun()
                 }
-                Ui.ActionButton {
-                    objectName: "skipSelection"
-                    visible: play.selecting && !play.paused
-                    enabled: !play.unclaimedPurchase
-                    text: play.phase === "ready" ? "Skip pet" : play.phase === "shop"
-                        ? play.unclaimedPurchase ? "Claim your purchase" : "Leave shop" : "Skip"
-                    onClicked: play.skipSelection()
+            }
+            Ui.ActionButton {
+                objectName:"saveRun"
+                visible:play.paused
+                enabled:SaveData.phases.includes(play.phase) && play.run.health > 0
+                text:play.saveNotice || "Save run"
+                onClicked: {
+                    play.publish()
+                    play.saveCheckpoint(false)
                 }
-                Item { Layout.fillWidth: true }
-                Ui.ActionButton {
-                    visible: play.preparing && !play.paused
-                    text: "Display"
-                    onClicked: play.pauseRun("settings")
-                }
-                Ui.ActionButton {
-                    objectName: "restartRun"
-                    visible: play.paused
-                    text: "Restart run"
-                    onClicked: {
-                        play.paused = false
-                        play.resetRun()
-                    }
-                }
-                Ui.ActionButton {
-                    objectName:"saveRun"
-                    visible:play.paused
-                    enabled:SaveData.phases.includes(play.phase) && play.run.health > 0
-                    text:play.saveNotice || "Save run"
-                    onClicked: {
-                        play.publish()
-                        const data = SaveData.encodeRun(play.run)
-                        if (data) {
-                            play.saveRequested(data)
-                            play.saveNotice = "Saved · Wave "+play.wave
-                        }
-                    }
-                }
-                Ui.ActionButton {
-                    objectName: "quitRun"
-                    visible: play.paused
-                    text: "Quit to Home"
-                    onClicked: play.exitRequested()
-                }
+            }
+            Ui.ActionButton {
+                objectName: "quitRun"
+                visible: play.paused
+                text: "Home"
+                onClicked: play.exitRequested()
             }
         }
     }
@@ -2248,18 +2328,19 @@ FocusScope {
         anchors.right:parent.right
         anchors.top:parent.top
         anchors.bottom:selectionPanel.top
-        anchors.topMargin: Math.min(76, Math.max(0, selectionPanel.y - 165))
+        anchors.topMargin: Math.min(76, Math.max(12, selectionPanel.y - 133))
         anchors.leftMargin:play.compactLayout ? 26 : 40
         anchors.rightMargin:play.compactLayout ? 26 : 40
         anchors.bottomMargin:6
         active:play.preparing && !play.paused
         visible:active
         sourceComponent:EnemyMuster {
+            onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
             stage:play.upcomingStage
             discoveries:play.knownEnemies
             compact:play.compactLayout
             software:play.projectedMode
-            motion:play.allowed && play.motion
+            motion:play.allowed && play.motion && !play.bookVisible
         }
     }
 
@@ -2288,7 +2369,7 @@ FocusScope {
         active: play.sound
         sourceComponent: Component {
             Audio {
-                allowed: play.allowed && !play.paused
+                allowed: play.allowed && !play.paused && !play.bookVisible
                 weaponId: play.weapon.id
                 continuous: play.sustainedFire
                 sustainWeapon: !!play.weapon.sustain

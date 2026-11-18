@@ -19,7 +19,7 @@ PlasmoidItem {
                 required property int index
                 required property var modelData
                 text:(index ? "E" : "Q")+(modelData.cooldown>0 ? " "+Math.ceil(modelData.cooldown) : "")
-                enabled:Native.Desktop.atHome && Native.Desktop.state.phase==="combat" && !Native.Desktop.state.paused && modelData.cooldown<=0
+                enabled:!!modelData.id && Native.Desktop.atHome && Native.Desktop.state.phase==="combat" && !Native.Desktop.state.paused && modelData.cooldown<=0
                 implicitWidth:43
                 implicitHeight:43
                 contentItem:Item {
@@ -46,8 +46,8 @@ PlasmoidItem {
             Button {text:"Loadout";onClicked:Native.Desktop.command("loadout")}
         }
         RowLayout {
-            Button {text:"Save";onClicked:Native.Desktop.command("save")}
-            Button {text:"Continue";onClicked:Native.Desktop.command("continue")}
+            Button {text:Native.Desktop.state.saveStatus || "Save";onClicked:Native.Desktop.command("save")}
+            Button {text:"Continue";enabled:Native.Desktop.hasSave;onClicked:Native.Desktop.command("continue")}
             Button {text:"Settings";onClicked:Native.Desktop.command("settings")}
         }
         Label {text:"CPU "+Math.round(Native.Desktop.cpu*100)+"% · GPU "+(Native.Desktop.gpu<0 ? "unavailable" : Math.round(Native.Desktop.gpu*100)+"%")}

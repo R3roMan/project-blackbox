@@ -2,6 +2,7 @@
 .import "DeepGear.js" as Deep
 .import "MilestoneGear.js" as Milestones
 .import "CampaignGear.js" as Campaign
+.import "BloodGear.js" as Blood
 
 .import "Pets.js" as Pets
 .import "Elements.js" as Elements
@@ -227,10 +228,10 @@ var kits = [
     { key:"quartermaster", weapon:"pistol", active:"quickload", passive:"rewire", title:"Quartermaster kit", bonus:"Quickload also clears shot recovery." }
 ]
 
-Object.assign(weapons, Extra.weapons, Arsenal.weapons, Defense.weapons, Deep.weapons, Milestones.weapons,Campaign.weapons)
-Object.assign(activeAbilities, Extra.actives, Arsenal.actives, Defense.actives, Deep.actives, Milestones.actives,Campaign.actives)
-Object.assign(passives, Extra.passives, Arsenal.passives, Defense.passives, Deep.passives, Milestones.passives,Campaign.passives)
-kits = kits.concat(Extra.kits, Arsenal.kits, Defense.kits, Deep.kits, Milestones.kits,Campaign.kits, [
+Object.assign(weapons, Extra.weapons, Arsenal.weapons, Defense.weapons, Deep.weapons, Milestones.weapons,Campaign.weapons,Blood.weapons)
+Object.assign(activeAbilities, Extra.actives, Arsenal.actives, Defense.actives, Deep.actives, Milestones.actives,Campaign.actives,Blood.actives)
+Object.assign(passives, Extra.passives, Arsenal.passives, Defense.passives, Deep.passives, Milestones.passives,Campaign.passives,Blood.passives)
+kits = kits.concat(Extra.kits, Arsenal.kits, Defense.kits, Deep.kits, Milestones.kits,Campaign.kits,Blood.kits, [
     { key:"starSet", weapon:"starDestroyer", active:"bloodbattery", passive:"sparebox", title:"Starlight kit",
         bonus:"Star Destroyer charges 25% faster while Infinite Ammo is active." }
 ])
@@ -431,7 +432,7 @@ var secondPerks = {
     cinder:{ burnDuration:1.35, text:"Burn duration +1.35s" }, conductor:{ arcRadius:42, text:"Electric jump range +42" },
     chainfuse:{ blastRadius:.11, text:"Death blast radius +11%" }, rewire:{ coins:30, text:"Mega coin gifts +30 gold" }
 }
-Object.assign(secondPerks, Extra.perks, Arsenal.perks, Defense.perks, Deep.perks, Milestones.perks,Campaign.perks)
+Object.assign(secondPerks, Extra.perks, Arsenal.perks, Defense.perks, Deep.perks, Milestones.perks,Campaign.perks,Blood.perks)
 
 function passiveRank(run, id) {
     const index = findSlot(run, "passive", id)

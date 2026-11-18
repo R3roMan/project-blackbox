@@ -38,6 +38,7 @@ var designs = {
     deadeye: { form:"rail", shell:"#614f42", width:63, height:43, length:133, barrel:166, bore:8, scope:true,
         vents:4, kick:17, lift:8, tilt:-5, drop:63, turn:-29 },
     twinSmgs:{form:"box",shell:"#45746a",width:51,height:44,length:101,barrel:92,bore:7,vents:6,kick:12,lift:5,tilt:6,drop:62,turn:24},
+    veinDrinker:{form:"rail",shell:"#8a263e",width:55,height:43,length:123,barrel:160,bore:13,vents:6,kick:21,lift:7,tilt:-5,drop:60,turn:-29,scope:true},
     rimeBell:{form:"pump",shell:"#467e8d",width:55,height:44,length:119,barrel:103,bore:24,vents:5,kick:30,lift:9,tilt:-7,drop:72,turn:-28},
     furnaceDoor:{form:"pump",shell:"#974027",width:72,height:51,length:101,barrel:89,bore:29,vents:6,kick:43,lift:14,tilt:-11,drop:83,turn:-39},
     twinShotguns:{form:"pump",shell:"#8d5141",width:61,height:48,length:110,barrel:117,bore:17,vents:3,kick:35,lift:10,tilt:-9,drop:79,turn:-34},

@@ -5,6 +5,8 @@ var entries = {
         description:"The normal rules of each wallpaper apply."},
     night:{id:"night",title:"Night",glyph:"☾",tint:"#b8b2ff",
         description:"Enemies gain 5% health, damage, barrier strength, speed and attack cadence. You have Blindness I."},
+    bloodMoon:{id:"bloodMoon",title:"Blood Moon Night",glyph:"●",tint:"#ff625e",
+        description:"A rare red night. Kills pay 25% more gold. Demons deal 15% more damage, move 20% faster and attack 10% faster. You have Blindness II. One Blandromedus always joins the roster."},
     rain:{id:"rain",title:"Rain",glyph:"☂",tint:"#93c9ff",
         description:"Burn goes out. Frost fully freezes vulnerable targets. Electric damage doubles and chains through enemies across all wallpapers."},
     winter:{id:"winter",title:"Winter",glyph:"❄",tint:"#c3f6ff",
@@ -27,12 +29,25 @@ function roll(wave, seed, salt) {
     return ((key ^ (key >>> 16)) >>> 0) / 4294967296
 }
 
-function drifting(wave,seed) {
+function drifting(wave,seed,rate) {
+    rate = rate ?? 1
     if (wave % 10 === 0)
         return ""
-    if (wave === 31 || wave >= 23 && roll(wave,seed,0x138c4fb8) < .047)
+    if (wave === 31 || wave >= 23 && roll(wave,seed,0x138c4fb8) < .047*rate)
         return "glitch"
-    if (wave === 14 || wave >= 13 && roll(wave,seed,0x3e3f231a) < .095)
+    if (wave === 14 || wave >= 13 && roll(wave,seed,0x3e3f231a) < .095*rate)
         return "windy"
     return ""
+}
+
+function frequency(difficulty) {
+    return difficulty === "normal" ? .85 : difficulty === "insane" ? 1.15 : 1
+}
+
+function isNight(condition) {
+    return ["night","incursion","bloodMoon"].includes(condition)
+}
+
+function nightVariant(wave,seed) {
+    return roll(wave,seed,0x760fea47)<.10 ? "bloodMoon" : "night"
 }

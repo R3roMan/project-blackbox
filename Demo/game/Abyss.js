@@ -26,9 +26,9 @@ var enemies = {
     },
     nightosphere:{
         id:"nightosphere",title:"Nightosphere",role:"abyss",abyss:true,health:75,damage:8,speed:44,pace:"Very low",
-        reach:1090,interval:6.9,windup:1.6,immune:true,element:"blind",elementLevel:1,boltTime:1.5,boltHealth:3.8,
+        reach:1090,interval:6.9,windup:1.6,crit:.15,immune:true,element:"blind",elementLevel:1,boltTime:1.5,boltHealth:3.8,
         skin:"#27152f",accent:"#ba64da",size:1.47,shake:[6,9,.32,41],
-        description:"A black crystal immune to statuses. It hovers sideways at range, fires blinding bolts and summons a Void creature every ten seconds. It shatters on death."
+        description:"A transparent Void crystal with a counter-rotating amethyst heart. Immune to statuses. Its blinding crystal shots have a 15% critical chance and it summons a Void creature every ten seconds. It shatters on death."
     },
     harvester:{
         id:"harvester",title:"Harvester",role:"abyss",abyss:true,health:62,damage:.62,speed:131,pace:"Medium",

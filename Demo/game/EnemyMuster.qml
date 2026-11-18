@@ -10,6 +10,7 @@ Item {
     objectName: "enemyMuster"
     required property var stage
     required property var discoveries
+    signal entryRequested(string chapter, string id)
     property bool software: false
     property bool motion: true
     property bool compact: false
@@ -79,7 +80,11 @@ Item {
             acceptedButtons:Qt.NoButton
             visible: looming.active
             hoverEnabled:true
-            EnemyHint {enemyType:muster.overlord; discoveries:muster.discoveries; visible:parent.containsMouse}
+            EnemyHint {
+                anchorItem:parent; hovered:parent.containsMouse
+                enemyType:muster.overlord; discoveries:muster.discoveries
+                onEntryRequested:function(chapter,id) { muster.entryRequested(chapter,id) }
+            }
         }
         Loader {
             anchors.fill:parent
@@ -136,7 +141,11 @@ Item {
                         acceptedButtons:Qt.NoButton
                         hoverEnabled:true
                         Accessible.name: Muster.tooltip(member.modelData,muster.discoveries)
-                        EnemyHint {enemyType:member.modelData.type; discoveries:muster.discoveries; visible:parent.containsMouse}
+                        EnemyHint {
+                            anchorItem:parent; hovered:parent.containsMouse
+                            enemyType:member.modelData.type; discoveries:muster.discoveries
+                            onEntryRequested:function(chapter,id) { muster.entryRequested(chapter,id) }
+                        }
                     }
                 }
             }

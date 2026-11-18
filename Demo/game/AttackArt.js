@@ -10,12 +10,12 @@ var poses = {
     tongue:[-8,15,6,.24,20], fireBreath:[13,0,20,.35,-19], spike:[41,-30,29,.11,-5],
     cryoRay:[12,6,12,.04,25], tendrils:[-16,8,4,.06,63], voidLash:[-28,-23,34,.07,45],
     impact:[38,22,22,.05,-10], armClap:[-13,0,19,.16,58], stoneHands:[8,0,14,.03,20],
-    trident:[12,12,36,.11,-23], hexPuff:[-30,-44,4,.31,22], strafingBolt:[16,52,14,.04,17],
+    trident:[14,6,78,.11,-26], hexPuff:[-30,-44,4,.31,22], strafingBolt:[16,52,14,.04,17],
     cannon:[-5,0,12,.05,0], claws:[25,-41,26,.17,43], iceFist:[37,28,25,.15,-31],
     detonate:[-7,0,3,.10,45], poisonBreath:[-19,-5,12,.47,-26], slimeSpit:[28,13,26,.31,19],
     executioner:[44,-31,37,.14,64], magnetBolt:[-23,17,13,.08,-36], snakeLightning:[-18,13,24,.42,0],
     rifleLock:[-6,-5,15,.04,-8], feedingBite:[24,-7,22,.51,-10], fracture:[-17,22,14,.16,47],
-    soulCry:[-21,4,6,.53,-19],invertedBite:[-32,22,46,.39,26]
+    bloodSpit:[-18,-8,18,.23,22],soulCry:[-21,4,6,.53,-19],invertedBite:[-32,22,46,.39,26]
 }
 
 function pose(enemy) {
@@ -23,7 +23,7 @@ function pose(enemy) {
 }
 
 function amount(enemy, warning, animate) {
-    const flash = Math.max(0, Math.min(1, (enemy.attackFlash || 0) / .33))
+    const flash = Math.max(0, Math.min(1, (enemy.attackFlash || 0) / (enemy.type==="lucifoverus" ? .22 : .33)))
     if (!animate)
         return flash > 0 || warning ? .8 : 0
     if (flash)

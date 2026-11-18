@@ -335,7 +335,7 @@ Item {
                             Qt.darker(skin, 1.16), accent)
                     }
                 }
-                if (!deepRig && !crawler && !angel && !shade && !creature.battlestar && !creature.skeleton && !["meteor", "jon", "claptrap"].includes(enemy.type)) {
+                if (!deepRig && !creature.vampire && !crawler && !angel && !shade && !creature.battlestar && !creature.skeleton && !["meteor", "jon", "claptrap"].includes(enemy.type)) {
                     const points = [0.45, 0.48, 0.32, 0.26 - flap * 0.65, 0.03, 0.14 - flap,
                         0.08, 0.57 - flap * 0.65, 0.18, 0.47 - flap * 0.55, 0.23, 0.69 - flap * 0.3,
                         0.31, 0.55, 0.37, 0.75, 0.46, 0.61]
@@ -357,7 +357,25 @@ Item {
                         ctx.restore()
                     }
                 }
-                if (creature.trainer || creature.sprayer) {
+                if (creature.vampire) {
+                    const sway = Math.sin(clock*3.3)*.032 + strike*.045
+                    for (const side of [-1,1]) {
+                        polygon(ctx,[.5,.32,.5+side*.46,.12,.5+side*.43,.50,.5+side*.32,.40,.5+side*.37,.69,.5+side*.22,.59,.5+side*.12,.91,.5,.76],
+                            "#54217a","#a553cc")
+                        polygon(ctx,[.5,.38,.5+side*.29,.61,.5+side*.22,.86,.5,.79],"#24122e","#481950")
+                    }
+                    oval(ctx,.35,.44,.30,.43,"#402536","#a88a7b")
+                    for (let i=0;i<5;i++) oval(ctx,.33+i*.019,.51+i*.048,.34-i*.038,.055,"#e0c6a7","#89716d")
+                    oval(ctx,.18,.19,.64,.34,"#eddbc1","#a88a7b")
+                    polygon(ctx,[.51,.19,.69,.23,.79,.31,.74,.43,.65,.48,.61,.37,.54,.33],"#a22542","#94122e")
+                    oval(ctx,.393,.31,.214,.18,"#a42c44","")
+                    oval(ctx,.416,.326,.169,.144,"#2c1124","")
+                    ctx.strokeStyle="#b4515b";ctx.lineWidth=.026
+                    ctx.beginPath();ctx.moveTo(.5,.38);ctx.quadraticCurveTo(.46,.48,.50+sway,.61);ctx.stroke()
+                    oval(ctx,.442+sway,.55,.116,.094,"#fae5d5","#a73342")
+                    oval(ctx,.473+sway,.561,.058,.076,"#f43b55","")
+                    oval(ctx,.494+sway,.573,.016,.054,"#2b0a1d","")
+                } else if (creature.trainer || creature.sprayer) {
                     const teacher=!!creature.trainer
                     const hide=teacher ? (angry ? "#bc982d" : "#bdb059") : "#7d777d"
                     oval(ctx,.20,.06,.60,.89,hide,"#332630")
@@ -871,13 +889,13 @@ Item {
             width: bolt.hp ? Math.max(14, 2 * Rules.boltRadius(bolt) * projected.scale) : (bolt.returning ? 46 : 15) * projected.scale
             z: 2000 - depth
             opacity: (1 - world.blindness * .94) * (bolt.bubble ? .61 : 1)
-            height: bolt.slug ? width * .74 : bolt.sniper ? width * .23 : bolt.shard ? width * .43 : width
-            radius: bolt.shard || bolt.sniper || bolt.source === "hasasasa" && bolt.element === "freeze" ? 1 : height / 2
-            rotation: radius === 1 ? (world.motion ? world.elapsed * 650 : 25) : 0
+            height: bolt.crystal ? width*1.35 : bolt.slug ? width * .74 : bolt.sniper ? width * .23 : bolt.shard ? width * .43 : width
+            radius: bolt.crystal || bolt.shard || bolt.sniper || bolt.source === "hasasasa" && bolt.element === "freeze" ? 1 : height / 2
+            rotation: bolt.crystal ? 35+(world.motion ? world.elapsed*210 : 0) : radius === 1 ? (world.motion ? world.elapsed * 650 : 25) : 0
             x: projected.x - width / 2
             y: projected.y - height / 2
             color: bolt.voidShot ? "#26071f" : bolt.color
-            border.color: bolt.voidShot ? "#ec4c85" : bolt.sniper ? "#ffad8b" : "#eefdf3"
+            border.color: bolt.crystal ? "#f3c8ff" : bolt.voidShot ? "#ec4c85" : bolt.sniper ? "#ffad8b" : "#eefdf3"
             border.width: bolt.voidShot ? 2 : 1
         }
     }

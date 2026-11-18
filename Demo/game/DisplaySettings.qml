@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../ui" as Ui
 
 GridLayout {
     id: settings
@@ -9,6 +10,9 @@ GridLayout {
     required property real zoom
     property int frameLimit:60
     property bool showTimer:false
+    property bool autoSave:true
+    signal autoSaveChangedByUser(bool enabled)
+    signal textScaleChangedByUser(real scale)
     signal frameLimitChangedByUser(int value)
     signal timerChangedByUser(bool value)
     property int detail:1
@@ -27,7 +31,7 @@ GridLayout {
     component SettingLabel:Label {
         color:"#e1d1df"
         font.family:"Inter"
-        font.pixelSize:13
+        font.pixelSize:Ui.UiMetrics.text(14)
     }
 
     SettingLabel { text: "Wallpaper framing" }
@@ -58,11 +62,11 @@ GridLayout {
         value: settings.zoom
         onMoved: settings.zoomChangedByUser(value)
     }
-    SettingLabel {text:"3D edge quality"}
+    SettingLabel {text:"3D lighting and detail"}
     ComboBox {
         objectName:"graphicsDetail"
         Layout.fillWidth:true
-        model:["Low","Standard","High"]
+        model:["Low","Standard","High · shadows and light"]
         currentIndex:settings.detail
         onActivated:settings.detailChangedByUser(currentIndex)
     }
@@ -86,4 +90,16 @@ GridLayout {
     SettingLabel {text:"Wave timer · period key"}
     CheckBox {objectName:"showWaveTimer";checked:settings.showTimer;onClicked:settings.timerChangedByUser(checked)}
 
+    SettingLabel { text:"Text size" }
+    ComboBox {
+        objectName:"textSizeSetting"
+        font.pixelSize:Ui.UiMetrics.text(13)
+        Layout.fillWidth:true
+        model:["100%","115%","130%","145%"]
+        readonly property var scales:[1,1.15,1.3,1.45]
+        currentIndex:Math.max(0,scales.indexOf(Ui.UiMetrics.textScale))
+        onActivated:settings.textScaleChangedByUser(scales[currentIndex])
+    }
+    SettingLabel { text:"Save at wave checkpoints" }
+    CheckBox { objectName:"autoSaveSetting"; checked:settings.autoSave; onClicked:settings.autoSaveChangedByUser(checked) }
 }

@@ -26,6 +26,8 @@ Ui.ActionButton {
     bottomPadding: flask ? 13 : 8
     hintEnabled: hovered
     hintDelay: 420
+    entryChapter:offer.category==="Weapon" ? "weapons" : "abilities"
+    entryId:["Weapon","Active","Passive"].includes(offer.category) ? offer.id : ""
     hintText: offer.title + "\n" + Gear.offerDetails(offer)
         + (offer.upgradeLevel ? "\nLv " + offer.upgradeLevel + " · " + offer.upgradeEffect : "")
         + (offer.hint ? "\n" + offer.hint : "")

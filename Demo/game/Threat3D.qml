@@ -120,7 +120,7 @@ Node {
             }
 
             Loader3D {
-                active: actor.creature.origin === "Hellborne" && actor.enemy.type !== "saslimigus"
+                active: actor.creature.origin === "Hellborne" && !actor.creature.vampire && actor.enemy.type !== "saslimigus"
                 sourceComponent: Node {
                     SickleHornGeometry { id: hornShape }
                     ScallopedWingGeometry { id: wingShape }
@@ -141,6 +141,16 @@ Node {
                             }
                         }
                     }
+                }
+            }
+            Loader3D {
+                active:!!actor.creature.vampire
+                sourceComponent:BlandromedusRig {
+                    targetId:actor.enemy.id
+                    clock:actor.animate ? actor.age : .35
+                    strike:actor.strike
+                    live:actor.warp<=0
+                    angry:actor.hurt
                 }
             }
             Loader3D {
@@ -297,7 +307,7 @@ Node {
                 }
             }
             Node {
-                visible: !actor.fatRig && !actor.angel && !actor.shade && !actor.meteor && !actor.saucer && !actor.creature.slime
+                visible: !actor.creature.vampire && !actor.fatRig && !actor.angel && !actor.shade && !actor.meteor && !actor.saucer && !actor.creature.slime
                     && !actor.creature.battlestar && !actor.creature.skeleton && !actor.creature.triad && !actor.creature.serpent
                     && !actor.creature.sniper && !actor.creature.devour && !actor.creature.voidBoss && !actor.abyssRig
 

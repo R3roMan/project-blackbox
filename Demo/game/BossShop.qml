@@ -13,6 +13,7 @@ ColumnLayout {
     property bool compact: false
     property bool nativeScene: false
     property bool motion: true
+    signal entryRequested(string chapter, string id)
     signal purchaseRequested(string offerId, int slot)
 
     readonly property int balance: { revision; return run.gold }
@@ -94,6 +95,9 @@ ColumnLayout {
                     hintEnabled: hovered
                     hintDelay: 420
                     readonly property var shown: shop.displayItem(modelData)
+                    entryChapter:modelData.action==="pet" ? "pets" : modelData.group==="weapon" && modelData.action==="gear" ? "weapons" : "abilities"
+                    entryId:modelData.action==="gear" ? modelData.gearId : modelData.action==="power" ? modelData.powerId : ""
+                    onEntryRequested:function(chapter,id) { shop.entryRequested(chapter,id) }
                     hintText: modelData.title + "\n" + (modelData.group && Gear.catalogs[modelData.group] && Gear.catalogs[modelData.group][shown.id] ? Gear.itemDetails(shop.run,modelData.group,{id:shown.id,level:modelData.level || 0}) : modelData.description) +
                         (modelData.sold ? "\nPurchased" : modelData.paid ? "\nPaid · choose a destination" : "\n" + modelData.cost + " gold")
                     onClicked: {
@@ -210,6 +214,7 @@ ColumnLayout {
                     offerId: shop.selectedId
                     selectedGroup: shop.pickSlot ? shop.selected.group : ""
                     selectedIndex: shop.selectedSlot
+                    onEntryRequested:function(chapter,id) { shop.entryRequested(chapter,id) }
                     onPlaced: function(offerId, slot) { shop.selectedSlot = slot }
                 }
                 RowLayout {

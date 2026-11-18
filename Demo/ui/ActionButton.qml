@@ -5,24 +5,33 @@ Button {
     id: control
 
     property string hintText:""
+    property string entryChapter:""
+    property string entryId:""
+    signal entryRequested(string chapter, string id)
+    readonly property bool hasEntry:entryChapter.length>0 && entryId.length>0
     property bool hintEnabled:true
     property int hintDelay:400
     property bool primary: false
     property color accent: "#ffb47c"
 
     hoverEnabled: true
-    implicitHeight: 38
+    implicitHeight: Math.max(38, UiMetrics.text(14)+19)
     leftPadding: 14
     rightPadding: 14
     topPadding: 8
     bottomPadding: 8
     font.family: "Inter"
-    font.pixelSize: 13
+    font.pixelSize: UiMetrics.text(14)
     font.weight: Font.DemiBold
 
     // A Space press can start in combat and outlast the wave that received it.
     Keys.onPressed: function(event) {
-        event.accepted = event.key === Qt.Key_Space && event.isAutoRepeat
+        if (control.hasEntry && (event.key === Qt.Key_Plus || event.key === Qt.Key_Equal)) {
+            control.entryRequested(control.entryChapter,control.entryId)
+            event.accepted = true
+        } else {
+            event.accepted = event.key === Qt.Key_Space && event.isAutoRepeat
+        }
     }
 
     contentItem: Text {
@@ -66,7 +75,7 @@ Button {
     }
     ToolTip {
         id:wideHint
-        visible:control.hovered && control.hintEnabled && control.hintText.length>0
+        visible:!control.hasEntry && control.hovered && control.hintEnabled && control.hintText.length>0
         text:control.hintText
         delay:control.hintDelay
         timeout:12000
@@ -83,8 +92,21 @@ Button {
             const desired=origin>height+8 ? -height-8 : control.height+8
             return Math.max(8-origin,Math.min(desired,extent-height-origin-8))
         }
-        contentItem:Text {text:wideHint.text;color:"#f3e6dd";font.family:"Inter";font.pixelSize:13;wrapMode:Text.WordWrap;lineHeight:1.2}
+        contentItem:Text {text:wideHint.text;color:"#f3e6dd";font.family:"Inter";font.pixelSize:UiMetrics.text(13);wrapMode:Text.WordWrap;lineHeight:1.2}
         background:Rectangle {color:"#fa211923";radius:7;border.color:"#ae8575";border.width:1}
     }
 
+
+    Loader {
+        active:control.hasEntry
+        sourceComponent:FieldHint {
+            anchorItem:control
+            hovered:control.enabled && control.hovered && control.hintEnabled
+            delay:control.hintDelay
+            details:control.hintText
+            chapter:control.entryChapter
+            entryId:control.entryId
+            onEntryRequested:function(chapter,id) { control.entryRequested(chapter,id) }
+        }
+    }
 }

@@ -16,6 +16,7 @@ RowLayout {
     property bool editable: true
     property int inventorySelection: -1
     readonly property var incoming: { revision; return inventorySelection >= 0 ? run.inventory[inventorySelection] : null }
+    signal entryRequested(string chapter, string id)
     signal inventoryPlaced(int cell, string group, int slot)
     property string selectedGroup: ""
     property int selectedIndex: -1
@@ -109,6 +110,9 @@ RowLayout {
                             + (power.title ? power.title + ". " + power.description : "")
                         hintEnabled: hovered && (!!spec || !!power.title)
                         hintDelay: 420
+                        entryChapter:spec && track.group==="weapon" ? "weapons" : "abilities"
+                        entryId:spec ? (spec.debugOnly ? "" : spec.id) : power.id || ""
+                        onEntryRequested:function(chapter,id) { grid.entryRequested(chapter,id) }
                         hintText: (grid.offerId.length && spec ? "Replace " : "") + text
                             + (power.title ? "\nSlot effect · " + power.title + " · Lv " + power.level + "\n" + power.description : "")
                             + (spec ? "\n" + Gear.itemDetails(grid.run,track.group,item) : "")

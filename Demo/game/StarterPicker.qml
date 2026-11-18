@@ -9,6 +9,7 @@ ColumnLayout {
     objectName: "starterPicker"
     required property var weapons
     required property string selectedId
+    signal entryRequested(string chapter, string id)
     signal weaponSelected(string id)
     spacing: 5
 
@@ -41,6 +42,9 @@ ColumnLayout {
                 Accessible.description: modelData.description
                 hintEnabled: hovered
                 hintDelay: 360
+                entryChapter:"weapons"
+                entryId:modelData.id
+                onEntryRequested:function(chapter,id) { picker.entryRequested(chapter,id) }
                 hintText: modelData.title + "\n" + Gear.itemDetails(null,"weapon",{id:modelData.id,level:0})
                 onClicked: picker.weaponSelected(modelData.id)
 

@@ -56,8 +56,8 @@ View3D {
     }
     PerspectiveCamera {
         id: eye
-        position: Qt.vector3d(-13, 108, 186)
-        eulerRotation: Qt.vector3d(-25, -4, 0)
+        position: Qt.vector3d(-6, 102, 188)
+        eulerRotation: Qt.vector3d(-24, -1.7, 0)
         clipNear: 4
         clipFar: 850
         fieldOfView: view.staff ? 60 : view.twins ? 56 : 42 + (view.art.width - 49) * .13
@@ -192,8 +192,8 @@ View3D {
     Node {
         id: rig
         visible: !view.handWeapon && !view.twins && !view.staff
-        position: Qt.vector3d(32, -18 + view.pose.rise + view.stab * 14, view.pose.rear + 4 - view.stab * 105)
-        eulerRotation: Qt.vector3d(view.pose.pitch-view.aimOffset.y*8.5,30-view.aimOffset.x*14,view.pose.roll)
+        position: Qt.vector3d(9, -15 + view.pose.rise + view.stab * 14, view.pose.rear + 4 - view.stab * 105)
+        eulerRotation: Qt.vector3d(view.pose.pitch-view.aimOffset.y*8.5,15-view.aimOffset.x*12,view.pose.roll)
 
         Repeater3D {
             model:view.weapon.id === "kingsRansom" ? 10 : 0
