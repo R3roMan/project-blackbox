@@ -1,0 +1,38 @@
+.pragma library
+
+var entries = {
+    clear:{id:"clear", title:"Clear skies",glyph:"☀",tint:"#ffcf8a",
+        description:"The normal rules of each wallpaper apply."},
+    night:{id:"night",title:"Night",glyph:"☾",tint:"#b8b2ff",
+        description:"Enemies gain 5% health, damage, barrier strength, speed and attack cadence. You have Blindness I."},
+    rain:{id:"rain",title:"Rain",glyph:"☂",tint:"#93c9ff",
+        description:"Burn goes out. Frost fully freezes vulnerable targets. Electric damage doubles and chains through enemies across all wallpapers."},
+    winter:{id:"winter",title:"Winter",glyph:"❄",tint:"#c3f6ff",
+        description:"Every five seconds, you and all vulnerable demons receive Frost I. It slows and may freeze at the usual Frost I odds."},
+    windy:{id:"windy",title:"High winds",glyph:"≋",tint:"#bde9dc",
+        description:"Player and demon attacks each have a 15% wind miss chance. Pushes and pulls are 70% stronger. Every 20 seconds a gust deals light damage and Knockback I to vulnerable foes."},
+    glitch:{id:"glitch",title:"Glitch",glyph:"▧",tint:"#ff94de",
+        description:"For the wave, aim and view directions reverse. Left and right mouse buttons, Q and E, and weapon keys 1 and 2 exchange actions."},
+    meteor:{id:"meteor",title:"Meteor shower",glyph:"✶",tint:"#ffc9a1",
+        description:"A meteor approaches in Star Sky. Destroy it at range before it detonates near you."},
+    inferno:{id:"inferno",title:"Inferno",glyph:"♨",tint:"#ff9576",
+        description:"Fire spreads across all wallpapers, applying Burn I to you and to vulnerable enemies."},
+    incursion:{id:"incursion",title:"Void incursion",glyph:"◉",tint:"#dabbfa",
+        description:"Night rules apply as Abyss creatures arrive on any wallpaper. Seal the rift from the Abyss to halt later ordinary Void spawns."}
+}
+
+function roll(wave, seed, salt) {
+    let key = (seed ^ Math.imul(wave,0x9e3779b1) ^ salt) >>> 0
+    key = Math.imul(key ^ (key >>> 16),0x45d9f3b) >>> 0
+    return ((key ^ (key >>> 16)) >>> 0) / 4294967296
+}
+
+function drifting(wave,seed) {
+    if (wave % 10 === 0)
+        return ""
+    if (wave === 31 || wave >= 23 && roll(wave,seed,0x138c4fb8) < .047)
+        return "glitch"
+    if (wave === 14 || wave >= 13 && roll(wave,seed,0x3e3f231a) < .095)
+        return "windy"
+    return ""
+}

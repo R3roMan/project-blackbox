@@ -1,0 +1,2391 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import "../ui" as Ui
+import "Rules.js" as Rules
+import "Loadout.js" as Gear
+import "Pets.js" as Pets
+import "Elements.js" as Elements
+import "Progress.js" as Progress
+import "Defense.js" as Defense
+import "Optics.js" as Optics
+import "Conditions.js" as Conditions
+import "SaveData.js" as SaveData
+import "Tutorial.js" as Tutorial
+
+FocusScope {
+    id: play
+    objectName: "playScene"
+    focus: true
+    clip: true
+
+    required property url artDirectory
+    required property bool allowed
+    property bool tutorial:false
+    property var backgroundFiles:({})
+    property int frameLimit:60
+    property bool showTimer:false
+    property real gameSpeed:1
+    signal timerRequested(bool value)
+    signal frameLimitRequested(int value)
+    readonly property bool trainingBlocked:{revision;return Tutorial.frozen(run)}
+    readonly property bool trainingDialogue:{revision;return Tutorial.dialogue(run)}
+    property bool software: false
+    property bool sound: true
+    property bool motion: true
+    property var knownEnemies: []
+    property string resumeState:""
+    property string saveNotice:""
+    property int graphicsDetail:1
+    property string transitionStyle:"cinematic"
+    property real transitionStrength:1
+    signal saveRequested(string data)
+    signal detailRequested(int value)
+    signal transitionStyleRequested(string value)
+    signal transitionStrengthRequested(real value)
+    property string wallpaperFit: "fill"
+    property int wallpaperQuality: 0
+    property real wallpaperZoom: 1
+    property bool mouseTurns: true
+    readonly property bool compactLayout: width < 900 || height < 650
+    property int crossedMouseEdges: 0
+    property real lastWheelSwitch: -1
+    property int seed: Math.floor(Math.random() * 2147483647)
+    signal exitRequested()
+    signal soundRequested()
+    signal motionRequested()
+    signal fitRequested(string value)
+    signal qualityRequested(int value)
+    signal zoomRequested(real value)
+    signal mouseTurnsRequested(bool value)
+    signal graphicsUnavailable()
+    signal discovered(string group, string entry)
+    signal careerDelta(var delta)
+
+    property var unlockedGear: []
+    property var run: Rules.create(0)
+    property int reportedProgress: 0
+    property var reportedMetrics: ({})
+    property string achievementText: ""
+    property string previousFront: "front"
+    property string turnDirection: ""
+    property real turnRatio: 1
+    property int turnMs: 345
+    property real aimX: width / 2
+    property real aimY: height / 2
+    property bool aimInitialized: false
+    readonly property real frost: { revision; return 1 - Elements.pace(run.elements) }
+    readonly property real blindness: { revision; return Rules.blindness(run) }
+    readonly property int blindRank: { revision; return Rules.blindRank(run) }
+    readonly property real blindStrength: { revision; return Rules.blindStrength(run) }
+    readonly property bool hypnotised: { revision; return !!run.hypnosis }
+    readonly property var grab: { revision; return run.grab }
+    readonly property bool constricted: !!grab && grab.constrict
+    readonly property real scareLeft:{revision; return run.scareTime}
+    onScareLeftChanged: {
+        if (scareLeft > 0) {
+            fireHeld = false
+            sealing = false
+            heldShiftKeys = []
+        }
+    }
+    readonly property bool inkStains: { revision; return run.inkStains }
+    readonly property bool cursed: { revision; return run.cursed }
+    readonly property point pointer: Qt.point(aimX, aimY)
+    property var heldShiftKeys: []
+    readonly property bool scopeHeld: heldShiftKeys.length > 0
+    readonly property var sight: Optics.optic(weapon)
+    readonly property point sightCentre: Qt.point(Math.max(0,Math.min(1,aimX / Math.max(1,width))),
+        Math.max(0,Math.min(1,aimY / Math.max(1,height))))
+    readonly property point weaponAim: Qt.point((sightCentre.x-.5)*2,(sightCentre.y-.5)*2)
+    property real magnification: scopeHeld && fighting && !turning && !lunging && !constricted && !stunned ? sight.zoom : 1
+    Behavior on magnification { NumberAnimation { duration: play.motion ? 155 : 0; easing.type: Easing.OutCubic } }
+    readonly property real accuracy: {
+        const progress = Math.min(1,(magnification-1)/(sight.zoom-1))
+        return (1 + progress * (sight.focus-1)) * magnification
+    }
+    readonly property bool infiniteAmmo: { revision; return Rules.unlimitedAmmo(run) }
+    readonly property bool ammoWeapon: Gear.usesAmmo(weapon)
+    readonly property bool canShoot: !ammoWeapon || rounds > 0 || infiniteAmmo
+    readonly property int refreshes: { revision; return Rules.refreshRemaining(run) }
+    readonly property bool selecting: ["ready", "shop", "bossReward", "reward"].includes(phase)
+    readonly property bool projectedMode: software || useProjectedView
+    readonly property var availablePets: { revision; return run.petOffers.map(Pets.spec) }
+    readonly property string petChoice: { revision; return run.petChoice }
+    readonly property var startingWeapons: { revision; return run.starterOffers.map(function(id) { return Gear.weapons[id] }) }
+    readonly property string starterChoice: { revision; return run.starterChoice || run.starterOffers[0] || "pistol" }
+    readonly property bool draftingWeapon: { revision; return phase === "ready" && run.debugBuild === "standard" }
+    readonly property var flyingPet: { revision; return run.pet }
+    readonly property var petSpec: Pets.spec(flyingPet ? flyingPet.id : petChoice)
+    readonly property string weather: { revision; return run.weatherEffect || Rules.weather(wave) }
+    readonly property bool glitchInput: fighting && weather === "glitch"
+    readonly property real elapsed: { revision; return run.time }
+    readonly property real distortion: { revision; return run.voidStorm ? .76 : run.distortion }
+    readonly property bool voidStorm: { revision; return run.voidStorm }
+    readonly property real shieldBreak: { revision; return run.barrierBreak }
+    readonly property int shieldHp: { revision; return run.barrierHp+run.barrierCell.hp }
+    readonly property real shieldRefill: { revision; return run.barrierRefill }
+    readonly property real shieldTime: { revision; return run.barrier }
+    readonly property real shieldCooldown: { revision; return Rules.barrierCooldown(run) }
+    readonly property int shieldCapacity: { revision; return run.barrierMax+(run.barrierCell.level ? run.barrierCell.level+1 : 0) }
+    readonly property int barrierLevel: { revision; return run.barrierCell.level }
+    readonly property var fieldGuard: {
+        revision
+        const guard = run.shield
+        const mode = guard.raised || guard.cool ? guard.mode : Rules.shieldMode(run)
+        return { level:guard.level,raised:guard.raised,age:guard.age,limit:guard.limit,charges:guard.charges,
+            capacity:guard.capacity,cool:guard.cool,recovery:guard.recovery,impact:guard.flash,
+            mode:mode,tint:guard.raised || guard.cool ? guard.tint : Defense.modes[mode].tint }
+    }
+    readonly property real criticalFlash: { revision; return run.criticalFlash }
+    // Rules updates the run in place. Bindings that read it also read this counter.
+    property int revision: 0
+    property int seenEvent: 0
+    property int seenRoster: -1
+    property int seenBolts: -1
+    property int seenGifts: -1
+    property int seenSmokes: -1
+    property var smokes: []
+    readonly property var guestPet: { revision; return run.guestPet }
+    property var actors: []
+    property var bolts: []
+    property var gifts: []
+    property string frontId: "front"
+    property bool paused: false
+    property string pauseTab: "build"
+    property bool sealing: false
+    property bool fireHeld: false
+    property real accumulated: 0
+    property real shotFlash: 0
+    property real rotaryAngle: 0
+    property var shotRays: []
+    property bool useProjectedView: false
+    property string selectedOffer: ""
+    property var discoveries: ({})
+    readonly property var location: Rules.front(turnRatio < .5 ? previousFront : frontId)
+    readonly property string phase: { revision; return run.phase }
+    readonly property bool fighting: phase === "combat" && allowed && !paused
+    readonly property bool turning: turn.running || turnRatio < 1
+    readonly property bool lab: phase === "shop" || phase === "reward" || phase === "bossReward"
+    readonly property bool preparing:phase === "between" || phase === "ready"
+    readonly property var upcomingStage: {revision; return run.nextStage || run.stage || Rules.prepareStage(run)}
+    readonly property bool unclaimedPurchase: {
+        revision
+        return phase === "shop" && run.shopStock.some(function(card) { return card.paid && !card.sold })
+    }
+    readonly property real stunLeft: { revision; return Rules.stunTime(run) }
+    readonly property bool stunned: stunLeft > 0
+    readonly property bool turnLocked: { revision; return !Rules.canTurn(run) }
+    readonly property real poisonFog: { revision; return Rules.poisonFog(run, frontId) }
+    readonly property var weapon: { revision; return Rules.weapons[Gear.current(run).id] }
+    readonly property bool handWeapon: !!weapon.melee || !!weapon.throwing || !!weapon.stab
+    readonly property var axes: { revision; return run.axes }
+    readonly property int rounds: { revision; return Gear.current(run).ammo }
+    readonly property real shotTime: { revision; return Gear.current(run).recovery }
+    readonly property real reloadTime: { revision; return Gear.current(run).reload }
+    readonly property real prepTime: { revision; return Gear.current(run).prep || 0 }
+    readonly property real cooling: { revision; return Gear.current(run).cool || 0 }
+    readonly property real heat: {
+        revision
+        const item = Gear.current(run)
+        return weapon.sustain ? Math.min(1, item.heat / Rules.heatLimit(run, weapon, Gear.weaponStats(item))) : 0
+    }
+    readonly property bool sustainedFire: { revision; return fireHeld && !fieldGuard.raised && !turning && !stunned && !!Gear.current(run).firing }
+    readonly property bool primed: { revision; return !!Gear.current(run).primed }
+    readonly property bool chargedStrike: { revision; return !!Gear.current(run).chargedStrike }
+    readonly property int shotSequence: { revision; return Gear.current(run).sequence || 0 }
+    readonly property int combo: { revision; return Gear.current(run).combo || 0 }
+    readonly property bool comboLive: { revision; return combo > 0 && run.time <= Gear.current(run).comboUntil }
+    readonly property int runes: { revision; return Gear.current(run).charge || 0 }
+    readonly property int runeCost: { revision; return Gear.effectiveWeaponStats(run,Gear.current(run)).chargeCost }
+    readonly property int streak: { revision; return Gear.current(run).streak || 0 }
+    readonly property bool bayonet: { revision; return ammoWeapon && Gear.passiveRank(run,"bayonet") > 0 }
+    readonly property real stab: { revision; return motion ? Math.sin(Math.PI * run.bayonetTime / .32) : 0 }
+    readonly property real evade: { revision; return run.dodgeFlash / .34 }
+    readonly property var orbit: { revision; return Rules.orbitGuard(run) }
+    readonly property bool lunging: { revision; return !!run.lunge }
+    readonly property var dash: { revision; return Rules.lungeOffset(run) }
+    readonly property real strikeLife: { revision; return lunging ? run.meleeImpact : Math.max(shotFlash,run.meleeImpact) }
+    readonly property real reloadRatio: {
+        revision
+        const gun = Gear.current(run)
+        return gun.prep > 0 ? 1 - gun.prep / gun.prepLength : gun.reload > 0 ? 1 - gun.reload / gun.reloadLength : 0
+    }
+    readonly property real spin: { revision; return Gear.current(run).spin || 0 }
+    readonly property bool winding: !!weapon.spinup && fireHeld && spin < 1 && canShoot && !reloadTime && !prepTime && !cooling && !stunned
+    readonly property int gold: { revision; return run.gold }
+    readonly property real healthRatio: { revision; return run.health / Gear.maxHealth(run) }
+    property bool pressureMusic: false
+    onHealthRatioChanged: {
+        if (healthRatio <= .31)
+            pressureMusic = true
+        else if (healthRatio >= .39)
+            pressureMusic = false
+    }
+    readonly property var selectedCard: {
+        revision
+        return run.offers.find(function(card) { return card.id === selectedOffer })
+    }
+    readonly property string selectedGroup: selectedCard ? Gear.groupOf(selectedCard) : ""
+    readonly property real shotReady: {
+        revision
+        return prepTime || reloadTime ? reloadRatio : cooling ? 1 - heat : winding ? spin
+            : sustainedFire ? 1 - heat : canShoot ? Math.max(0, 1 - shotTime / Gear.current(run).cycle) : 0
+    }
+    readonly property int wave: { revision; return run.wave }
+    readonly property int remaining: { revision; return Rules.remainingEnemies(run) }
+    readonly property int summons: {
+        revision
+        return run.enemies.filter(function(enemy) { return enemy.summoned }).length
+    }
+    readonly property var boss: {
+        revision
+        const active = run.enemies.find(function(enemy) { return Rules.enemyTypes[enemy.type].role === "boss" })
+        return active ? { health:active.hp, maxHealth:active.maxHp, title:Rules.enemyTypes[active.type].title,
+            tint:Rules.enemyTypes[active.type].accent, id:active.type, entering:active.warp > 0 && ["drop","rise"].includes(active.warpKind),
+            waiting:active.waitingBoss, front:active.front,
+            fangs:active.fangs ? active.fangs.filter(function(fang) { return fang.hp > 0 }).length : -1 } : null
+    }
+    readonly property string bossDirection: boss && boss.waiting ? Rules.directionToward(frontId,boss.front) : ""
+    readonly property string musicVariation: phase === "shop" ? "" : pressureMusic ? "pressure" : boss && boss.health <= boss.maxHealth * .5 ? "climax" : ""
+    readonly property string musicTrack: {
+        if (phase === "ready" || phase === "defeat" || wave < 1)
+            return "home"
+        if (phase === "shop")
+            return "shop"
+        if (boss && !boss.waiting)
+            return boss.entering ? "" : boss.id
+        const rotation = ["frontier", "fracture", "embers"]
+        return rotation[Math.floor((wave - 1) / 10) % rotation.length]
+    }
+    readonly property var shake: { revision; return Rules.cameraJolt(run) }
+    readonly property var impact: {
+        revision
+        const attacker = Rules.enemyTypes[run.impactType]
+        return attacker ? { color: attacker.accent, strength: run.impactTime / attacker.shake[2] }
+            : { color: "transparent", strength: 0 }
+    }
+    readonly property real powerFlash: { revision; return run.powerFlash }
+    readonly property var turns: ({
+        left: Rules.turnFrom(frontId, "left"),
+        right: Rules.turnFrom(frontId, "right"),
+        up: Rules.turnFrom(frontId, "up"),
+        down: Rules.turnFrom(frontId, "down")
+    })
+    readonly property var frontStatus: { revision; return Rules.threatCounts(run) }
+    readonly property var warnings: Rules.offscreenThreats(frontId, frontStatus)
+    readonly property Item worldItem: worldLoader.item
+    readonly property var sealState: {
+        revision
+        return Rules.sealTarget(run, frontId)
+    }
+    readonly property real sealProgress: { revision; return sealState ? sealState.progress : 0 }
+    readonly property bool sealClosed: { revision; return !!sealState && sealState.closed }
+
+    function keyTargetFocus() {keyTarget.forceActiveFocus()}
+
+    function updateAim(x, y, dt) {
+        const progress = !aimInitialized || frost <= 0 ? 1 : Math.min(1, dt * (18 - frost * 21))
+        if (progress <= 0)
+            return
+        if (glitchInput) {
+            x = width-x
+            y = height-y
+        }
+        aimX += (x - aimX) * progress
+        aimY += (y - aimY) * progress
+        aimInitialized = true
+    }
+
+    function edgeTurn(x, y) {
+        if (!mouseTurns || !fighting || x < 0 || x >= width || y < 0 || y >= height)
+            return
+        const boundary = Math.max(16, Math.min(30, Math.min(width, height) * .034))
+        const directions = ["left", "right", "up", "down"]
+        const gaps = [x, width - x, y, height - y]
+        let crossed = crossedMouseEdges
+        let nearest = -1
+        for (let i = 0; i < directions.length; ++i) {
+            const mask = 1 << i
+            if (gaps[i] > boundary + 10) {
+                crossed &= ~mask
+            } else if (gaps[i] <= boundary && !(crossed & mask)) {
+                crossed |= mask
+                if (turns[Rules.turnInput(run,directions[i])] !== frontId && (nearest === -1 || gaps[i] < gaps[nearest]))
+                    nearest = i
+            }
+        }
+        crossedMouseEdges = crossed
+        if (nearest >= 0 && !scopeHeld)
+            turnView(directions[nearest])
+    }
+
+    function setShiftKey(code, pressed) {
+        if (pressed && !heldShiftKeys.includes(code))
+            heldShiftKeys = heldShiftKeys.concat(code)
+        else if (!pressed)
+            heldShiftKeys = heldShiftKeys.filter(function(key) { return key !== code })
+    }
+
+    function equipWeapon(slot) {
+        if (!Rules.selectWeapon(run, slot))
+            return
+        fireHeld = false
+        shotFlash = 0
+        publish()
+    }
+
+    function reloadGun() {
+        if (turning)
+            return
+        const targets = (bayonet || weapon.staff || weapon.stab) && worldItem && aim.containsMouse
+            ? swingTargets(pointer.x, pointer.y, height * .023) : []
+        if (Rules.reload(run, targets, frontId, {x:pointer.x / width,y:pointer.y / height}))
+            publish()
+    }
+
+    function abilityTile(index) {
+        const slot = run.slots.active[index] || null
+        if (!slot || !slot.item)
+            return { available:!!slot, ability:null, level:0, cooldown:0, duration:1,
+                upgradeColor:Gear.slotUpgradeColor("active", slot) }
+        return { available:true, ability:Gear.activeAbilities[slot.item.id], level:slot.item.level,
+            cooldown:Rules.activeCooldown(run, slot.item.id), duration:Rules.abilityRecovery(run, slot),
+            upgradeColor:Gear.slotUpgradeColor("active", slot) }
+    }
+
+    function learn(group, entry) {
+        const key = group + ":" + entry
+        if (!discoveries[key]) {
+            discoveries[key] = true
+            discovered(group, entry)
+        }
+    }
+
+    function announceAchievements(earned) {
+        achievementText = earned.length === 1 ? "Unlocked · " + earned[0] : earned.length + " achievements unlocked"
+        achievementNotice.restart()
+    }
+
+    function publish() {
+        if (run.phase === "ready" || run.phase === "between")
+            Rules.prepareStage(run)
+        if (reportedProgress !== run.progress) {
+            const delta = {}
+            for (const name of Object.keys(run.metrics)) {
+                const value = run.metrics[name]
+                const previous = reportedMetrics[name] || 0
+                if (value > previous)
+                    delta[name] = Progress.keepsBest(name) ? value : value - previous
+            }
+            reportedMetrics = Object.assign({}, run.metrics)
+            reportedProgress = run.progress
+            const report={}
+            for(const key of Object.keys(delta))
+                if(!run.debug || /^(enemyKills_|enemyDeaths_|weaponKills_)/.test(key) || key==="trainingWins") report[key]=delta[key]
+            if (Object.keys(report).length)
+                careerDelta(report)
+        }
+        if (seenRoster !== run.roster) {
+            actors = run.enemies.slice()
+            seenRoster = run.roster
+        }
+        if (seenBolts !== run.boltRoster) {
+            bolts = run.bolts.slice()
+            seenBolts = run.boltRoster
+        }
+        if (seenGifts !== run.giftRoster) {
+            gifts = run.gifts.slice()
+            seenGifts = run.giftRoster
+        }
+        if (seenSmokes !== run.smokeRoster) {
+            smokes = run.smokes.slice()
+            seenSmokes = run.smokeRoster
+        }
+        revision += 1
+        if (fighting && !play.turning && worldItem) {
+            for (const enemy of actors) {
+                if (enemy.front === frontId && !enemy.waitingBoss && enemy.warp <= 0)
+                    learn("enemies", enemy.type)
+            }
+        } else if (phase === "reward" && allowed && !paused) {
+            for (const card of run.offers) {
+                if (card.category === "Active" || card.category === "Passive")
+                    learn("abilities", card.id)
+            }
+        } else if (phase === "shop" && allowed && !paused) {
+            for (const card of run.shopStock) {
+                if (card.action === "power")
+                    learn("abilities", card.powerId)
+                if (card.action === "gear")
+                    learn("abilities", card.gearId)
+            }
+        }
+        playSounds()
+    }
+
+    function playSounds() {
+        if (seenEvent === run.event)
+            return
+        if (audio.item && allowed && !paused) {
+            for (const soundEvent of run.cues) {
+                if (soundEvent.id > seenEvent)
+                    audio.item.play(soundEvent.cue)
+            }
+        }
+        seenEvent = run.event
+    }
+
+    function startWave() {
+        if (!allowed || paused)
+            return
+        if (draftingWeapon)
+            Rules.chooseStarter(run,starterChoice)
+        if (!Rules.startWave(run))
+            return
+        readyBattle()
+    }
+
+    function readyBattle() {
+        previousFront = "front"
+        turnRatio = 1
+        frontId = "front"
+        selectedOffer = ""
+        sealing = false
+        heldShiftKeys = []
+        fireHeld = false
+        crossedMouseEdges = 0
+        lastWheelSwitch = -1
+        shotFlash = 0
+        accumulated = 0
+        publish()
+        keyTarget.forceActiveFocus()
+    }
+
+    function resetRun() {
+        turn.stop()
+        turnAnimation.stop()
+        turnRatio = 1
+        paused = false
+        sealing = false
+        heldShiftKeys = []
+        crossedMouseEdges = 0
+        fireHeld = false
+        aimInitialized = false
+        accumulated = 0
+        selectedOffer = ""
+        shotRays = []
+        rotaryAngle = 0
+        reportedMetrics = {}
+        reportedProgress = 0
+        achievementText = ""
+        seenRoster = -1
+        seenBolts = -1
+        seenGifts = -1
+        seenSmokes = -1
+        seenEvent = 0
+        shotFlash = 0
+        previousFront = "front"
+        frontId = "front"
+        setup.debugEnabled = false
+        run = Rules.create(run.seed + 1, unlockedGear)
+        publish()
+        Qt.callLater(giveMenuFocus)
+    }
+
+    function skipSelection() {
+        if (!allowed || paused)
+            return
+        if (draftingWeapon)
+            Rules.chooseStarter(run,starterChoice)
+        if (!Rules.skipSelection(run))
+            return
+        selectedOffer = ""
+        if (run.phase === "combat")
+            readyBattle()
+        else
+            publish()
+    }
+
+    function refreshSelection() {
+        if (!allowed || paused || !Rules.refresh(run))
+            return
+        selectedOffer = ""
+        publish()
+    }
+
+    function directionTo(id) {
+        return id === frontId ? "" : Object.keys(turns).find(function(direction) {
+            return play.turns[direction] === id
+        }) || ""
+    }
+
+    function turnView(direction) {
+        if (!fighting || trainingBlocked || stunned || turnLocked || play.turning || lunging)
+            return
+        keyTarget.forceActiveFocus()
+        direction = Rules.turnInput(run,direction)
+        const destination = turns[direction]
+        if (!destination || !Rules.lookFront(run, destination))
+            return
+        sealing = false
+        turnMs = Math.round(Rules.turnDuration(run)/gameSpeed)
+        if (audio.item)
+            audio.item.play("turn")
+        previousFront = frontId
+        turnDirection = direction
+        if (motion) {
+            turnRatio = 0
+            turn.restart()
+        }
+        frontId = destination
+        if (run.training) run.training.front=destination
+        if (motion)
+            turnAnimation.restart()
+        publish()
+    }
+
+    function aimAt(x, y) {
+        const point = worldItem.mapFromItem(aim, x, y)
+        return worldItem.pickTarget(point.x, point.y)
+    }
+
+    function swingTargets(x, y, radius) {
+        const candidates = new Set()
+        for (const offset of [[0,0],[-.68,-.22],[.68,.22],[-.32,.51],[.32,-.51]]) {
+            const point = worldItem.mapFromItem(aim, x + radius * offset[0], y + radius * offset[1])
+            for (const target of worldItem.pickTargets(point.x, point.y))
+                candidates.add(target)
+        }
+        return Array.from(candidates)
+    }
+
+    function fire(x, y, continuation) {
+        if (!fighting || trainingBlocked || stunned || constricted || play.turning || lunging || fieldGuard.raised || !worldItem
+            || (!continuation && shotTime > 0) || reloadTime || prepTime || cooling)
+            return
+        const rays = weapon.spread || [[0, 0]]
+        const pattern = Rules.spread(run) * accuracy
+        const shipShots = weapon.penetration ? new Set(run.bolts.filter(function(bolt) {
+            return bolt.source === "hasasasa" && Rules.pickableBolt(bolt, play.frontId)
+        }).map(function(bolt) { return bolt.id })) : null
+        const traces = rays.map(function(offset) {
+            const px = x + offset[0] * play.height * pattern
+            const py = y + offset[1] * play.height * pattern
+            let hitIds = []
+            if (px >= 0 && px < play.width && py >= 0 && py < play.height) {
+                const point = worldItem.mapFromItem(aim, px, py)
+                if (weapon.penetration) {
+                    const targets = worldItem.pickTargets(point.x, point.y)
+                    const intercept = targets.findIndex(function(id) { return shipShots.has(id) })
+                    const reach = intercept < 0 ? weapon.penetration : Math.min(weapon.penetration, intercept + 1)
+                    hitIds = targets.slice(0, reach)
+                } else {
+                    hitIds = [worldItem.pickTarget(point.x, point.y)]
+                }
+            }
+            return { x:px, y:py, dx:px-x, dy:py-y, hit:hitIds[0] || 0, targets:hitIds }
+        })
+        const targets = weapon.melee ? swingTargets(x, y, Math.max(weapon.aim, height * weapon.aim / 650) * .74)
+            : traces.reduce(function(all, trace) { return all.concat(trace.targets) }, [])
+        if (Rules.shoot(run, targets, frontId,
+            { x:x / width, y:y / height }, continuation)) {
+            shotRays = traces
+            shotFlash = motion ? weapon.afterglow : Math.min(.10, weapon.afterglow)
+            if (audio.item && !weapon.sustain && !weapon.throwing)
+                audio.item.play("fire")
+        }
+        publish()
+    }
+
+    function pickReward(id, slot) {
+        if (!allowed || paused || phase !== "reward")
+            return
+        const card = run.offers.find(function(offer) { return offer.id === id })
+        if (card && card.category !== "Supply" && slot === undefined && Gear.defaultSlot(run, card) === -1) {
+            selectedOffer = id
+            return
+        }
+        if (Rules.choose(run, id, slot)) {
+            if (audio.item)
+                audio.item.play("flask")
+            selectedOffer = ""
+            publish()
+        }
+    }
+
+    function giveMenuFocus() {
+        if (!allowed || fighting)
+            return
+        const choice = phase === "reward" && !paused
+            ? rewardList.itemAt(0) : phase === "bossReward" && !paused ? boonList.itemAt(0) : primaryAction
+        if (choice && choice.visible && choice.enabled)
+            choice.forceActiveFocus()
+    }
+
+    function mainAction() {
+        if (!allowed)
+            return
+        if (paused) {
+            paused = false
+            if (fighting)
+                keyTarget.forceActiveFocus()
+            else
+                publish()
+        } else if (phase === "defeat") {
+            resetRun()
+        } else if (phase === "shop") {
+            skipSelection()
+        } else if (phase === "ready" || phase === "between") {
+            startWave()
+        }
+    }
+
+    function handleEscape() {
+        if (paused)
+            mainAction()
+        else if (phase === "combat" || phase === "between" || phase === "ready" || lab)
+            pauseRun("build")
+        else
+            exitRequested()
+    }
+
+    function pauseRun(tab) {
+        if (phase === "combat" || phase === "between" || lab || phase === "ready" && tab) {
+            if (tab || !paused)
+                pauseTab = tab || "build"
+            paused = true
+            sealing = false
+            fireHeld = false
+            accumulated = 0
+            shotFlash = 0
+            turn.stop()
+            turnAnimation.stop()
+            turnRatio = 1
+        }
+    }
+
+    function switchToProjectedView() {
+        useProjectedView = true
+        graphicsUnavailable()
+    }
+
+    onAllowedChanged: {
+        if (!allowed)
+            pauseRun()
+        else
+            Qt.callLater(giveMenuFocus)
+    }
+    onPhaseChanged: if (phase !== "combat") Qt.callLater(giveMenuFocus)
+    onPausedChanged: if (!fighting) Qt.callLater(giveMenuFocus)
+    onUnlockedGearChanged: Rules.updateCareerUnlocks(run, unlockedGear)
+    Component.onCompleted: {
+        const restored = !tutorial && resumeState ? SaveData.decodeRun(resumeState,unlockedGear) : null
+        run = restored || (tutorial ? Tutorial.create(seed,unlockedGear) : Rules.create(seed, unlockedGear))
+        if (restored) {
+            frontId = run.playerFront
+            previousFront = frontId
+            reportedMetrics = Object.assign({},run.metrics)
+            reportedProgress = run.progress
+            seenEvent = run.event
+            paused = true
+        }
+        publish()
+        Qt.callLater(giveMenuFocus)
+    }
+    onFightingChanged: {
+        if (!fighting) {
+            sealing = false
+            fireHeld = false
+            shotFlash = 0
+            heldShiftKeys = []
+            crossedMouseEdges = 0
+            Rules.holdShield(run,false)
+        }
+    }
+    onStunnedChanged: if (stunned) sealing = false
+
+    Item { id: keyTarget; focus: true }
+
+    Timer {
+        id: turn
+        interval: play.turnMs
+    }
+    Timer { id: achievementNotice; interval: 3200; onTriggered: play.achievementText = "" }
+    NumberAnimation {
+        id: turnAnimation
+        target: play
+        property: "turnRatio"
+        from: 0
+        to: 1
+        duration: play.turnMs
+        easing.type: Easing.InOutCubic
+    }
+    Timer {
+        interval:Math.max(4,Math.round(1000/play.frameLimit))
+        repeat:true
+        running:play.fighting
+        property real previous:0
+        onRunningChanged:previous=Date.now()
+        onTriggered: {
+            const now=Date.now()
+            const frameTime=Math.min(.08,Math.max(0,(now-previous)/1000))
+            previous=now
+            play.accumulated+=frameTime*play.gameSpeed
+            const step=1/60
+            play.updateAim(aim.mouseX,aim.mouseY,frameTime)
+            const sight=aim.containsMouse && !play.turning && !play.stunned
+                ? {x:play.pointer.x/play.width,y:play.pointer.y/play.height,aspect:play.width/play.height} : null
+            let steps=0
+            while (play.accumulated>=step && play.run.phase==="combat" && steps++<12) {
+                Tutorial.update(play.run,step,play.sealing && !!play.sealState && !play.turning,play.fireHeld && !!sight,sight,!play.turning)
+                play.accumulated-=step
+            }
+            if (play.run.training && play.run.training.front!==play.frontId) {
+                play.frontId=play.run.playerFront;play.previousFront=play.frontId
+                play.run.training.front=play.frontId
+            }
+            if (play.trainingBlocked) play.fireHeld=false
+            play.shotFlash=Math.max(0,play.shotFlash-frameTime*play.gameSpeed)
+            if (play.weapon.spinup) play.rotaryAngle=(play.rotaryAngle+play.spin*frameTime*play.gameSpeed*1440)%360
+            play.publish()
+            if (sight && Rules.queuedShot(play.run)) play.fire(play.pointer.x,play.pointer.y,true)
+            else if (play.canShoot && play.fireHeld && aim.containsMouse) play.fire(play.pointer.x,play.pointer.y)
+        }
+    }
+
+    Keys.priority: Keys.BeforeItem
+    Keys.onPressed: function(event) {
+        if (!fighting)
+            return
+        if (trainingBlocked) return
+        switch (event.key) {
+        case Qt.Key_A: case Qt.Key_Left: turnView("left"); break
+        case Qt.Key_D: case Qt.Key_Right: turnView("right"); break
+        case Qt.Key_W: case Qt.Key_Up: turnView("up"); break
+        case Qt.Key_S: case Qt.Key_Down: turnView("down"); break
+        case Qt.Key_1: case Qt.Key_2:
+            if (!event.isAutoRepeat)
+                equipWeapon(Rules.slotInput(run,event.key === Qt.Key_1 ? 0 : 1))
+            break
+        case Qt.Key_R:
+            if (!event.isAutoRepeat)
+                reloadGun()
+            break
+        case Qt.Key_Space:
+            if (!event.isAutoRepeat) {
+                Rules.holdShield(run,true)
+                publish()
+            }
+            break
+        case Qt.Key_Shift:
+            if (!event.isAutoRepeat)
+                setShiftKey(event.nativeScanCode, true)
+            break
+        case Qt.Key_Q: case Qt.Key_E:
+            if (!event.isAutoRepeat && !play.turning) {
+                const point = aim.containsMouse ? { x:pointer.x / width, y:pointer.y / height } : null
+                Rules.useAbility(run, Rules.slotInput(run,event.key === Qt.Key_Q ? 0 : 1), frontId,
+                    point && worldItem ? aimAt(pointer.x, pointer.y) : 0, point)
+                publish()
+            }
+            break
+        case Qt.Key_F:
+            if (!event.isAutoRepeat && !stunned && frontId === "down" && !play.turning)
+                sealing = true
+            break
+        default:
+            return
+        }
+        event.accepted = true
+    }
+    Keys.onReleased: function(event) {
+        if (event.isAutoRepeat)
+            return
+        if (event.key === Qt.Key_Shift) {
+            setShiftKey(event.nativeScanCode, false)
+            event.accepted = fighting
+        } else if (event.key === Qt.Key_Space && run.shield.held) {
+            Rules.holdShield(run,false)
+            publish()
+            event.accepted = true
+        } else if (event.key === Qt.Key_F) {
+            sealing = false
+            event.accepted = fighting
+        }
+    }
+    Shortcut {
+        sequence: "Escape"
+        context: Qt.WindowShortcut
+        onActivated: play.handleEscape()
+    }
+    Shortcut {
+        sequences: ["Return", "Enter"]
+        context: Qt.WindowShortcut
+        enabled: play.allowed && !play.fighting && primaryAction.activeFocus && primaryAction.visible
+        onActivated: play.mainAction()
+    }
+
+    Shortcut {sequence:".";enabled:play.allowed;onActivated:play.timerRequested(!play.showTimer)}
+
+    Shortcut {
+        sequence: "T"
+        enabled: play.allowed && (play.fighting || play.lab || play.paused || play.phase === "between" || play.phase === "ready")
+        onActivated: {
+            if (play.paused && play.pauseTab === "inventory")
+                play.mainAction()
+            else
+                play.pauseRun("inventory")
+        }
+    }
+
+    HoverHandler {
+        enabled: play.fighting && play.mouseTurns
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        blocking: false
+        onPointChanged: play.edgeTurn(point.position.x,point.position.y)
+    }
+
+    Item {
+        id: battlefieldViewport
+        anchors.fill: parent
+        transform: Translate {
+            x: play.motion ? play.shake.x + (play.projectedMode && play.distortion > 0
+                    ? Math.sin(play.elapsed * 19) * 13 : 0) : 0
+            y: play.motion ? play.shake.y : 0
+        }
+        WallpaperTurn {
+            anchors.fill: parent
+            visible: play.phase !== "shop"
+            artDirectory: play.artDirectory
+            sources:play.backgroundFiles
+            frontId: play.frontId
+            previousFront: play.previousFront
+            direction: play.turnDirection
+            progress: play.turnRatio
+            lab: play.lab
+            slide: play.projectedMode || !play.fighting
+            transitionStyle:play.transitionStyle
+            framing: play.wallpaperFit
+            quality: play.wallpaperQuality
+            zoom: play.wallpaperZoom
+            opacity: 1 - play.blindness
+            scale: play.motion ? 1 + (play.stunned || play.impact.strength > 0 || play.distortion > 0 ? .07 : 0)
+                + Math.min(.32,play.dash.depth / 4500) : 1
+            Behavior on scale { NumberAnimation { duration: play.motion ? 150 : 0 } }
+            transform: Scale {
+                origin.x: play.sightCentre.x*play.width
+                origin.y: play.sightCentre.y*play.height
+                xScale: play.magnification
+                yScale: play.magnification
+            }
+        }
+        Rectangle {
+            anchors.fill:parent
+            visible:play.phase === "shop"
+            color:"#151018"
+        }
+        Image {
+            objectName: "shopBackdrop"
+            anchors.fill: parent
+            source: play.phase === "shop" ? Qt.resolvedUrl("../art/last-stop-workshop.png") : ""
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+        }
+        Rectangle { anchors.fill: parent; color: play.lab && play.phase !== "shop" ? "#9930192e" : "#250b080e" }
+        Loader {
+            id: worldLoader
+            objectName: "worldLoader"
+            anchors.fill: parent
+            active: play.phase === "combat" && play.allowed
+            visible: play.fighting
+            sourceComponent: play.projectedMode ? projected : hardware
+        }
+    }
+    Component {
+        id: hardware
+        World3D {
+            id: viewport
+            objectName: "world3D"
+            actors: play.actors
+            bolts: play.bolts
+            axes: play.axes
+            splits: { play.revision; return play.run.splits }
+            shatters: { play.revision; return play.run.gore.filter(function(event) { return event.crystal }) }
+            holes: { play.revision; return play.run.holes }
+            bubbleBursts:{play.revision; return play.run.bursts.filter(function(event) {return !!event.bubble})}
+            gifts: play.gifts
+            frontId: play.frontId
+            revision: play.revision
+            previousFront: play.previousFront
+            artDirectory: play.artDirectory
+            quality: play.wallpaperQuality
+            detail:play.graphicsDetail
+            transitionStyle:play.transitionStyle
+            transitionStrength:play.transitionStrength
+            wallpaperZoom: play.wallpaperZoom
+            turnRatio: play.turnRatio
+            flyingPet: play.flyingPet
+            guestPet: play.guestPet
+            blindness: play.blindness
+            hypnotised: play.hypnotised
+            meleeReturn: { play.revision; return Rules.meleeReturnWindow(play.run) }
+            grabId: play.grab ? play.grab.id : 0
+            smokes: play.smokes
+            elapsed: play.elapsed
+            motion: play.motion
+            lungeDepth: play.motion ? play.dash.depth : 0
+            lungeLane: play.motion ? play.dash.lane : 0
+            magnification: play.magnification
+            lensCentre: play.sightCentre
+            Timer {
+                interval: 4900
+                running: play.fighting
+                onTriggered: {
+                    if (viewport.effectiveTextureSize.width <= 0)
+                        play.switchToProjectedView()
+                }
+            }
+        }
+    }
+    Component {
+        id: projected
+        ProjectedWorld {
+            objectName: "projectedWorld"
+            actors: play.actors
+            bolts: play.bolts
+            axes: play.axes
+            gifts: play.gifts
+            frontId: play.frontId
+            revision: play.revision
+            opacity: play.turning ? Math.abs(1 - play.turnRatio * 2) : 1
+            flyingPet: play.flyingPet
+            guestPet: play.guestPet
+            blindness: play.blindness
+            hypnotised: play.hypnotised
+            meleeReturn: { play.revision; return Rules.meleeReturnWindow(play.run) }
+            smokes: play.smokes
+            elapsed: play.elapsed
+            motion: play.motion
+            lungeDepth: play.motion ? play.dash.depth : 0
+            lungeLane: play.motion ? play.dash.lane : 0
+            magnification: play.magnification
+            lensCentre: play.sightCentre
+        }
+    }
+
+    Loader {
+        anchors.fill: parent
+        active: play.fighting && (play.distortion > 0 || play.hypnotised) && !play.projectedMode
+        sourceComponent: DistortedView {
+            battlefield: battlefieldViewport
+            phase: play.motion ? play.elapsed : 0
+            strength: play.hypnotised ? 1 : Math.min(1, play.distortion * 2)
+            hypnotised: play.hypnotised
+        }
+    }
+    WeatherFX {
+        anchors.fill: parent
+        condition: play.fighting && (play.weather !== "meteor" || play.frontId === "up") ? play.weather : "clear"
+        gust: { play.revision; return play.run.gustLeft }
+        opacity: 1 - play.blindness
+        time: play.elapsed
+        motion: play.motion
+    }
+    CombatSpectacle {
+        objectName: "demonSpectacle"
+        anchors.fill: parent
+        run: play.run
+        revision: play.revision
+        frontId: play.frontId
+        world: play.worldItem
+        active: play.fighting && !play.hypnotised
+        motion: play.motion
+        projected: play.projectedMode
+    }
+    Rectangle {
+        id: orbitGuard
+        objectName: "orbitGuard"
+        visible: play.fighting && !!play.orbit
+        readonly property real glow: { play.revision; return play.run.guardFlash / .39 }
+        width: play.orbit ? play.orbit.half * play.width * 2 : 0
+        height: play.height * .67
+        y: play.height * .16
+        x: play.orbit ? play.orbit.x * play.width - width*.5 : 0
+        radius: Math.min(39, width*.34)
+        color: Qt.rgba(.23, .71, .74, .09 + glow*.26)
+        border.color: Qt.rgba(.50, .92, .87, .44 + glow*.48)
+        border.width: 2
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 7
+            radius: Math.max(2, parent.radius - 6)
+            color: "transparent"
+            border.color: "#5078ddd4"
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        gradient: Gradient {
+            GradientStop { position: 0; color: "#f3090911" }
+            GradientStop { position: 0.25; color: "#10090911" }
+            GradientStop { position: 0.59; color: "#00090911" }
+            GradientStop { position: 1; color: "#fb0c0914" }
+        }
+    }
+    Rectangle {
+        anchors.fill: parent
+        color: play.impact.color
+        opacity: play.impact.strength * .13
+        visible: opacity > 0 && play.fighting
+    }
+    Loader {
+        id: heldWeapon
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.horizontalCenterOffset: play.weaponAim.x * play.width * (play.compactLayout ? .038 : play.projectedMode ? .059 : .043)
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: play.handWeapon ? -5
+            : -14 - play.weaponAim.y*play.height*.025 - Math.min(1,(play.magnification-1)*4)*play.height*.117
+        width: play.width * (play.handWeapon ? .77 : play.weapon.chargeEachShot ? .49 : play.compactLayout ? .55 : .59)
+        height: play.height * (play.handWeapon ? .89 : play.weapon.chargeEachShot ? .39 : .47)
+        active: play.fighting
+        transformOrigin: Item.Bottom
+        rotation: play.projectedMode && !play.handWeapon ? play.weaponAim.x*7 - play.weaponAim.y*3 : 0
+        readonly property point muzzle: {
+            x; y; rotation
+            return item ? item.mapToItem(play,item.muzzle) : Qt.point(play.width*.5,play.height*.73)
+        }
+        sourceComponent: play.projectedMode ? drawnGun : modeledGun
+    }
+    Component {
+        id: modeledGun
+        WeaponModel {
+            detail:play.graphicsDetail
+            weapon: play.weapon
+            aimOffset: play.weaponAim
+            shotLife: play.strikeLife
+            reloadRatio: play.reloadRatio
+            rotaryAngle: play.rotaryAngle
+            motion: play.motion
+            charge: play.spin
+            primed: play.primed
+            bayonet: play.bayonet
+            stab: play.stab
+            sequence: play.shotSequence
+            combo: play.combo
+            staffCast:{play.revision; const gun=Gear.current(play.run); return gun.castTime > 0 ? 1-gun.castTime/gun.castLength : 0}
+            staffCharge: play.runeCost > 0 ? Math.min(1, play.runes / play.runeCost) : 0
+            clock: play.elapsed
+        }
+    }
+    Component {
+        id: drawnGun
+        WeaponSprite {
+            weapon: play.weapon
+            aimOffset: play.weaponAim
+            shotLife: play.strikeLife
+            reloadRatio: play.reloadRatio
+            rotaryAngle: play.rotaryAngle
+            motion: play.motion
+            primed: play.primed
+            bayonet: play.bayonet
+            stab: play.stab
+            sequence: play.shotSequence
+            combo: play.combo
+            staffCast:{play.revision; const gun=Gear.current(play.run); return gun.castTime > 0 ? 1-gun.castTime/gun.castLength : 0}
+            staffCharge: play.runeCost > 0 ? Math.min(1, play.runes / play.runeCost) : 0
+            clock: play.elapsed
+        }
+    }
+    CombatEffects {
+        anchors.fill: parent
+        time: play.elapsed
+        motion: play.motion
+        distortion: play.fighting ? play.distortion : 0
+        voidStorm: play.fighting && play.voidStorm
+        shatter: play.fighting ? play.shieldBreak : 0
+        shield: play.fighting ? play.shieldHp : 0
+        recharge: play.fighting ? play.shieldRefill : 0
+        projected: play.projectedMode
+    }
+    FieldShield {
+        anchors.fill: parent
+        active: play.fighting
+        tint: play.fieldGuard.tint
+        mode: play.fieldGuard.mode
+        raised: play.fieldGuard.raised
+        age: play.fieldGuard.age
+        impact: play.fieldGuard.impact
+        motion: play.motion
+    }
+    GrenadeFX {
+        anchors.fill: parent
+        run: play.run
+        revision: play.revision
+        frontId: play.frontId
+        muzzle: heldWeapon.muzzle
+        active: play.fighting
+    }
+    ElementFX {
+        anchors.fill: parent
+        run: play.run
+        revision: play.revision
+        frontId: play.frontId
+        world: play.worldItem
+        active: play.fighting
+        motion: play.motion
+        blindness: play.blindness
+        fog: play.poisonFog
+    }
+    WorldLabels {
+        anchors.fill: parent
+        actors: play.actors
+        revision: play.revision
+        world: play.worldItem
+        frontId: play.frontId
+        active: play.fighting
+        turning: play.turning
+        blindness: play.blindness
+    }
+    Rectangle {
+        anchors.fill: parent
+        visible: play.fighting && (play.frost > 0 || play.cursed)
+        opacity: play.cursed ? .59 + (play.motion ? Math.sin(play.elapsed * 3.3) * .15 : 0)
+            : Math.max(.24, play.frost)
+        gradient: Gradient {
+            GradientStop { position: 0; color: play.cursed ? "#be480b63" : "#c268b9e4" }
+            GradientStop { position: .48; color: "transparent" }
+            GradientStop { position: 1; color: play.cursed ? "#b13c0855" : "#bf7bc7ee" }
+        }
+    }
+    HealthVignette {
+        anchors.fill: parent
+        healthRatio: play.healthRatio
+        injury: { play.revision; return play.run.injury }
+        pulse: {
+            play.revision
+            return play.fighting && play.motion ? (1 + Math.sin(play.run.time * Math.PI * 1.85)) / 2 : .42
+        }
+        hurt: play.fighting ? play.impact.strength * .53 : 0
+    }
+    Text {
+        objectName: "criticalReadout"
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: parent.height*.24 - (play.motion ? (1-play.criticalFlash/.60)*13 : 0)
+        visible: play.fighting && play.criticalFlash > 0
+        opacity: Math.min(1,play.criticalFlash*3.4)
+        text: { play.revision; return "CRITICAL  " + play.run.criticalNumber.toFixed(1) }
+        color: "#ffdc95"
+        style: Text.Outline
+        styleColor: "#682837"
+        font.family: "IBM Plex Mono"
+        font.weight: Font.Bold
+        font.pixelSize: play.compactLayout ? 15 : 19
+    }
+    Rectangle {
+        anchors.fill: parent
+        visible: play.fighting && play.evade > 0
+        color: "transparent"
+        border.width: 10
+        border.color: "#8affdac2"
+        radius: 18
+        opacity: play.evade
+    }
+    Rectangle {
+        anchors.fill: parent
+        gradient: Gradient {
+            GradientStop { position: 0; color: "#fff1a0" }
+            GradientStop { position: .52; color: "#22ffe678" }
+            GradientStop { position: 1; color: "#fff1a0" }
+        }
+        opacity: play.powerFlash * (play.motion ? .9 : .22)
+        visible: opacity > 0 && play.fighting
+    }
+
+    MouseArea {
+        id: aim
+        objectName: "aimArea"
+        anchors.fill: parent
+        visible: play.fighting
+        enabled: visible
+        hoverEnabled: enabled
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: play.glitchInput ? Qt.BlankCursor : play.fighting ? Qt.CrossCursor : Qt.ArrowCursor
+        onPressed: function(mouse) {
+            keyTarget.forceActiveFocus()
+            if (mouse.button === (play.glitchInput ? Qt.LeftButton : Qt.RightButton)) {
+                play.fireHeld=false
+                play.updateAim(mouse.x, mouse.y, 0)
+                play.reloadGun()
+                return
+            }
+            play.fireHeld = true
+            if (!play.fieldGuard.raised && play.weapon.spinup && play.canShoot && !play.reloadTime && !play.prepTime && !play.cooling && audio.item)
+                audio.item.play(play.weapon.id === "chainsaw" ? "sawRev" : play.weapon.chargeEachShot ? "starCharge" : "spinup")
+            play.updateAim(mouse.x, mouse.y, 0)
+            play.fire(play.pointer.x, play.pointer.y)
+        }
+        onReleased: function(mouse) {
+            if (mouse.button === (play.glitchInput ? Qt.RightButton : Qt.LeftButton))
+                play.fireHeld = false
+        }
+        onWheel: function(event) {
+            if (event.angleDelta.y && play.run.time - play.lastWheelSwitch >= .20) {
+                const other = 1 - play.run.selectedWeapon
+                if (play.run.slots.weapon[other] && play.run.slots.weapon[other].item) {
+                    play.lastWheelSwitch = play.run.time
+                    play.equipWeapon(other)
+                }
+            }
+            event.accepted = true
+        }
+        onEntered: play.updateAim(mouseX, mouseY, 0)
+        onPositionChanged: function(mouse) {
+            play.updateAim(mouse.x, mouse.y, 0)
+            if (pressed)
+                play.edgeTurn(mouse.x, mouse.y)
+        }
+        onExited: play.fireHeld = false
+        onCanceled: play.fireHeld = false
+    }
+
+    WeaponFeedback {
+        anchors.fill: parent
+        visible: play.fighting
+        weapon: play.weapon
+        coinShot: {play.revision; return play.weapon.id === "kingsRansom" && !!Gear.current(play.run).coinShot}
+        tracerColor: {
+            play.revision
+            const tint = Gear.current(play.run).jesterTint
+            return play.weapon.id === "kingsRansom" && !Gear.current(play.run).coinShot ? "#abb4c2"
+                : play.weapon.id === "jesterScatter" && tint ? Elements.kinds[tint].color : play.weapon.color
+        }
+        rays: play.shotRays
+        life: play.strikeLife
+        sustained: play.sustainedFire && play.weapon.effect === "laser"
+        chargedSlash: play.chargedStrike
+        combo: play.combo
+        pointer: play.pointer
+        spreadMultiplier: { play.revision; return Rules.spread(play.run) }
+        muzzle: heldWeapon.muzzle
+        aiming: aim.containsMouse
+        scoped: play.magnification > 1.01
+        cycling: (play.shotTime > 0 || play.prepTime > 0 || play.cooling > 0) && !play.reloadTime && play.canShoot && !play.stunned
+        readiness: play.shotReady
+        turning: play.turning
+        stunned: play.stunned
+        sealProgress: play.sealing ? play.sealProgress : 0
+    }
+    ScopeView {
+        anchors.fill: parent
+        centre: play.pointer
+        sight: play.sight
+        ink: play.weapon.color
+        magnification: play.fighting ? play.magnification : 1
+        readiness: play.shotReady
+    }
+
+    Repeater {
+        model: ["left", "right", "up", "down"]
+        delegate: Canvas {
+            id: indicator
+            required property string modelData
+            readonly property int threat: play.warnings[modelData] || 0
+            readonly property bool bossAlert: play.bossDirection === modelData
+            objectName: "warning-" + modelData
+            width: bossAlert ? 64 : play.width < 930 ? 42 : 55
+            height: width * .82
+            x: modelData === "left" ? 26 : modelData === "right" ? play.width - width - 26 : (play.width - width) / 2
+            y: modelData === "up" ? 112 : modelData === "down" ? play.height - 240 : play.height * .44
+            rotation: modelData === "left" ? -90 : modelData === "right" ? 90 : modelData === "down" ? 180 : 0
+            visible: play.fighting && !play.hypnotised && (threat > 0 || bossAlert)
+            opacity: bossAlert || threat === 2 ? .96 : .69
+            onThreatChanged: requestPaint()
+            onBossAlertChanged: requestPaint()
+            onWidthChanged: requestPaint()
+            onVisibleChanged: if (visible) requestPaint()
+            onPaint: {
+                const ctx = getContext("2d")
+                ctx.reset()
+                ctx.clearRect(0, 0, width, height)
+                ctx.beginPath()
+                ctx.moveTo(width * .5, 4)
+                ctx.lineTo(width - 4, height - 5)
+                ctx.lineTo(4, height - 5)
+                ctx.closePath()
+                ctx.fillStyle = bossAlert ? "#ffd752" : threat === 2 ? "#ff5072" : "#be3655"
+                ctx.strokeStyle = bossAlert ? "#201501" : "#ff8a9a"
+                ctx.lineWidth = bossAlert ? 4 : 2.5
+                ctx.fill()
+                ctx.stroke()
+            }
+            Text {
+                visible: indicator.bossAlert
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: 5
+                rotation: -indicator.rotation
+                text: "!"
+                color: "#1a1405"
+                font.pixelSize: 26
+                font.weight: Font.Black
+            }
+        }
+    }
+
+    Rectangle {
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: -82
+        width: stunNotice.implicitWidth + 30
+        height: 38
+        radius: 5
+        color: "#ec3a1b2d"
+        border.color: "#fa819b"
+        visible: play.fighting && play.stunned
+        Text {
+            id: stunNotice
+            anchors.centerIn: parent
+            text: "STUNNED  ·  " + play.stunLeft.toFixed(1) + " s"
+            color: "#ffe1e7"
+            font.family: "IBM Plex Mono"
+            font.pixelSize: 15
+        }
+    }
+
+    Rectangle {
+        anchors.top: parent.top
+        width: parent.width
+        height: play.fighting ? 105 : 76
+        color: "#d0161b28"
+        border.color: "#5c5065"
+        Ui.PanelPlating {
+            anchors.fill: parent
+            tone: play.location.color
+            blood: .29 + (1-play.healthRatio)*.47
+        }
+    }
+
+    Column {
+        x: 24
+        y: 19
+        spacing: 2
+        Text {
+            text: play.lab ? "AFTER WAVE " + play.wave : "PROJECT BLACKBOX"
+            color: play.location.color
+            font.family: "IBM Plex Mono"
+            font.pixelSize: 12
+            font.letterSpacing: 2
+        }
+        Text {
+            text: play.phase === "shop" ? "Supply room" : play.lab ? "Droid Lab" : play.location.title
+            color: "#fff2e9"
+            font.family: "Inter"
+            font.pixelSize: 25
+            font.weight: Font.Bold
+        }
+    }
+
+    Column {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.topMargin: 18
+        width: Math.min(250, play.width * .30)
+        spacing: 7
+        visible: play.fighting
+
+        Ui.ActionButton {
+            objectName: "waveMenuButton"
+            width: parent.width
+            implicitHeight: 42
+            text: "Wave " + play.wave
+            contentItem:Row {
+                spacing:14
+                Text {text:"Wave "+play.wave;color:"#f0dfd3";font.pixelSize:14;anchors.verticalCenter:parent.verticalCenter}
+                Ui.BloodNumber {value:play.remaining}
+            }
+            Accessible.name: text + ". Open Waves"
+            font.pixelSize: 14
+            hintText:"Open Waves"
+            onClicked: play.pauseRun("waves")
+        }
+        Text {
+            width: parent.width
+            text: (play.summons ? play.summons + (play.summons === 1 ? " summon  ·  " : " summons  ·  ") : "")
+                + play.gold + " gold" + (play.weather !== "clear" ? "  ·  " + Conditions.entries[play.weather].title : "")
+            horizontalAlignment: Text.AlignHCenter
+            color: "#ffe08a"
+            font.family: "IBM Plex Mono"
+            font.pixelSize: 11
+        }
+        Text {
+            width: parent.width
+            visible: !!play.flyingPet
+            text: {
+                play.revision
+                return play.flyingPet ? play.petSpec.title + " · Lv " + play.flyingPet.level
+                    + (play.flyingPet.resting > 0 ? " · Rest " + Math.ceil(play.flyingPet.resting) + "s" : "")
+                    + (play.flyingPet.front !== play.frontId ? " · " + Rules.front(play.flyingPet.front).label : "") : ""
+            }
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+            color: Pets.uniqueColor
+            font.family: "IBM Plex Mono"
+            font.pixelSize: 10
+        }
+        Rectangle {
+            visible: play.boss !== null
+            width: parent.width
+            height: 40
+            radius: 5
+            color: "#e5311923"
+            border.color: "#b67759"
+            Meter {
+                anchors.centerIn: parent
+                width: parent.width - 18
+                label: play.boss ? play.boss.title.toUpperCase() + (play.boss.fangs >= 0 ? " · " + play.boss.fangs + " FANGS" : "") : ""
+                value: play.boss ? play.boss.health : 0
+                maximum: play.boss ? play.boss.maxHealth : 1
+                tint: play.boss ? play.boss.tint : "#ffbd61"
+            }
+        }
+    }
+
+    Row {
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 18
+        spacing: 7
+        Ui.ActionButton {
+            objectName: "audioButton"
+            text: play.sound ? "Mute" : "Sound"
+            onClicked: {
+                play.soundRequested()
+                if (play.fighting)
+                    keyTarget.forceActiveFocus()
+            }
+        }
+        Ui.ActionButton {
+            visible: play.fighting || (play.lab && !play.paused)
+            text: "Pause · Esc"
+            objectName: "pausePlay"
+            onClicked: play.pauseRun("build")
+        }
+        Ui.ActionButton {
+            objectName: "exitPlay"
+            visible: play.phase === "ready" || play.phase === "defeat"
+            text: "Home · Esc"
+            onClicked: play.exitRequested()
+        }
+    }
+
+    Column {
+        anchors.top: parent.top
+        anchors.topMargin: play.boss ? 157 : 111
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: 6
+        visible: play.fighting
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: { play.revision; return Gear.passiveRank(play.run,"deathMint") > 0 }
+            text: { play.revision; return "DEATH COINS " + Math.min(5,play.run.deathCoins) + " / 5" }
+            color: "#f6ca78"
+            font.family: "IBM Plex Mono"
+            font.pixelSize: 12
+        }
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: play.distortion > 0
+            text: play.voidStorm ? "VOID SIGNAL DISTORTION" : "ZADRRIMUS DISTORTION · " + play.distortion.toFixed(1) + " s"
+            color: "#ffacd8"
+            style: Text.Outline
+            styleColor: "#26152d"
+            font.family: "IBM Plex Mono"
+            font.pixelSize: 12
+        }
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: {
+                play.revision
+                const hexes = Object.keys(play.run.hexes).map(function(key) { return Rules.curses[key] })
+                for (const effect of ["frost", "weaken", "blind"]) {
+                    if ((effect === "blind" ? play.blindRank : play.run.elements[effect]) > 0)
+                        hexes.unshift(effect.toUpperCase() + " " + (effect === "blind" ? play.blindRank : play.run.elements[effect]))
+                }
+                if (play.cursed)
+                    hexes.unshift("CURSED")
+                if (play.run.dizzyLeft > 0)
+                    hexes.unshift("REVERSED TURNS " + play.run.dizzyLeft.toFixed(1)+"s")
+                if (play.glitchInput)
+                    hexes.unshift("REVERSED AIM, TURNS AND PAIRED CONTROLS")
+                if (play.run.fearCut)
+                    hexes.unshift("HALVED MAX HP")
+                if (play.run.boneTime > 0)
+                    hexes.push("BONE SHATTER " + play.run.boneTime.toFixed(1)+"s")
+                if (play.run.souls || play.run.scytheSouls)
+                    hexes.push("SOULS " + (play.run.souls + play.run.scytheSouls))
+                if (play.run.elements.burn > 0)
+                    hexes.unshift("BURN " + play.run.elements.burn + " · " + play.run.elements.burnLeft.toFixed(1) + " s")
+                return hexes.join("  ·  ")
+            }
+            visible: text.length > 0
+            color: "#ffc082"
+            style: Text.Outline
+            styleColor: "#291922"
+            font.family: "IBM Plex Mono"
+            font.pixelSize: 12
+        }
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: text.length > 0
+            text: {
+                play.revision
+                const element = play.run.elements
+                if (!element.poison)
+                    return ""
+                return "POISON " + element.poison + "   ·   MAX HP −" + Math.round(element.poisonLoss * 100)
+                    + "%   ·   " + element.poisonLeft.toFixed(1) + "s"
+            }
+            color: "#d4ff92"
+            style: Text.Outline
+            styleColor: "#263a16"
+            font.family: "IBM Plex Mono"
+            font.pixelSize: 12
+        }
+        Rectangle {
+            objectName: "stickyNotice"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: stuckLabel.implicitWidth + 24
+            height: 27
+            radius: 5
+            visible: { play.revision; return play.run.elements.sticky > 0 }
+            border.color: "#d1fa65"
+            color: "#ed293913"
+            Text {
+                id: stuckLabel
+                anchors.centerIn: parent
+                text: {
+                    play.revision
+                    return "STICKY " + play.run.elements.sticky + "  ·  TURNS LOCKED  "
+                        + play.run.elements.stickyLeft.toFixed(1) + "s"
+                }
+                color: "#edffac"
+                font.family: "IBM Plex Mono"
+                font.weight: Font.Bold
+                font.pixelSize: 12
+            }
+        }
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: play.constricted || play.hypnotised
+            text: {
+                play.revision
+                return play.hypnotised ? "HALLUCINATIONS LEFT  " + play.run.hypnosis.left
+                    : play.constricted ? "CONSTRICTED · RELEASE IN " + Math.max(0,play.grab.length-play.grab.time).toFixed(1)+"s" : ""
+            }
+            color: "#ffe1f7"
+            style: Text.Outline
+            styleColor: "#432133"
+            font.family: "IBM Plex Mono"
+            font.pixelSize: 14
+            font.weight: Font.Bold
+        }
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.min(play.width - 36, alert.implicitWidth + 22)
+            height: 28
+            radius: 4
+            border.color: "#6d536a"
+            color: "#e51e1423"
+            visible: alert.text.length > 0
+            Text {
+                id: alert
+                anchors.centerIn: parent
+                text: {
+                    play.revision
+                    return play.run.note && play.run.time < play.run.noteUntil ? play.run.note : ""
+                }
+                color: "#fff2e9"
+                font.family: "Inter"
+                font.pixelSize: 13
+            }
+        }
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 228
+            height: 45
+            radius: 5
+            color: "#eb25162f"
+            border.color: play.sealClosed ? "#81d5be" : "#d5a3f5"
+            visible: !!play.sealState && !play.hypnotised
+            Meter {
+                objectName: "sealMeter"
+                anchors.centerIn: parent
+                width: parent.width - 22
+                label: play.sealClosed ? "RIFT CLOSED FOR THIS WAVE" : play.sealing ? "SEALING RIFT" : "HOLD F TO SEAL THE RIFT"
+                value: Math.floor(play.sealProgress * 100)
+                maximum: 100
+                suffix: "%"
+                tint: "#d7a0ff"
+            }
+        }
+    }
+
+    Row {
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.margins: 19
+        spacing: 9
+        visible: play.fighting
+        MiniMap {
+            objectName: "combatMinimap"
+            frontId: play.frontId
+            counts: play.frontStatus
+            turns: play.turns
+            navigable: play.fighting && !play.stunned && !play.turnLocked && !play.turning && !play.lunging
+            onTurnRequested: function(direction) { play.turnView(direction) }
+        }
+    }
+    Rectangle {
+        anchors.fill: leftHud
+        anchors.margins: -7
+        visible: play.fighting
+        color: "#df171a26"
+        border.color: play.healthRatio <= .35 ? "#a94961" : "#4a546d"
+        radius: 6
+        Ui.PanelPlating {
+            anchors.fill: parent
+            tone: play.healthRatio <= .35 ? "#e7718a" : "#7985a2"
+            blood: .24 + (1-play.healthRatio)*.66
+        }
+    }
+    Column {
+        id: leftHud
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: 19
+        anchors.bottomMargin: 111
+        width: play.width < 960 ? 115 : 151
+        spacing: 9
+        visible: play.fighting
+
+        ActiveTile {
+            objectName: "activeHUD-Q"
+            abilityState: { play.revision; return play.abilityTile(Rules.slotInput(play.run,0)) }
+            shortcut: "Q"
+            motion: play.motion
+        }
+        Meter {
+            width: parent.width
+            label: "HEALTH"
+            value: { play.revision; return play.run.health }
+            maximum: { play.revision; return Gear.maxHealth(play.run) }
+            tint: "#f49199"
+        }
+        BarrierTile {
+            width: parent.width
+            charges: play.shieldHp
+            capacity: play.shieldCapacity
+            timeLeft: play.shieldTime
+            cooldown: play.shieldCooldown
+            refilling: play.shieldRefill > 0
+            installed: play.barrierLevel
+        }
+        Column {
+            objectName: "fieldShieldStatus"
+            width: parent.width
+            spacing: 3
+            RowLayout {
+                width: parent.width
+                spacing: 4
+                Text {
+                    Layout.fillWidth: true
+                    text: Defense.modes[play.fieldGuard.mode].title.toUpperCase()
+                    color: play.fieldGuard.tint
+                    font.family: "IBM Plex Mono"
+                    font.pixelSize: 10
+                    fontSizeMode: Text.HorizontalFit
+                    minimumPixelSize: 8
+                    elide: Text.ElideRight
+                }
+                Rectangle {
+                    implicitWidth: 35
+                    implicitHeight: 15
+                    color: "#122333"
+                    border.color: "#5f839c"
+                    radius: 3
+                    Text {
+                        anchors.centerIn: parent
+                        text: "SPACE"
+                        color: "#d8efff"
+                        font.family: "IBM Plex Mono"
+                        font.pixelSize: 9
+                    }
+                }
+            }
+            Rectangle {
+                width: parent.width
+                height: 4
+                radius: 2
+                color: "#394151"
+                Rectangle {
+                    height: parent.height
+                    radius: parent.radius
+                    width: parent.width * (play.fieldGuard.raised ? play.fieldGuard.charges / play.fieldGuard.capacity
+                        : Math.max(0,1 - play.fieldGuard.cool / play.fieldGuard.recovery))
+                    color: play.fieldGuard.tint
+                }
+            }
+            Text {
+                text: (play.fieldGuard.raised ? play.fieldGuard.charges + (play.fieldGuard.charges === 1 ? " BLOCK" : " BLOCKS")
+                    + (play.fieldGuard.limit ? "  ·  " + Math.max(0,play.fieldGuard.limit-play.fieldGuard.age).toFixed(1) + "s" : "")
+                    : play.fieldGuard.cool ? play.fieldGuard.cool.toFixed(1) + "s RECHARGE" : "HOLD SPACE TO RAISE")
+                    + (play.fieldGuard.level ? "  ·  Lv " + play.fieldGuard.level : "")
+                color: "#c9ccdd"
+                font.family: "IBM Plex Mono"
+                font.pixelSize: 9
+            }
+        }
+    }
+    Rectangle {
+        anchors.fill: rightHud
+        anchors.margins: -7
+        visible: play.fighting
+        color: "#df171a26"
+        border.color: "#4a546d"
+        radius: 6
+        Ui.PanelPlating {
+            anchors.fill: parent
+            tone: "#7985a2"
+            blood: .22 + (1-play.healthRatio)*.57
+        }
+    }
+    Column {
+        id: rightHud
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 19
+        width: play.width < 960 ? 110 : 145
+        visible: play.fighting
+        spacing: 9
+        ActiveTile {
+            objectName: "activeHUD-E"
+            abilityState: { play.revision; return play.abilityTile(Rules.slotInput(play.run,1)) }
+            shortcut: "E"
+            motion: play.motion
+        }
+        Column {
+            width: parent.width
+            spacing: 5
+            Text {
+                text: {
+                    play.revision
+                    return play.runeCost ? play.runes + " / " + play.runeCost + " RUNES"
+                        : play.weapon.signature === "hitStreak" ? "×" + (1 + play.streak*.12).toFixed(2)
+                        : play.weapon.sustain ? Math.round(play.heat * 100) + "% HEAT"
+                        : play.weapon.melee ? (play.primed ? "CHARGED" : play.comboLive ? "COMBO " + play.combo + " / 3" : "MELEE")
+                        : play.weapon.throwing ? "AXE" : play.weapon.stab ? "R · THRUST"
+                        : play.infiniteAmmo ? "∞" : play.rounds + " / " + Rules.magazine(play.run)
+                }
+                color: "#ffcf9d"
+                font.family: "IBM Plex Mono"
+                width: parent.width
+                elide: Text.ElideRight
+                font.pixelSize: play.ammoWeapon ? (play.compactLayout ? 24 : 30) : (play.compactLayout ? 15 : 19)
+                font.weight: Font.Bold
+            }
+            Text {
+                text: { play.revision; return (play.run.selectedWeapon + 1) + " · " + play.weapon.title.toUpperCase() }
+                width: parent.width
+                elide: Text.ElideRight
+                color: "#cfbecf"
+                font.family: "IBM Plex Mono"
+                font.pixelSize: 10
+            }
+            Rectangle {
+                objectName: "weaponCycleMeter"
+                width: parent.width
+                height: 5
+                radius: 2.5
+                color: "#6a494d"
+                property real progress: play.shotReady
+                Rectangle {
+                    width: parent.width * parent.progress
+                    height: parent.height
+                    radius: parent.radius
+                    color: "#ffc28b"
+                }
+            }
+            Text {
+                objectName: "weaponCycleStatus"
+                width: parent.width
+                elide: Text.ElideRight
+                text: play.fieldGuard.raised ? "SHIELD RAISED · RELEASE SPACE TO FIRE"
+                    : play.runeCost && play.runes >= play.runeCost ? "SPELL READY · R"
+                    : play.prepTime > 0 ? (play.weapon.throwing ? "DRAWING AXE " : play.weapon.stab ? "THRUST " : "TRICK ") + play.prepTime.toFixed(1) + "s"
+                    : play.cooling > 0 ? "COOLING " + play.cooling.toFixed(1) + "s"
+                    : play.reloadTime > 0 ? "RELOAD " + play.reloadTime.toFixed(1) + "s"
+                    : !play.canShoot ? "EMPTY · R"
+                    : play.winding ? (play.weapon.id === "chainsaw" ? "REVVING " : play.weapon.chargeEachShot ? "CHARGING " : "SPINNING UP ")
+                        + Math.floor(play.spin * 100) + "%"
+                    : play.sustainedFire ? (play.weapon.melee ? "CHAIN RUNNING" : "BEAM FIRING")
+                    : play.shotTime > 0 ? "NEXT " + play.shotTime.toFixed(2) + "s"
+                    : play.weapon.melee && !play.primed ? "READY · R TO PRIME" : "READY"
+                color: "#ffd0a9"
+                font.family: "IBM Plex Mono"
+                font.pixelSize: 10
+            }
+        }
+    }
+
+    AbyssOverlay {
+        anchors.fill: parent
+        clock: play.elapsed
+        motion: play.motion
+        hypnotised: play.fighting && play.hypnotised
+        projected: play.projectedMode
+        ink: play.fighting && play.inkStains
+        blind: play.fighting ? play.blindRank : 0
+        intensity: play.blindStrength
+        aim: play.pointer
+        grab: play.fighting ? play.grab : null
+    }
+    SoulLink {
+        anchors.fill:parent
+        run:play.run
+        revision:play.revision
+        world:play.worldItem
+        frontId:play.frontId
+        active:play.fighting
+        motion:play.motion
+    }
+
+    Item {
+        anchors.fill:parent
+        visible:play.fighting && play.turning && (play.frontId === "down" || play.previousFront === "down")
+        opacity:Math.sin(play.turnRatio*Math.PI)
+        Rectangle {anchors.fill:parent; color:"#120c1f"; opacity:.95}
+        Loader {
+            anchors.fill:parent
+            active:parent.visible && !play.projectedMode && play.transitionStyle === "cinematic"
+            sourceComponent:AbyssDescent3D {
+                progress:play.turnRatio
+                returning:play.previousFront === "down"
+                strength:play.transitionStrength
+            }
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        color: play.phase === "shop" ? "#26090912" : "#83090912"
+        visible: !play.fighting
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            hoverEnabled: true
+            cursorShape: Qt.ArrowCursor
+        }
+    }
+    Rectangle {
+        id: selectionPanel
+        anchors.horizontalCenter:parent.horizontalCenter
+        anchors.verticalCenter:play.preparing && !play.paused ? undefined : parent.verticalCenter
+        anchors.bottom:play.preparing && !play.paused ? parent.bottom : undefined
+        anchors.bottomMargin:play.compactLayout ? 14 : 26
+        width: Math.min(parent.width - 40,play.preparing ? 1120 : 804)
+        opacity: play.fighting ? 0 : 1
+        Behavior on opacity { enabled:!play.paused; NumberAnimation { duration: play.motion ? 145 : 0 } }
+        readonly property int inset: play.compactLayout ? 13 : 22
+        implicitHeight: screen.implicitHeight + inset * 2
+        height: implicitHeight
+        radius: 7
+        color: play.phase === "shop" ? "#211823" : "#f71b1622"
+        border.color: play.phase === "shop" ? "#8498ba" : "#94616f"
+        border.width: 1
+        visible: opacity > 0
+        enabled: !play.fighting
+
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 1
+            height: 6
+            radius: 3
+            color: play.phase === "shop" ? "#8c9fc3" : "#7f3d51"
+        }
+        Ui.PanelPlating {
+            anchors.fill: parent
+            tone: play.phase === "shop" ? "#a0b6e0" : play.paused ? "#c78a9a" : "#aa8194"
+            blood: play.phase === "defeat" ? 1 : play.paused ? .88 : play.phase === "ready" ? .20 : .43
+        }
+
+        ColumnLayout {
+            id: screen
+            width: parent.width - parent.inset * 2
+            anchors.centerIn: parent
+            spacing: play.compactLayout ? 8 : 12
+
+            Text {
+                Layout.fillWidth: true
+                visible: !play.preparing && play.phase !== "shop" || play.paused
+                text: play.paused ? "Paused · Wave " + play.wave : play.phase === "ready" ? "Defend the Shrine"
+                    : play.phase === "bossReward" ? "Boss defeated"
+                    : play.phase === "reward" ? (play.selectedOffer ? "Choose a " + play.selectedGroup + " slot" : "Droid Lab rewards")
+                    : play.phase === "between" ? "Wave " + (play.wave + 1) + " incoming"
+                    : play.phase === "defeat" ? "The Shrine fell" : ""
+                font.family: "Inter"
+                font.pixelSize: play.compactLayout ? 26 : 33
+                font.weight: Font.Bold
+                color: "#fff1e8"
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                visible: !play.paused && !play.preparing && play.phase !== "shop"
+                text: {
+                    play.revision
+                    if (play.phase === "ready") return play.run.debug ? "Boss practice. Achievements are off for this run."
+                        : "Defend the Shrine Path and earn equipment between waves."
+                    if (play.phase === "bossReward") return "Choose one upgrade for the rest of this run."
+                    if (play.phase === "reward") return play.selectedCard
+                        ? "Drop " + play.selectedCard.title + " onto a slot or select one below."
+                        : "Wave " + play.wave + " cleared. Claim one item before wave " + (play.wave + 1) + "."
+                    if (play.phase === "between") return Rules.waveSize(play.wave + 1, play.run.difficulty) + " enemies incoming"
+                        + (Rules.isBossWave(play.wave + 1)
+                            ? " · " + Rules.enemyTypes[Rules.bossType(play.wave + 1)].title + " is the final enemy." : ".")
+                            + " Esc or T to prepare your loadout."
+                    return play.phase === "defeat"
+                        ? "Wave " + play.run.wave + " · " + play.run.kills + " kills · " + play.gold + " gold" : ""
+                }
+                color: "#d3c2d0"
+                font.family: "Inter"
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+            }
+            RunSetup {
+                id: setup
+                Layout.fillWidth: true
+                visible: play.phase === "ready" && !play.paused
+                difficulty: { play.revision; return play.run.difficulty }
+                startAt: { play.revision; return play.run.startAt }
+                build: { play.revision; return play.run.debugBuild }
+                unlockAll: { play.revision; return play.run.debugUnlockAll }
+                onUnlocksRequested: function(enabled) {
+                    if (Rules.applyDebugUnlocks(play.run, enabled))
+                        play.publish()
+                }
+                onConfigurationChanged: function(difficulty, startAt, build) {
+                    if (Rules.configure(play.run, difficulty, startAt, build))
+                        play.publish()
+                }
+            }
+            Loader {
+                Layout.fillWidth:true
+                active:play.phase === "between" && !play.paused
+                visible:active
+                sourceComponent: StagePreparation {
+                    run:play.run
+                    revision:play.revision
+                    compact:play.compactLayout
+                    motion:play.allowed && play.motion
+                    onSwapRequested:function(group,from,to) {
+                        if (Rules.canEditLoadout(play.run) && Gear.swap(play.run,group,from,to))
+                            play.publish()
+                    }
+                    onInventoryRequested:function(cell,group,slot) {
+                        if (Rules.swapInventory(play.run,cell,group,slot))
+                            play.publish()
+                    }
+                }
+            }
+            StarterPicker {
+                Layout.fillWidth: true
+                visible: play.draftingWeapon && !play.paused
+                weapons: play.startingWeapons
+                selectedId: play.starterChoice
+                onWeaponSelected: function(id) {
+                    if (Rules.chooseStarter(play.run,id))
+                        play.publish()
+                }
+            }
+            PetPicker {
+                Layout.fillWidth: true
+                visible: play.phase === "ready" && !play.paused
+                availablePets: play.availablePets
+                selectedId: play.petChoice
+                onPetSelected: function(id) {
+                    if (Rules.choosePet(play.run, id))
+                        play.publish()
+                }
+            }
+            Text {
+                Layout.fillWidth: true
+                visible: false
+                text: "HOLD CLICK  Fire     1 / 2  Switch weapon     R  Reload     HOLD SHIFT  Aim\nMOUSE EDGE / WASD  Turn     Q / E  Abilities     HOLD SPACE  Shield     HOLD F  Seal"
+                lineHeight: 1.5
+                wrapMode: Text.WordWrap
+                color: "#ffd0a9"
+                font.family: "IBM Plex Mono"
+                font.pixelSize: 12
+            }
+            Loader {
+                Layout.fillWidth: true
+                active: play.paused
+                visible: active
+                sourceComponent: RunOverview {
+                    run: play.run
+                    revision: play.revision
+                    tab: play.pauseTab
+                    sound: play.sound
+                    motion: play.motion
+                    dense: play.compactLayout
+                    wallpaperFit: play.wallpaperFit
+                    wallpaperQuality: play.wallpaperQuality
+                    wallpaperZoom: play.wallpaperZoom
+                    mouseTurns: play.mouseTurns
+                    frameLimit:play.frameLimit
+                    showTimer:play.showTimer
+                    onFrameLimitRequested:function(value) {play.frameLimitRequested(value)}
+                    onTimerRequested:function(value) {play.timerRequested(value)}
+                    graphicsDetail:play.graphicsDetail
+                    transitionStyle:play.transitionStyle
+                    transitionStrength:play.transitionStrength
+                    onDetailRequested:function(value) {play.detailRequested(value)}
+                    onTransitionStyleRequested:function(value) {play.transitionStyleRequested(value)}
+                    onTransitionStrengthRequested:function(value) {play.transitionStrengthRequested(value)}
+                    onMouseTurnsRequested: function(value) { play.mouseTurnsRequested(value) }
+                    onFitRequested: function(value) { play.fitRequested(value) }
+                    onQualityRequested: function(value) { play.qualityRequested(value) }
+                    onZoomRequested: function(value) { play.zoomRequested(value) }
+                    onTabRequested: function(name) { play.pauseTab = name }
+                    onSoundRequested: play.soundRequested()
+                    onMotionRequested: play.motionRequested()
+                    onDebugGearRequested: function(group, id, slot) {
+                        if (Rules.equipDebugGear(play.run, group, id, slot))
+                            play.publish()
+                    }
+                    onInventoryRequested: function(cell, group, slot) {
+                        if (Rules.swapInventory(play.run, cell, group, slot))
+                            play.publish()
+                    }
+                    onSwapRequested: function(group, from, to) {
+                        if (Rules.canEditLoadout(play.run) && Gear.swap(play.run, group, from, to))
+                            play.publish()
+                    }
+                }
+            }
+            Loader {
+                Layout.fillWidth: true
+                active: play.phase === "shop" && !play.paused
+                visible: active
+                sourceComponent: BossShop {
+                    run: play.run
+                    revision: play.revision
+                    compact: play.compactLayout
+                    nativeScene: !play.projectedMode
+                    motion: play.motion
+                    onPurchaseRequested: function(offerId, slot) {
+                        if (play.allowed && Rules.buy(play.run, offerId, slot)) {
+                            if (audio.item)
+                                audio.item.play("buy")
+                            play.publish()
+                        }
+                    }
+                }
+            }
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 3
+                uniformCellWidths: true
+                visible: play.phase === "reward" && !play.paused
+                z: 5
+                Repeater {
+                    id: rewardList
+                    model: {
+                        play.revision
+                        return play.phase === "reward" ? play.run.offers : []
+                    }
+                    delegate: RewardCard {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        offer: modelData
+                        flask: true
+                        selected: play.selectedOffer === modelData.id
+                        compact: play.compactLayout
+                        animate: play.motion && play.allowed
+                        dragGroup: { play.revision; return modelData.category !== "Supply" && Gear.defaultSlot(play.run, modelData) === -1
+                            ? Gear.groupOf(modelData) : "" }
+                        onDragStarted: play.selectedOffer = modelData.id
+                        onClicked: play.pickReward(modelData.id)
+                    }
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                uniformCellSizes: true
+                visible: play.phase === "bossReward" && !play.paused
+                Repeater {
+                    id: boonList
+                    model: { play.revision; return play.run.bossOffers }
+                    RewardCard {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        offer: ({ id:modelData.id, title:modelData.title, category:modelData.display, description:modelData.description })
+                        compact: play.compactLayout
+                        onClicked: {
+                            if (play.allowed && Rules.chooseBoon(play.run, modelData.id))
+                                play.publish()
+                        }
+                    }
+                }
+            }
+            LoadoutGrid {
+                Layout.fillWidth: true
+                compact: true
+                dense: play.compactLayout
+                visible: play.phase === "reward" && !play.paused && play.selectedGroup.length > 0
+                run: play.run
+                revision: play.revision
+                animate: play.motion
+                groups: play.selectedGroup ? [play.selectedGroup] : []
+                offerId: play.selectedOffer
+                onPlaced: function(id, slot) { play.pickReward(id, slot) }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                visible: play.phase === "reward" && !play.paused && play.selectedOffer.length > 0
+                Ui.ActionButton {
+                    objectName: "stashReward"
+                    enabled: { play.revision; return Gear.canStore(play.run) }
+                    text: enabled ? "Store in inventory" : "Inventory full"
+                    onClicked: play.pickReward(play.selectedOffer, Gear.inventoryDestination)
+                }
+                Ui.ActionButton {
+                    text: "Back"
+                    onClicked: play.selectedOffer = ""
+                }
+                Item { Layout.fillWidth: true }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 4
+                spacing: 7
+                Ui.ActionButton {
+                    id: primaryAction
+                    objectName: "primaryPlayAction"
+                    primary: true
+                    enabled: play.allowed
+                    visible: play.paused || ["ready","between","defeat"].includes(play.phase)
+                    text: {
+                        play.revision
+                        return play.paused ? "Resume" : play.preparing ? "Begin wave " + play.upcomingStage.wave
+                            : "Retry"
+                    }
+                    Accessible.description: "You can also press Enter."
+                    onClicked: play.mainAction()
+                }
+                Ui.ActionButton {
+                    objectName: "refreshSelection"
+                    visible: play.selecting && !play.paused
+                    enabled: play.refreshes > 0
+                    text: "Refresh · " + play.refreshes
+                    onClicked: play.refreshSelection()
+                }
+                Ui.ActionButton {
+                    objectName: "skipSelection"
+                    visible: play.selecting && !play.paused
+                    enabled: !play.unclaimedPurchase
+                    text: play.phase === "ready" ? "Skip pet" : play.phase === "shop"
+                        ? play.unclaimedPurchase ? "Claim your purchase" : "Leave shop" : "Skip"
+                    onClicked: play.skipSelection()
+                }
+                Item { Layout.fillWidth: true }
+                Ui.ActionButton {
+                    visible: play.preparing && !play.paused
+                    text: "Display"
+                    onClicked: play.pauseRun("settings")
+                }
+                Ui.ActionButton {
+                    objectName: "restartRun"
+                    visible: play.paused
+                    text: "Restart run"
+                    onClicked: {
+                        play.paused = false
+                        play.resetRun()
+                    }
+                }
+                Ui.ActionButton {
+                    objectName:"saveRun"
+                    visible:play.paused
+                    enabled:SaveData.phases.includes(play.phase) && play.run.health > 0
+                    text:play.saveNotice || "Save run"
+                    onClicked: {
+                        play.publish()
+                        const data = SaveData.encodeRun(play.run)
+                        if (data) {
+                            play.saveRequested(data)
+                            play.saveNotice = "Saved · Wave "+play.wave
+                        }
+                    }
+                }
+                Ui.ActionButton {
+                    objectName: "quitRun"
+                    visible: play.paused
+                    text: "Quit to Home"
+                    onClicked: play.exitRequested()
+                }
+            }
+        }
+    }
+
+    Loader {
+        anchors.left:parent.left
+        anchors.right:parent.right
+        anchors.top:parent.top
+        anchors.bottom:selectionPanel.top
+        anchors.leftMargin:play.compactLayout ? 26 : 40
+        anchors.rightMargin:play.compactLayout ? 26 : 40
+        anchors.bottomMargin:6
+        active:play.preparing && !play.paused
+        visible:active
+        sourceComponent:EnemyMuster {
+            stage:play.upcomingStage
+            discoveries:play.knownEnemies
+            compact:play.compactLayout
+            software:play.projectedMode
+            motion:play.allowed && play.motion
+        }
+    }
+
+    Rectangle {
+        objectName: "achievementNotice"
+        width: achievementLabel.implicitWidth + 28
+        height: 32
+        x: play.fighting ? 24 : (play.width - width) / 2
+        y: play.fighting ? 114 : play.height - height - 20
+        radius: 5
+        color: "#ee20343c"
+        border.color: "#73b8aa"
+        visible: play.achievementText.length > 0
+        Text {
+            id: achievementLabel
+            anchors.centerIn: parent
+            text: play.achievementText
+            color: Pets.uniqueColor
+            font.family: "Inter"
+            font.pixelSize: 13
+        }
+    }
+
+    Loader {
+        id: audio
+        active: play.sound
+        sourceComponent: Component {
+            Audio {
+                allowed: play.allowed && !play.paused
+                weaponId: play.weapon.id
+                continuous: play.sustainedFire
+                sustainWeapon: !!play.weapon.sustain
+                inBattle: play.fighting
+                weather: play.weather
+                bossWarning: play.fighting && play.bossDirection.length > 0
+                soulDrain: {
+                    play.revision
+                    return play.fighting && play.run.enemies.some(function(enemy) {return enemy.soulChannel})
+                }
+            }
+        }
+    }
+    Rectangle {
+        objectName:"crufixicatusScare"
+        anchors.fill:parent
+        z:450
+        visible:play.fighting && play.scareLeft > 0
+        color:"#030105"
+        clip:true
+        Image {
+            anchors.fill:parent
+            source:Qt.resolvedUrl("../art/crufixicatus-scream.png")
+            fillMode:Image.PreserveAspectCrop
+            scale:play.motion ? 1.03+(3-play.scareLeft)*.035+Math.sin(play.scareLeft*39)*.013 : 1
+        }
+        MouseArea {anchors.fill:parent; acceptedButtons:Qt.AllButtons}
+    }
+    AbilityFX {
+        anchors.fill:parent
+        z:12
+        effects:{play.revision;return play.run.abilityEvents}
+        clock:play.elapsed
+        frontId:play.frontId
+        active:play.fighting
+        motion:play.motion
+        spray:{play.revision;return play.run.sprayTime/5}
+    }
+    Row {
+        z:25
+        anchors.right:parent.right;anchors.top:parent.top;anchors.rightMargin:19;anchors.topMargin:70
+        spacing:8
+        visible:play.fighting && !play.trainingDialogue
+
+        Text {
+            visible:play.showTimer
+            text:{play.revision;const seconds=Math.floor(play.run.waveTime);return Math.floor(seconds/60)+":"+String(seconds%60).padStart(2,"0")}
+            color:"#f5dfd0";font.family:"monospace";font.pixelSize:17
+        }
+        Ui.ActionButton {objectName:"gameSpeed";text:play.gameSpeed+"×";implicitHeight:29;implicitWidth:49
+            onClicked:play.gameSpeed=play.gameSpeed===1 ? 2 : play.gameSpeed===2 ? .5 : 1}
+    }
+    Rectangle {
+        z:26
+        visible:play.fighting && !!play.weapon.staff
+        width:Math.min(270,play.width*.32);height:40
+        anchors.bottom:parent.bottom;anchors.horizontalCenter:parent.horizontalCenter;anchors.bottomMargin:11
+        color:"#ee171320";border.color:play.weapon.color;radius:5
+        readonly property var gun:{play.revision;return Gear.current(play.run)}
+        readonly property int cost:{play.revision;return Gear.effectiveWeaponStats(play.run,gun).chargeCost || 1}
+        Text {anchors.centerIn:parent;text:(parent.gun.castTime>0 ? "CASTING" : parent.gun.charge>=parent.cost ? "SPELL READY · R / RIGHT CLICK" : "SPELL · "+parent.gun.charge+" / "+parent.cost+" ATTACKS");color:"#fff1e3";font.family:"monospace";font.pixelSize:10}
+        Rectangle {anchors.left:parent.left;anchors.bottom:parent.bottom;height:3;width:parent.width*Math.min(1,parent.gun.charge/parent.cost);color:play.weapon.color}
+    }
+    Rectangle {
+        anchors.fill:parent;z:70
+        visible:!!play.run.training && play.run.training.mode==="rewind"
+        color:"black"
+        opacity:{play.revision;return play.run.training ? Math.sin(Math.min(1,play.run.training.age/1.15)*Math.PI) : 0}
+    }
+    Rectangle {
+        z:65
+        visible:play.fighting && play.trainingDialogue
+        anchors.horizontalCenter:parent.horizontalCenter;anchors.bottom:parent.bottom;anchors.bottomMargin:36
+        width:Math.min(700,parent.width-40);height:trainingText.implicitHeight+95
+        color:"#f41c1520";radius:9;border.color:"#c47762";border.width:2
+        Column {
+            anchors.fill:parent;anchors.margins:18;spacing:10
+            Text {text:{play.revision;return play.run.training ? Tutorial.title(play.run) : ""}
+                color:"#ffcd90";font.family:"serif";font.pixelSize:25;font.bold:true}
+            Text {id:trainingText;width:parent.width;text:{play.revision;return play.run.training ? Tutorial.text(play.run) : ""}
+                color:"#efe0d6";font.pixelSize:15;wrapMode:Text.WordWrap}
+            Ui.ActionButton {objectName:"tutorialContinue";text:play.run.training && play.run.training.mode==="won" ? "Return to Home" : "Ready";primary:true
+                onClicked: {if (play.run.training.mode==="won") play.exitRequested();else {Tutorial.advance(play.run);play.publish();play.keyTargetFocus()}}}
+        }
+    }
+    Text {
+        visible:play.fighting && !!play.run.training && !play.trainingDialogue
+        anchors.horizontalCenter:parent.horizontalCenter;anchors.top:parent.top;anchors.topMargin:86;z:24
+        text:{play.revision;return play.run.training ? Tutorial.prompt(play.run) : ""}
+        color:"#fff0d4";font.pixelSize:17;style:Text.Outline;styleColor:"#1b1120"
+    }
+
+    Rectangle {
+        visible:play.fighting && !!play.run.desktop && play.run.desktop.cpuMode
+        anchors.top:parent.top;anchors.horizontalCenter:parent.horizontalCenter;anchors.topMargin:45
+        z:28;width:220;height:27;color:"#de1d1624";border.color:play.run.desktop && play.run.desktop.locked ? "#ff6782" : "#a0bce3";radius:5
+        Text {anchors.centerIn:parent;text:{play.revision;return play.run.desktop ? (play.run.desktop.locked ? "COOLING · " : "CPU HEAT · ")+Math.round(play.run.desktop.heat)+"%" : ""}
+        color:"#fff2de";font.family:"monospace";font.pixelSize:11}
+        Rectangle {anchors.left:parent.left;anchors.bottom:parent.bottom;height:3;width:{play.revision;return parent.width*(play.run.desktop ? play.run.desktop.heat/100 : 0)}
+        color:"#cba3ff"}
+    }
+
+}
+

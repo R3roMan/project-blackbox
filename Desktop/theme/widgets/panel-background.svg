@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="64">
+<rect id="center" x="16" y="16" width="80" height="32" fill="#21151f" fill-opacity=".97"/>
+<rect id="north" x="16" y="12" width="80" height="4" fill="#77404b"/><rect id="south" x="16" y="48" width="80" height="4" fill="#170c15"/>
+<rect id="west" x="12" y="16" width="4" height="32" fill="#4b2c38"/><rect id="east" x="96" y="16" width="4" height="32" fill="#4b2c38"/>
+<rect id="northwest" x="12" y="12" width="4" height="4" fill="#77404b"/><rect id="northeast" x="96" y="12" width="4" height="4" fill="#77404b"/>
+<rect id="southwest" x="12" y="48" width="4" height="4" fill="#170c15"/><rect id="southeast" x="96" y="48" width="4" height="4" fill="#170c15"/>
+<rect id="hint-top-margin" x="0" y="0" width="1" height="4"/><rect id="hint-bottom-margin" x="2" y="0" width="1" height="4"/><rect id="hint-left-margin" x="4" y="0" width="4" height="1"/><rect id="hint-right-margin" x="8" y="0" width="4" height="1"/>
+</svg>

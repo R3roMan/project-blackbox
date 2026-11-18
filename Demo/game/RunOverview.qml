@@ -1,0 +1,289 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import "../ui" as Ui
+import "Rules.js" as Rules
+import "Loadout.js" as Gear
+import "Pets.js" as Pets
+import "Encounters.js" as Encounters
+
+ColumnLayout {
+    id: overview
+    objectName: "runOverview"
+
+    required property var run
+    required property int revision
+    required property string tab
+    required property bool sound
+    required property bool motion
+    property bool dense: false
+    readonly property bool editable: { revision; return Rules.canEditLoadout(run) }
+    signal tabRequested(string name)
+    signal swapRequested(string group, int from, int to)
+    signal debugGearRequested(string group, string id, int slot)
+    signal inventoryRequested(int cell, string group, int slot)
+    signal soundRequested()
+    signal motionRequested()
+    required property string wallpaperFit
+    required property int wallpaperQuality
+    required property real wallpaperZoom
+    required property bool mouseTurns
+    property int frameLimit:60
+    property bool showTimer:false
+    signal frameLimitRequested(int value)
+    signal timerRequested(bool value)
+    property int graphicsDetail:1
+    property string transitionStyle:"cinematic"
+    property real transitionStrength:1
+    signal mouseTurnsRequested(bool value)
+    signal fitRequested(string value)
+    signal qualityRequested(int value)
+    signal zoomRequested(real value)
+    signal detailRequested(int value)
+    signal transitionStyleRequested(string value)
+    signal transitionStrengthRequested(real value)
+
+    readonly property bool loadoutTab:tab === "build" || tab === "inventory"
+    readonly property int remaining: Rules.remainingEnemies(run)
+    readonly property int summons: run.enemies.filter(function(enemy) { return enemy.summoned }).length
+    readonly property int nextBoss: (Math.floor(run.wave / 10) + 1) * 10
+    readonly property var bossThisWave: run.pending.concat(run.enemies).map(function(enemy) { return Rules.enemyTypes[enemy.type] })
+        .find(function(creature) { return creature.role === "boss" })
+    readonly property var equipped: { revision; return Gear.current(run) }
+    readonly property var crit: { revision; return Rules.criticalProfile(run,Gear.weapons[equipped.id]) }
+    readonly property var relevantKits: {
+        revision
+        return Gear.kits.filter(function(kit) {
+            return Object.keys(Gear.limits).some(function(group) { return Gear.findSlot(run, group, kit[group]) >= 0 })
+        })
+    }
+
+    spacing: dense ? 8 : 12
+
+    component Detail: Text {
+        color: "#d7c6d9"
+        font.family: "Inter"
+        font.pixelSize: 13
+        wrapMode: Text.WordWrap
+        Layout.fillWidth: true
+    }
+    component Summary: Rectangle {
+        id: tile
+        required property string label
+        required property string value
+        property color tint: "#f0be99"
+        property real blood: 0
+        Layout.fillWidth: true
+        implicitHeight: 67
+        radius: 5
+        color: "#251d2e"
+        border.color: "#594560"
+        Ui.PanelPlating { anchors.fill: parent; tone: "#857692"; blood: tile.blood }
+        Column {
+            anchors.left: parent.left
+            anchors.leftMargin: 13
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 3
+            Text {
+                text: tile.label
+                color: "#c7abc9"
+                font.family: "IBM Plex Mono"
+                font.pixelSize: 10
+            }
+            Text {
+                text: tile.value
+                color: tile.tint
+                font.family: "Inter"
+                font.pixelSize: 21
+                maximumLineCount: 1
+                width: tile.width - 22
+                elide: Text.ElideRight
+                font.weight: Font.Bold
+            }
+        }
+    }
+
+    RowLayout {
+        spacing: 7
+        Ui.ActionButton {
+            objectName: "buildTab"
+            text: "Loadout · T"
+            primary: overview.loadoutTab
+            onClicked: overview.tabRequested("build")
+        }
+        Ui.ActionButton {
+            objectName: "wavesTab"
+            text: "Waves"
+            primary: overview.tab === "waves"
+            onClicked: overview.tabRequested("waves")
+        }
+        Ui.ActionButton {
+            objectName: "debugGearTab"
+            visible: overview.run.debugUnlockAll
+            text: "Debug gear"
+            primary: overview.tab === "debugGear"
+            onClicked: overview.tabRequested("debugGear")
+        }
+        Ui.ActionButton {
+            objectName: "settingsTab"
+            text: "Settings"
+            primary: overview.tab === "settings"
+            onClicked: overview.tabRequested("settings")
+        }
+    }
+
+    Loader {
+        Layout.fillWidth: true
+        active: overview.tab === "debugGear" && overview.run.debugUnlockAll && overview.editable
+        visible: active
+        sourceComponent: DebugGear {
+            run: overview.run
+            revision: overview.revision
+            onEquipRequested: function(group, id, slot) { overview.debugGearRequested(group, id, slot) }
+        }
+    }
+
+    RowLayout {
+        visible: overview.tab === "settings"
+        Ui.ActionButton {
+            objectName: "pauseSound"
+            text: overview.sound ? "Sound on" : "Sound off"
+            onClicked: overview.soundRequested()
+        }
+        Ui.ActionButton {
+            objectName: "pauseMotion"
+            text: overview.motion ? "Motion on" : "Motion off"
+            onClicked: overview.motionRequested()
+        }
+    }
+
+    Switch {
+        objectName: "mouseTurns"
+        visible: overview.tab === "settings"
+        text: "Mouse edge turns"
+        checked: overview.mouseTurns
+        onToggled: overview.mouseTurnsRequested(checked)
+    }
+
+    DisplaySettings {
+        Layout.fillWidth: true
+        visible: overview.tab === "settings"
+        fit: overview.wallpaperFit
+        quality: overview.wallpaperQuality
+        zoom: overview.wallpaperZoom
+        frameLimit:overview.frameLimit
+        showTimer:overview.showTimer
+        onFrameLimitChangedByUser:function(value) {overview.frameLimitRequested(value)}
+        onTimerChangedByUser:function(value) {overview.timerRequested(value)}
+        detail:overview.graphicsDetail
+        transitionStyle:overview.transitionStyle
+        transitionStrength:overview.transitionStrength
+        onFitChangedByUser: function(value) { overview.fitRequested(value) }
+        onQualityChangedByUser: function(value) { overview.qualityRequested(value) }
+        onZoomChangedByUser: function(value) { overview.zoomRequested(value) }
+        onDetailChangedByUser:function(value) {overview.detailRequested(value)}
+        onTransitionStyleChangedByUser:function(value) {overview.transitionStyleRequested(value)}
+        onTransitionStrengthChangedByUser:function(value) {overview.transitionStrengthRequested(value)}
+    }
+
+    ColumnLayout {
+        visible: overview.tab === "waves"
+        spacing: 10
+        RowLayout {
+            Layout.fillWidth: true
+            uniformCellSizes: true
+
+            Summary { label: "CURRENT WAVE"; value: String(overview.run.wave) }
+            Summary {
+                label: "WAVE ENEMIES LEFT"
+                value: overview.remaining + " / " + overview.run.waveSize
+            }
+            Summary {
+                label: overview.bossThisWave ? "BOSS THIS WAVE" : "NEXT BOSS"
+                value: overview.bossThisWave ? overview.bossThisWave.title : "Wave " + overview.nextBoss
+                tint: "#ffe47b"
+            }
+        }
+        Detail {
+            text: (overview.run.enemies.length + " / " + Encounters.maxConcurrent(overview.run.wave, overview.run.difficulty) + " active. ")
+                + (overview.run.reinforcements.length ? overview.run.reinforcements.length + " summons waiting. " : "")
+                + (overview.summons ? overview.summons + " summons active. " : "")
+                + "Summons are tracked separately from the wave count."
+        }
+        Repeater {
+            model: 3
+            delegate: Detail {
+                required property int index
+                readonly property int wave: overview.run.wave + index + 1
+                text: "Wave " + wave + "  ·  " + Rules.waveSize(wave, overview.run.difficulty) + " enemies"
+                    + (Rules.isBossWave(wave) ? "  ·  " + Rules.enemyTypes[Rules.bossType(wave)].title : "")
+                    + (Rules.weather(wave) !== "clear" ? "  ·  " + Rules.weather(wave) : "")
+                color: Rules.isBossWave(wave) ? "#ffe47b" : "#d7c6d9"
+            }
+        }
+    }
+
+    ColumnLayout {
+        visible: overview.loadoutTab
+        spacing: 10
+
+        Detail {
+            objectName: "buildCombatStats"
+            text: {
+                overview.revision
+                const pet = overview.run.pet
+                return Math.ceil(overview.run.health)+" / "+Gear.maxHealth(overview.run)+" HP  ·  "+overview.run.gold+" gold  ·  "+(pet ? Pets.spec(pet.id).title + " · Lv " + pet.level + "     " : "")
+                    + (overview.crit.chance*100).toFixed(1) + "% critical chance · ×" + overview.crit.power.toFixed(2) + " damage"
+                    + (overview.run.shield.level ? "     Shield Lv " + overview.run.shield.level : "")
+            }
+            color: "#e1c5ac"
+        }
+        ScrollView {
+            id:loadoutScroll
+            Layout.fillWidth:true
+            Layout.preferredHeight:overview.dense ? 225 : Math.min(380,fullLoadout.implicitHeight)
+            contentWidth:availableWidth
+            clip:true
+            ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
+            InventoryPanel {
+                id:fullLoadout
+                width:loadoutScroll.availableWidth-10
+                run:overview.run
+                revision:overview.revision
+                animate:overview.motion
+                dense:overview.dense
+                editable:overview.editable
+                onMoved:function(cell,group,slot) {overview.inventoryRequested(cell,group,slot)}
+                onSwapped:function(group,from,to) {overview.swapRequested(group,from,to)}
+            }
+        }
+        ScrollView {
+            id: kitScroll
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.min(68, kitRows.implicitHeight)
+            visible: kitRows.implicitHeight > 0
+            contentWidth: availableWidth
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+            ColumnLayout {
+                id: kitRows
+                width: kitScroll.availableWidth
+                spacing: 4
+                Repeater {
+                    model: overview.relevantKits
+                    delegate: Detail {
+                        required property var modelData
+                        readonly property bool complete: { overview.revision; return Gear.completeKit(overview.run, modelData) }
+                        text: complete ? modelData.title + " ACTIVE · " + modelData.bonus
+                            : modelData.title + " · " + Gear.weapons[modelData.weapon].title + " + "
+                                + Gear.passives[modelData.passive].title + " + " + Gear.activeAbilities[modelData.active].title
+                                + "\nFull kit bonus: " + modelData.bonus
+                        color: complete ? "#ffe47b" : "#bdafc6"
+                        font.pixelSize: 11
+                    }
+                }
+            }
+        }
+    }
+}

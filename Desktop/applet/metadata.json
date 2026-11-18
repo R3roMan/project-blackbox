@@ -1,0 +1,17 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Id": "org.projectblackbox.controls",
+        "Name": "Blackbox Controls",
+        "Description": "Your loadout, abilities and game settings in the panel",
+        "Version": "0.2.0",
+        "Category": "Games",
+        "Authors": [
+            {
+                "Name": "Project Blackbox"
+            }
+        ],
+        "Icon": "applications-games"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

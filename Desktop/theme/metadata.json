@@ -1,0 +1,14 @@
+{
+    "KPlugin": {
+        "Id": "org.projectblackbox.blood",
+        "Name": "Blackbox Blood",
+        "Description": "Optional dark blood and brass Plasma style",
+        "Version": "0.2.0",
+        "Authors": [
+            {
+                "Name": "Project Blackbox"
+            }
+        ]
+    },
+    "X-Plasma-API": "5.0"
+}

@@ -1,0 +1,26 @@
+[Colors:Window]
+BackgroundNormal=25,18,27
+BackgroundAlternate=36,24,35
+ForegroundNormal=239,220,207
+ForegroundInactive=164,140,145
+ForegroundActive=255,202,153
+ForegroundLink=210,138,191
+ForegroundVisited=164,126,187
+ForegroundNegative=239,93,114
+ForegroundNeutral=232,185,107
+ForegroundPositive=134,206,168
+[Colors:Button]
+BackgroundNormal=49,30,42
+ForegroundNormal=243,224,210
+ForegroundActive=255,214,166
+[Colors:View]
+BackgroundNormal=20,14,23
+ForegroundNormal=239,220,207
+[Colors:Selection]
+BackgroundNormal=126,40,60
+ForegroundNormal=255,238,216
+[Colors:Tooltip]
+BackgroundNormal=36,24,34
+ForegroundNormal=247,225,206
+[General]
+ColorScheme=Blackbox Blood

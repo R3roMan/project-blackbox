@@ -1,0 +1,16 @@
+{
+    "KPlugin": {
+        "Id": "org.projectblackbox.visibility",
+        "Name": "Blackbox desktop visibility",
+        "Description": "Pause Blackbox whenever another application takes focus",
+        "Version": "0.2.0",
+        "Authors": [
+            {
+                "Name": "Project Blackbox"
+            }
+        ]
+    },
+    "X-Plasma-API": "javascript",
+    "X-Plasma-MainScript": "code/main.js",
+    "KPackageStructure": "KWin/Script"
+}
