@@ -17,7 +17,21 @@ View3D {
             if (index >= 0 && index < company.length)
                 return index
         }
-        return -1
+        // The frame can precede the scene's pick data during a resize or
+        // reopen. Test the projected bodies at their current animated poses.
+        let selected=-1, nearest=1
+        for (let index=0;index<figures.count;++index) {
+            const figure=figures.objectAt(index)
+            if (!figure) continue
+            const centre=mapFrom3DScene(figure.scenePosition)
+            const size=Mission.enemyTypes[figure.enemy.type].size*previewCamera.verticalMagnification
+            const distance=Math.hypot((x-centre.x)/(82*size),(y-centre.y+15*size)/(90*size))
+            if (distance < nearest) {
+                selected=index
+                nearest=distance
+            }
+        }
+        return selected
     }
     readonly property real radius:Muster.radius(company,placements,width/Math.max(1,height))
     explicitTextureWidth: Math.max(1,Math.round(Math.min(2560,width*Screen.devicePixelRatio)))
@@ -45,6 +59,7 @@ View3D {
     DirectionalLight {eulerRotation:Qt.vector3d(-25,-26,0); brightness:2.5; color:"#ffe0cf"; ambientColor:"#726c89"}
     DirectionalLight {eulerRotation:Qt.vector3d(12,143,0); brightness:2.2; color:"#bdd2ff"}
     Repeater3D {
+        id:figures
         model:scene.company
         delegate:Node {
             id:figure

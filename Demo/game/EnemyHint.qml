@@ -12,6 +12,8 @@ Ui.FieldHint {
     chapter:"enemies"
     entryId:enemyType
     delay:180
-    details:(encountered ? spec.title : "Unknown demon")+"\n"+spec.origin+" · "+Mission.tier(spec.id)
-        +(encountered ? "\n"+(Lore.whispers[spec.id] || spec.description) : "\nEncounter it to reveal its field notes.")
+    metadata:spec.origin+" · "+Mission.tier(spec.id)
+    metadataTint:Lore.origins[spec.origin].color
+    details:(encountered ? spec.title : "Unknown demon")
+        +"\n"+(encountered ? Lore.whispers[spec.id] || spec.description : "Encounter it to reveal its field notes.")
 }

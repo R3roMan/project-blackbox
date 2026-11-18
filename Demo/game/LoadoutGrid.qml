@@ -110,7 +110,7 @@ RowLayout {
                             + (power.title ? power.title + ". " + power.description : "")
                         hintEnabled: hovered && (!!spec || !!power.title)
                         hintDelay: 420
-                        entryChapter:spec && track.group==="weapon" ? "weapons" : "abilities"
+                        entryChapter:spec ? (track.group==="weapon" ? "weapons" : "abilities") : "shop"
                         entryId:spec ? (spec.debugOnly ? "" : spec.id) : power.id || ""
                         onEntryRequested:function(chapter,id) { grid.entryRequested(chapter,id) }
                         hintText: (grid.offerId.length && spec ? "Replace " : "") + text

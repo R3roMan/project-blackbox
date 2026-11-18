@@ -14,12 +14,15 @@ ColumnLayout {
     property bool nativeScene: false
     property bool motion: true
     signal entryRequested(string chapter, string id)
-    signal purchaseRequested(string offerId, int slot)
+    signal purchaseRequested(string offerId, int slot, string confirmed)
 
     readonly property int balance: { revision; return run.gold }
-    readonly property var cards: { revision; return Gear.shopCards(run).slice() }
+    readonly property var cards: { revision; return Gear.shopCards(run).filter(function(card) {return card.id!=="expand-counter"}) }
+    readonly property var expansion:{revision;return Gear.counterOffer(run)}
     readonly property int edition: { revision; return run.shopEdition }
     property string selectedId: ""
+    property string pendingReplacement: ""
+    onSelectedIdChanged:pendingReplacement=""
     onEditionChanged: {
         selectedId = ""
         selectedSlot = -1
@@ -31,6 +34,8 @@ ColumnLayout {
     readonly property bool pickSlot: !!premium && slotForPremium === -1 && !selected.sold
     readonly property bool storing: selectedSlot === Gear.inventoryDestination || slotForPremium === Gear.inventoryDestination
     readonly property bool canStash: { revision; return !!premium && !Gear.ownedItem(run, selected.group, premium.id) && Gear.canStore(run) }
+    readonly property var replacing:{revision;return Gear.replacement(run,selected)}
+    readonly property string replacingKey:Gear.replacementKey(replacing)
     readonly property color rarityTone: selected && selected.rarity === "unique" ? Pets.uniqueColor
         : selected && selected.rarity ? Gear.rarities[selected.rarity].color : "#a7c5ee"
     spacing: compact ? 7 : 10
@@ -42,7 +47,38 @@ ColumnLayout {
             return Pets.spec(run.pet.id)
         if (offer.action === "upgrade" && run.slots[offer.group][offer.index].item)
             return Gear.catalogs[offer.group][run.slots[offer.group][offer.index].item.id]
-        return offer
+        return Object.assign({shopItem:true},offer)
+    }
+
+    function details(offer) {
+        if (!offer) return ""
+        if (offer.action==="power" || offer.action==="power-upgrade") {
+            const slot=run.slots[offer.group][offer.index]
+            if (!slot) return offer.description
+            const spec=offer.powerId || slot.power
+            const level=offer.action==="power" ? 0 : (offer.level || slot.powerLevel+1)
+            const effect=Gear.slotPower(offer.group,{power:spec,powerLevel:level})
+            const applies=Gear.socketEffect(run,offer.group,{item:slot.item,power:spec,powerLevel:level}).id
+            const previous=Gear.replacement(run,offer)
+            const gear=slot.item ? Gear.catalogs[offer.group][slot.item.id] : null
+            return Gear.groupLabels[offer.group]+" slot "+(offer.index+1)+" · Lv "+level+"\n"+effect.description+"\n"
+                +(applies ? "Works with "+gear.title+"." : gear ? "Inactive with "+gear.title+" in the current build." : "Equip compatible gear to activate it.")
+                +(previous.id ? "\nReplaces "+previous.title+" · Lv "+previous.level+"." : "")
+        }
+        const shown=displayItem(offer)
+        return Gear.catalogs[offer.group]?.[shown.id] ? Gear.itemDetails(run,offer.group,{id:shown.id,level:offer.level || 0})
+            : offer.description
+    }
+
+    function purchase(confirmed) {
+        if (!selected || selected.sold) return
+        const destination=storing ? Gear.inventoryDestination : pickSlot ? selectedSlot : slotForPremium
+        if (replacingKey && confirmed!==replacingKey) {
+            pendingReplacement=replacingKey
+            return
+        }
+        purchaseRequested(selected.id,destination,confirmed)
+        pendingReplacement=""
     }
 
     ShopBench {
@@ -55,8 +91,58 @@ ColumnLayout {
     }
 
     RowLayout {
+        Layout.fillWidth:true
+        spacing:6
+        Text {
+            Layout.fillWidth:true
+            text:{ shop.revision;return shop.run.shopCapacity+" / 8 listings open  ·  Stock quality "+(shop.run.shopQuality || 0)+"/3" }
+            font.family:"Inter"
+            font.bold:true
+            font.pixelSize:Ui.UiMetrics.text(14)
+            color:"#f9dec0"
+            wrapMode:Text.WordWrap
+        }
+        Ui.ActionButton {
+            visible:!!shop.expansion
+            objectName:"expandShopCounter"
+            text:shop.expansion ? shop.expansion.title+" · "+shop.expansion.cost+" gold" : ""
+            entryChapter:"shop"
+            entryId:"expand-counter"
+            hintText:shop.expansion ? shop.expansion.title+"\n"+shop.expansion.description : ""
+            enabled:!!shop.expansion && shop.balance>=shop.expansion.cost
+            onEntryRequested:function(chapter,id) {shop.entryRequested(chapter,id)}
+            onClicked:shop.purchaseRequested("expand-counter",-1,"")
+        }
+        Ui.ActionButton {
+            objectName:"shopLedger"
+            visible:!shop.compact
+            text:"Shop ledger"
+            onClicked:shop.entryRequested("shop","counter")
+        }
+    }
+    RowLayout {
+        Layout.fillWidth:true
+        spacing:5
+        Repeater {
+            model:8
+            Rectangle {
+                required property int index
+                readonly property int openCount:{shop.revision;return shop.run.shopCapacity}
+                readonly property bool unlocked:index<openCount
+                Layout.fillWidth:true
+                implicitHeight:5
+                radius:2
+                color:unlocked ? "#d9a36d" : index===openCount ? "#566d87" : "#352a36"
+                Accessible.name:(unlocked ? "Open listing " : "Locked listing ")+(index+1)
+            }
+        }
+    }
+
+    GridLayout {
         Layout.fillWidth: true
-        spacing: shop.compact ? 8 : 12
+        columns:shop.compact ? 1 : 2
+        rowSpacing:8
+        columnSpacing:12
         GridLayout {
             Layout.fillWidth: true
             Layout.preferredWidth: 375
@@ -85,20 +171,20 @@ ColumnLayout {
                     required property var modelData
                     objectName: "shop-" + modelData.id
                     Layout.fillWidth: true
-                    implicitHeight: shop.compact ? 36 : 42
+                    implicitHeight: Math.max(shop.compact ? 43 : 49,Ui.UiMetrics.text(28)+11)
                     leftPadding: 6
                     rightPadding: 6
                     text: modelData.title
                     primary: shop.selectedId === modelData.id
-                    accent: "#a8bded"
-                    Accessible.description: modelData.description
+                    accent: modelData.color || "#a8bded"
+                    Accessible.description: {shop.revision;return shop.details(modelData)}
                     hintEnabled: hovered
                     hintDelay: 420
                     readonly property var shown: shop.displayItem(modelData)
-                    entryChapter:modelData.action==="pet" ? "pets" : modelData.group==="weapon" && modelData.action==="gear" ? "weapons" : "abilities"
-                    entryId:modelData.action==="gear" ? modelData.gearId : modelData.action==="power" ? modelData.powerId : ""
+                    entryChapter:modelData.action==="gear" ? (modelData.group==="weapon" ? "weapons" : "abilities") : "shop"
+                    entryId:modelData.action==="gear" ? modelData.gearId : Gear.shopEntryId(modelData)
                     onEntryRequested:function(chapter,id) { shop.entryRequested(chapter,id) }
-                    hintText: modelData.title + "\n" + (modelData.group && Gear.catalogs[modelData.group] && Gear.catalogs[modelData.group][shown.id] ? Gear.itemDetails(shop.run,modelData.group,{id:shown.id,level:modelData.level || 0}) : modelData.description) +
+                    hintText: modelData.title + "\n" + shop.details(modelData) +
                         (modelData.sold ? "\nPurchased" : modelData.paid ? "\nPaid · choose a destination" : "\n" + modelData.cost + " gold")
                     onClicked: {
                         shop.selectedId = modelData.id
@@ -113,13 +199,26 @@ ColumnLayout {
                             tint: listing.modelData.rarity === "unique" ? Pets.uniqueColor :
                                 listing.modelData.rarity ? Gear.rarities[listing.modelData.rarity].color : "#a9bedb"
                         }
-                        Text {
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            text: listing.text
-                            color: listing.primary ? "#161d2e" : listing.modelData.sold ? "#a1adbf" : "#edf0fc"
-                            font.family: "Inter"
-                            font.pixelSize: Ui.UiMetrics.text(13)
-                            elide: Text.ElideRight
+                            spacing:1
+                            Text {
+                                Layout.fillWidth:true
+                                text:listing.text
+                                color:listing.primary ? "#161d2e" : listing.modelData.sold ? "#a1adbf" : "#edf0fc"
+                                font.family:"Inter"
+                                font.bold:true
+                                font.pixelSize:Ui.UiMetrics.text(13)
+                                elide:Text.ElideRight
+                            }
+                            Text {
+                                Layout.fillWidth:true
+                                text:Gear.shopCategory(listing.modelData.action)
+                                color:listing.primary ? "#3a3141" : "#d5af91"
+                                font.family:"Inter"
+                                font.pixelSize:Ui.UiMetrics.text(10)
+                                elide:Text.ElideRight
+                            }
                         }
                         Text {
                             text: listing.modelData.sold ? "Sold" : listing.modelData.paid ? "Claim" : listing.modelData.cost
@@ -173,7 +272,7 @@ ColumnLayout {
                 }
                 Text {
                     Layout.fillWidth: true
-                    text: shop.selected ? Gear.kitDescription(shop.selected.group,shop.displayItem(shop.selected).id,shop.selected.description) : ""
+                    text: {shop.revision;return shop.selected ? shop.details(shop.selected) : "Select a listing to see what it changes in your run."}
                     wrapMode: Text.WordWrap
                     color: "#d5e0f0"
                     font.family: "Inter"
@@ -218,6 +317,7 @@ ColumnLayout {
                     onPlaced: function(offerId, slot) { shop.selectedSlot = slot }
                 }
                 RowLayout {
+                    visible: !shop.pendingReplacement
                     Ui.ActionButton {
                         visible: shop.canStash && !shop.selected.sold
                         text: shop.selectedSlot === Gear.inventoryDestination ? "Use slot" : "Store instead"
@@ -235,10 +335,29 @@ ColumnLayout {
                             if (shop.selected.paid) return "Claim item"
                             return (shop.selected.action === "mystery" ? "Unwrap · " : "Buy · ") + shop.selected.cost + " gold"
                         }
-                        onClicked: {
-                            const destination = shop.storing ? Gear.inventoryDestination : shop.pickSlot ? shop.selectedSlot : shop.slotForPremium
-                            shop.purchaseRequested(shop.selected.id, destination)
-                        }
+                        onClicked: shop.purchase("")
+                    }
+                }
+                Text {
+                    visible:shop.pendingReplacement.length>0
+                    Layout.fillWidth:true
+                    text:shop.replacing.title+" · Lv "+shop.replacing.level+" will be removed from this slot."
+                    wrapMode:Text.WordWrap
+                    color:"#ffd3a1"
+                    font.family:"Inter"
+                    font.pixelSize:Ui.UiMetrics.text(13)
+                }
+                Flow {
+                    visible:shop.pendingReplacement.length>0
+                    Layout.fillWidth:true
+                    spacing:6
+                    Ui.ActionButton {text:"Keep current"; onClicked:shop.pendingReplacement=""}
+                    Ui.ActionButton {
+                        objectName:"confirmSlotReplacement"
+                        text:shop.selected ? "Replace · "+shop.selected.cost+" gold" : "Replace"
+                        primary:true
+                        enabled:!!shop.selected && shop.balance>=shop.selected.cost && shop.pendingReplacement===shop.replacingKey
+                        onClicked:shop.purchase(shop.pendingReplacement)
                     }
                 }
                 Item { Layout.fillHeight: true }

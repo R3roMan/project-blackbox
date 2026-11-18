@@ -123,6 +123,7 @@ FocusScope {
     readonly property var flyingPet: { revision; return run.pet }
     readonly property var petSpec: Pets.spec(flyingPet ? flyingPet.id : petChoice)
     readonly property string weather: { revision; return run.weatherEffect || Rules.weather(wave) }
+    readonly property bool twilight:fighting && (weather==="sunrise" || weather==="sunset")
     readonly property bool glitchInput: fighting && weather === "glitch"
     readonly property real elapsed: { revision; return run.time }
     readonly property real distortion: { revision; return run.voidStorm ? .76 : run.distortion }
@@ -619,7 +620,7 @@ FocusScope {
             return
         }
         const rays = weapon.spread || [[0, 0]]
-        const pattern = Rules.spread(run) * accuracy
+        const pattern = Rules.spread(run,scopeHeld) * accuracy
         const shipShots = weapon.penetration ? new Set(run.bolts.filter(function(bolt) {
             return bolt.source === "hasasasa" && Rules.pickableBolt(bolt, play.frontId)
         }).map(function(bolt) { return bolt.id })) : null
@@ -969,6 +970,11 @@ FocusScope {
             time:play.elapsed
             motion:play.motion
         }
+        Loader {
+            anchors.fill:parent
+            active:play.twilight
+            sourceComponent:Twilight {condition:play.weather; clock:play.elapsed; motion:play.motion}
+        }
         LunarDisc {
             visible:play.fighting && play.frontId==="up" && Conditions.isNight(play.weather)
             opacity:1-play.blindness
@@ -1012,6 +1018,8 @@ FocusScope {
             artDirectory: play.artDirectory
             quality: play.wallpaperQuality
             detail:play.graphicsDetail
+            sunlight:play.twilight ? play.weather : ""
+            abilityEvents:{play.revision;return play.run.abilityEvents}
             transitionStyle:play.transitionStyle
             transitionStrength:play.transitionStrength
             wallpaperZoom: play.wallpaperZoom
@@ -1153,6 +1161,7 @@ FocusScope {
         id: modeledGun
         WeaponModel {
             detail:play.graphicsDetail
+            sunlight:play.twilight ? play.weather : ""
             weapon: play.weapon
             aimOffset: play.weaponAim
             shotLife: play.strikeLife
@@ -1174,6 +1183,7 @@ FocusScope {
         id: drawnGun
         WeaponSprite {
             weapon: play.weapon
+            sunlight:play.twilight ? play.weather : ""
             aimOffset: play.weaponAim
             shotLife: play.strikeLife
             reloadRatio: play.reloadRatio
@@ -2220,8 +2230,8 @@ FocusScope {
                     compact: play.compactLayout
                     nativeScene: !play.projectedMode
                     motion: play.motion
-                    onPurchaseRequested: function(offerId, slot) {
-                        if (play.allowed && Rules.buy(play.run, offerId, slot)) {
+                    onPurchaseRequested: function(offerId, slot, confirmed) {
+                        if (play.allowed && Rules.buy(play.run, offerId, slot, confirmed)) {
                             if (audio.item)
                                 audio.item.play("buy")
                             play.publish()
@@ -2461,11 +2471,31 @@ FocusScope {
         anchors.fill:parent
         z:12
         effects:{play.revision;return play.run.abilityEvents}
+        world:play.worldItem
+        threeDimensional:!play.projectedMode && play.graphicsDetail>0 && !play.hypnotised
         clock:play.elapsed
         frontId:play.frontId
         active:play.fighting
         motion:play.motion
         spray:{play.revision;return play.run.sprayTime/5}
+    }
+    PetActionMeter {
+        z:14
+        pet:play.fighting && !play.hypnotised && !play.turning ? play.flyingPet : null
+        world:play.worldItem
+        clock:play.elapsed
+        revision:play.revision
+        frontId:play.frontId
+        motion:play.motion
+    }
+    PetActionMeter {
+        z:14
+        pet:play.fighting && !play.hypnotised && !play.turning ? play.guestPet : null
+        world:play.worldItem
+        clock:play.elapsed
+        revision:play.revision
+        frontId:play.frontId
+        motion:play.motion
     }
     Row {
         z:25
@@ -2499,17 +2529,20 @@ FocusScope {
         opacity:{play.revision;return play.run.training ? Math.sin(Math.min(1,play.run.training.age/1.15)*Math.PI) : 0}
     }
     Rectangle {
+        id:trainingCard
         z:65
         visible:play.fighting && play.trainingDialogue
         anchors.horizontalCenter:parent.horizontalCenter;anchors.bottom:parent.bottom;anchors.bottomMargin:36
-        width:Math.min(700,parent.width-40);height:trainingText.implicitHeight+95
+        width:Math.min(700,parent.width-40)
+        height:trainingContent.implicitHeight+36
         color:"#f41c1520";radius:9;border.color:"#c47762";border.width:2
         Column {
-            anchors.fill:parent;anchors.margins:18;spacing:10
-            Text {text:{play.revision;return play.run.training ? Tutorial.title(play.run) : ""}
-                color:"#ffcd90";font.family:"serif";font.pixelSize:25;font.bold:true}
-            Text {id:trainingText;width:parent.width;text:{play.revision;return play.run.training ? Tutorial.text(play.run) : ""}
-                color:"#efe0d6";font.pixelSize:15;wrapMode:Text.WordWrap}
+            id:trainingContent
+            x:18; y:18; width:trainingCard.width-36; spacing:10
+            Text {width:parent.width;text:{play.revision;return play.run.training ? Tutorial.title(play.run) : ""}
+                color:"#ffcd90";font.family:"serif";font.pixelSize:Ui.UiMetrics.text(25);font.bold:true;wrapMode:Text.WordWrap}
+            Text {width:parent.width;text:{play.revision;return play.run.training ? Tutorial.text(play.run) : ""}
+                color:"#efe0d6";font.pixelSize:Ui.UiMetrics.text(15);wrapMode:Text.WordWrap}
             Ui.ActionButton {objectName:"tutorialContinue";text:play.run.training && play.run.training.mode==="won" ? "Return to Home" : "Ready";primary:true
                 onClicked:play.advanceTraining()}
         }

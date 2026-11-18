@@ -9,7 +9,7 @@
 var chapters = [
     { id:"enemies", title:"Demons" }, { id:"weapons", title:"Weapons" },
     { id:"abilities", title:"Abilities" }, { id:"pets", title:"Pets" },
-    { id:"kits", title:"Kits" }, { id:"weather", title:"Weather" },
+    { id:"kits", title:"Kits" }, { id:"shop", title:"Shop" }, { id:"weather", title:"Weather" },
     { id:"achievements", title:"Medals" }, { id:"controls", title:"Manual" }
 ]
 
@@ -144,10 +144,25 @@ function entryText(entry, chapter) {
     if (chapter === "controls")
         return (entry.rows || []).map(function(row) { return "<b>"+escape(row[0])+"</b><br>"+escape(row[1]) })
             .join("<br><br>")+"<br><br>"+escape(entry.description)
+    if (chapter === "shop") {
+        const introduction=entry.id==="counter" ? "<br><br>"+["expand-counter","shop-quality","slot-work","mystery-cache"].map(function(id) {
+            const other=Gear.shopEntries().find(function(item) {return item.id===id})
+            return link("shop",id,other.title)
+        }).join("<br>") : link("shop","counter","Return to the counter index")
+        return escape(entry.description)+(entry.price ? "<br><br><b>Base price</b><br>"+escape(entry.price) : "")
+            +(entry.levels ? "<br><br><b>Ranks</b><br>"+entry.levels.map(escape).join("<br><br>") : "")
+            +"<br><br>"+introduction
+    }
     if (chapter === "achievements") {
         const item = entry.group === "pet" ? Pets.spec(entry.reward) : Gear.catalogs[entry.group][entry.reward]
         return linkText(entry.requirement,chapter,entry.id)+"<br><br><b>Reward</b><br>"
             +link(groupChapter(entry.group),entry.reward,item.title)
+    }
+    if (chapter==="pets") {
+        const charge=Pets.secondary[entry.id]
+        return escape(entry.description)+"<br><br><b>On duty</b> · "+entry.duty+" seconds<br><b>Rest</b> · "+entry.rest+" seconds"
+            +(charge ? "<br><br><b>"+escape(charge.title)+"</b><br>Charges for "+charge.charge
+                +" seconds after every "+charge.every+" ordinary strikes. "+escape(charge.description) : "")
     }
     return linkText(entry.description,chapter,entry.id)
 }

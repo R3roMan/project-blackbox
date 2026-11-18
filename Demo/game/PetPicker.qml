@@ -27,6 +27,7 @@ ColumnLayout {
         Repeater {
             model: picker.availablePets
             Ui.ActionButton {
+                id:offer
                 required property var modelData
                 objectName: "pet-" + modelData.id
                 Layout.fillWidth: true
@@ -37,6 +38,22 @@ ColumnLayout {
                 hintEnabled: hovered
                 hintDelay: 420
                 hintText: modelData.title + "\n" + modelData.description
+                contentItem:RowLayout {
+                    spacing:5
+                    ProjectedPet {
+                        Layout.preferredWidth:36
+                        Layout.preferredHeight:25
+                        helper:offer.modelData
+                        flap:.12
+                    }
+                    Text {
+                        Layout.fillWidth:true
+                        text:offer.text
+                        font:offer.font
+                        color:offer.primary ? "#181928" : "#f5e7ef"
+                        elide:Text.ElideRight
+                    }
+                }
                 onClicked: picker.petSelected(modelData.id)
             }
         }

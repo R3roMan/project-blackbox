@@ -9,6 +9,7 @@
 .import "Defense.js" as Defense
 .import "Abyss.js" as Abyss
 .import "Conditions.js" as Conditions
+.import "SkillArt.js" as SkillArt
 
 var fronts = Mission.fronts
 var groundFronts = Mission.groundFronts
@@ -63,14 +64,14 @@ function create(seed, unlocks) {
     const run = {
         seed:seed >>> 0, rng:seed >>> 0, phase:"ready", time:0, wave:0, waveTime:0,
         difficulty:"normal", startAt:1, debug:false, debugBuild:"standard", debugUnlockAll:false,debugWeather:"",
-        nextStage:null,stage:null,desktop:null,training:null,abilityEvents:[],salvoTime:0,salvoBonus:0,runeReady:0,sprayTime:0,vampireReady:0,
+        nextStage:null,stage:null,desktop:null,training:null,abilityEvents:[],passiveFxReady:{},salvoTime:0,salvoBonus:0,runeReady:0,sprayTime:0,vampireReady:0,
         careerUnlocks:unlocks || [], playerFront:"front", viewReady:true, weatherEffect:"clear", nextFirePulse:0,
         abyssSeal:{progress:0,closed:false}, grab:null, hypnosis:null, inkStains:false, dizzyLeft:0,
         fearCut:false, souls:0, scytheSouls:0, boneTime:0, boneRank:0, windAt:20, gustLeft:0,scareTime:0,
         starterChoice:"", starterOffers:[], starterSeed:(seed >>> 0)^0x614f93cd,
         cursed:false, smokes:[], smokeRoster:0, fastTurn:0, remoteGuard:0,
         health: Gear.startingHealth, gold: 0, kills: 0, slots: Gear.starter(), inventory:Array(Gear.startingInventorySize).fill(null), selectedWeapon: 0, shopStock: [], unlocks: unlocks || [], pet:null, petChoice:"", petOffers:[], guestPet:null, guestTime:0,
-        refreshUsed:0, refreshBank:0, shopEdition:0, shopCapacity:5, repeatRank:0, nextSeal:0,
+        refreshUsed:0, refreshBank:0, shopEdition:0, shopCapacity:5, shopQuality:0, repeatRank:0, nextSeal:0,
         shopStats:{health:0,damage:0,speed:0}, bossOffers:[], boons:{ health:0, damage:0, speed:0 },
         waveSize: 0, barrier: 0, barrierHp: 0, barrierMax: 0, barrierBreak: 0, barrierRefill:0,
         barrierCell:{level:0,hp:0}, stun: 0, distortion: 0, voidStorm:false,
@@ -260,7 +261,7 @@ function criticalProfile(run, weapon) {
     return {
         chance:.05 + (weapon.crit || 0) + rank(run,"criticalLens")*.07 + Gear.perk(run,"critChance")
             + (run.boneTime > 0 ? .24 + (run.boneRank-1)*.045 : 0)
-            + Gear.kitBonus(run,"crit",weapon.id),
+            + Gear.kitBonus(run,"crit",weapon.id) + Gear.passiveSockets(run,"critical",.06),
         power:2 + rank(run,"deepCut")*.30 + Gear.perk(run,"critPower") + Gear.kitBonus(run,"critPower",weapon.id)
             + (run.boneTime > 0 ? .52 + (run.boneRank-1)*.14 : 0)
     }
@@ -273,6 +274,7 @@ function weaponCritical(run, weapon, gun, enemy) {
     const chance = base.chance + (poised ? rank(run,"edgeRhythm")*.095 : 0)
         + (run.criticalRoll > 0 ? .36 : 0) + (melee && run.sharpenTime > 0 ? .20 : 0)
         + (enemy && enemy.criticalMark > 0 ? .27 : 0)
+        + (enemy && (enemy.criticalMark>0 || enemy.marked || enemy.mark>0) ? Gear.weaponSocket(run).markCrit || 0 : 0)
     const forced = run.sureAttack
     const boost = forced ? run.surePower : 0
     run.sureAttack = false
@@ -312,7 +314,7 @@ function raiseShield(run) {
     guard.limit = spec.limit ? spec.limit + upgrades*.12 + Gear.perk(run,"shieldLimit") : 0
     guard.capacity = spec.hits + Number(guard.level >= 2) + Number(rank(run,"guardSeam") >= 3) + Gear.kitBonus(run,"shieldHits")
     guard.recovery = Math.max(2.45,spec.cooldown - upgrades*.25 - guard.level*.65 - rank(run,"guardSeam")*.45
-        - Gear.perk(run,"shieldCool") - Gear.kitBonus(run,"shieldCooldown"))
+        - Gear.perk(run,"shieldCool") - Gear.kitBonus(run,"shieldCooldown") - Gear.passiveSockets(run,"shieldRecovery",.85))
     guard.mode = mode
     guard.tint = spec.tint
     guard.raised = true
@@ -742,6 +744,7 @@ function startWave(run) {
     run.parry = run.counterTarget = run.meleeRush = run.honedHit = run.breachRounds = run.lockfeed = 0
     run.waveTime = 0
     run.abilityEvents=[]
+    run.passiveFxReady={}
     run.salvoTime=run.sprayTime=run.vampireReady=0
     run.deathCoins = run.coinsSent = run.guardFlash = 0
     run.nextCoin = rank(run,"deathMint") ? .85 + random(run) * .76 : 0
@@ -1112,7 +1115,8 @@ function remove(run, index, paid, source) {
     if (battery && run.waveKills % 6 === 0)
         raiseBarrier(run, 2.3 + battery * 1.25, 1)
     const role = enemyTypes[enemy.type].role
-    const baseGold = goldPerKill(run.wave) * (role === "boss" ? 10 : enemy.type === "gojemarus" ? 5 : 1) + rank(run,"liquidAssets")
+    const baseGold = Math.round(goldPerKill(run.wave) * (role === "boss" ? 10 : enemy.type === "gojemarus" ? 5 : 1)
+        + rank(run,"liquidAssets") + Gear.passiveSockets(run,"killGold",4))
     const value = run.weatherEffect === "bloodMoon" ? Math.round(baseGold*1.25) : baseGold
     run.gold += value
     record(run, "goldEarned", value)
@@ -1157,8 +1161,10 @@ function remove(run, index, paid, source) {
         record(run,"shadowKills")
     if (enemy.type === "fearme")
         record(run,"fearmeKills")
-    if (rank(run,"soulReaper"))
+    if (rank(run,"soulReaper")) {
         run.souls = Math.min(15,run.souls+1)
+        passiveVisual(run,"soulReaper",enemy.front,"void","drain",arcPoint(enemy),run.souls+" SOULS")
+    }
     if (source === "pet" || source && typeof source === "object")
         record(run, "petKills")
     const fury = rank(run, "fury")
@@ -1264,6 +1270,7 @@ function claimGift(run, gift) {
     run.giftRoster += 1
     if (gift.token) {
         run.deathCoins += 1
+        passiveVisual(run,"deathMint",gift.front,"coin","mint",gift,run.deathCoins+" / 5 COINS",.05)
         return redeemCoins(run) || "Death coin · " + run.deathCoins + " / 5"
     }
     record(run, "gifts")
@@ -2528,7 +2535,8 @@ function meleeStrike(run, gun, weapon, stats, hits, view, power, aim) {
             continue
         const enemy = contact.enemy
         const finished = weapon.signature === "knifeFinisher" && enemy && enemy.hp <= enemy.maxHp * .48
-        const base = (close ? stats.damage : melee.rangedDamage || stats.damage) * (charged ? melee.boost + Gear.kitBonus(run,"lunge") : 1)
+        const base = (close ? stats.damage : melee.rangedDamage || stats.damage)
+            * (charged ? (melee.boost + Gear.kitBonus(run,"lunge")) * (1+(power.primed || 0)) : 1)
         const harvest = weapon.signature === "harvest" ? 1+run.scytheSouls*.018 : 1
         const damage = (base * combo + (finished ? 2 : 0) + (power.damage || 0) + rank(run,"caliber") * .52 + honed)
             * outgoing(run) * Math.pow(.68, struck) * (run.meleeRush > 0 ? 1.20 : 1) * harvest
@@ -2679,7 +2687,7 @@ function castStaff(run, gun, weapon, stats, hits, view, aim) {
         range + (kind === "burn" && Gear.hasKit(run,"fireKit") ? 60 : 0), element === "burn" ? .62 : .33, Gear.weaponLevel(run,gun),
         { element:element, elementLevel:kind === "stun" ? Math.min(3, 2 + Number(Gear.weaponLevel(run,gun) >= 2)) : ["common","rare"].includes(weapon.rarity) ? stats.elementLevel : 3, spell:kind,weaponId:weapon.id })
     gun.charge = 0
-    gun.castLength=gun.castTime=kind === "wind" ? .78 : .92
+    gun.castLength=gun.castTime=(kind === "wind" ? .78 : .92)*(Gear.weaponSocket(run).castRecovery || 1)
     gun.sequence += 1
     gun.recovery = Math.max(.40, gun.recovery)
     record(run, "staffCasts")
@@ -2724,7 +2732,9 @@ function shoot(run, hits, view, aim, continuation) {
         return false
     }
 
-    const power = Gear.slotPower("weapon", run.slots.weapon[run.selectedWeapon])
+    const power = Gear.weaponSocket(run)
+    if (weapon.element)
+        stats.damage *= 1+(power.elementalDamage || 0)+Gear.passiveSockets(run,"elementDamage",.12)
     if (weapon.signature === "coinShot") {
         const cost = weapon.coinCost-Gear.kitBonus(run,"coinDiscount")
         gun.coinShot = run.gold >= cost
@@ -2739,6 +2749,7 @@ function shoot(run, hits, view, aim, continuation) {
     gun.cycle = stats.delay * (run.hexes.fire ? 1.42 : 1)
         * Math.max(.52, 1 - rank(run, "cycling") * .064 - Gear.perk(run, "cycle")) * (run.fastFire > 0 ? .68 : 1) * (run.salvoTime>0 ? 1-run.salvoBonus : 1)
         * (run.giftRate > 0 ? .73 : 1) * (power.recovery || 1)
+        * (weapon.melee ? 1-Gear.passiveSockets(run,"meleeRecovery",.14) : 1)
         * (gun.id === "carbine" && Gear.hasKit(run, "carbine") ? .85 : 1)
         * Math.max(.79, 1 - Gear.kitBonus(run,"recovery",gun.id))
     if (!continuation) {
@@ -2835,7 +2846,8 @@ function shoot(run, hits, view, aim, continuation) {
     for (const [key, count] of landed) {
         if (weapon.penetration && layer >= weapon.penetration)
             break
-        const through = weapon.penetration && !weapon.debugOnly ? Math.pow(weapon.pierceRetain || .80, layer) : 1
+        const through = weapon.penetration && !weapon.debugOnly
+            ? Math.pow(Math.min(1,(weapon.pierceRetain || .80)+(power.retention || 0)), layer) : 1
         layer += 1
         const gift = byId(run.gifts, key)
         if (gift && gift.front === frontId) {
@@ -2895,7 +2907,8 @@ function shoot(run, hits, view, aim, continuation) {
         const frostCrush = signature === "frostCrush" && enemy.elements.frozen > 0 ? 3.4 : 0
         const heatBonus = signature === "thermalBreach" && shield > 0 ? .65
             : signature === "guardShot" && run.shield.cool > 0 && run.shield.blocked > 0 ? .27 : 0
-        const closeBonus = enemy.depth <= 500 ? 1 + .09 * rank(run,"chokeRing") : 1
+        const closeBonus = 1 + (enemy.depth<=500 ? .09*rank(run,"chokeRing") : 0)
+            + (enemy.depth<=430 ? power.close || 0 : 0)
         const damage = (stats.damage * count * falloff * closeBonus + rank(run, "caliber") * .78
             + breach + kitBonus + shieldBonus + marked + chill + reaction + frostCrush + (power.damage || 0) + (run.giftDamage > 0 ? 2 : 0))
             * outgoing(run) * (weapon.id==="graduate" && run.wave<=20 ? 1.5 : 1) * through * (1 + pressure + focus + heatBonus + surge + (shield ? breachRoundsBonus : 0)) * (enemy.marked ? 1.27 : 1)
@@ -2971,9 +2984,10 @@ function shoot(run, hits, view, aim, continuation) {
     return true
 }
 
-function spread(run) {
+function spread(run, scoped) {
     const closeGun = weapons[Gear.current(run).id].effect === "spread"
     return (closeGun ? 1.48 : 1) * Math.max(.46, 1 - rank(run, "steadyaim") * .075) * (run.carefulAim > 0 ? .61 : 1)
+        * (scoped ? Gear.weaponSocket(run).scopedSpread || 1 : 1)
 }
 
 function reload(run, hits, view, aim) {
@@ -3015,7 +3029,7 @@ function reload(run, hits, view, aim) {
     const hunger = Math.min(.61, .40 + .075 * Math.max(0,rank(run,"redHunger") - 1))
         * missingHealth(run,"redHunger") * (Gear.hasKit(run,"redHungerKit") ? 1.10 : 1)
     gun.reloadLength = Math.max(.32, stats.reload * kit * (1 - hunger) * Math.max(.54, 1 - rank(run, "reload") * .095 - Gear.perk(run, "reload")))
-        * (run.hexes.reload ? 1.43 : 1)
+        * (run.hexes.reload ? 1.43 : 1) * (Gear.weaponSocket(run).reload || 1)
     gun.reload = gun.reloadLength
     gun.burstLeft = 0
     gun.spin = 0
@@ -3030,6 +3044,7 @@ function reload(run, hits, view, aim) {
             .find(function(candidate) { return candidate && candidate.point.depth <= reach && !candidate.gift })
         if (contact)
             strikeContact(run, contact, (4.5 + blade * 1.5) * outgoing(run), "", 0, "bayonet")
+        passiveVisual(run,"bayonet",view || run.playerFront,"cut","slice",contact?.point,"BAYONET",.25)
         announce(run, contact ? "Bayonet strike" : null, "bayonet")
     }
     return true
@@ -3569,14 +3584,19 @@ function useAbility(run, slot, view, aimId, aim) {
     }
     if (activeCooldown(run, id) > 0)
         return false
-    const slotBonus = Gear.slotPower("active", equipped)
+    const slotBonus = Gear.socketEffect(run,"active",equipped)
     const stats = Gear.activeStats(equipped.item, slotBonus.strength)
     const strength = stats.strength
     const gun = Gear.current(run)
+    const healthBefore=run.health
 
     const available = run.enemies.filter(function(enemy) {
         return enemy.front === view && enemy.warp <= 0 && !enemy.waitingBoss && !ghosted(enemy)
     })
+    const before=available.map(function(enemy) {return SkillArt.footprint(enemy)})
+    const ammoBefore=gun.ammo
+    const barrierBefore=run.barrierHp
+    const boltsBefore=run.bolts.length
     let feedback = ""
     let sound = "seal"
     switch (id) {
@@ -3856,7 +3876,23 @@ function useAbility(run, slot, view, aimId, aim) {
         break
     }
 
-    abilityVisual(run,id,view,stats,aim)
+    if (slotBonus.healRatio && run.health>healthBefore)
+        recoverBlood(run,Math.min(5,(run.health-healthBefore)*slotBonus.healRatio))
+    if (slotBonus.otherCooldown) {
+        const other=run.slots.active[1-slot]?.item?.id
+        if (other && run.cooldowns[other]>0)
+            run.cooldowns[other]=Math.max(0,run.cooldowns[other]-slotBonus.otherCooldown)
+    }
+    if (slotBonus.weaponRecovery)
+        gun.recovery=Math.max(0,gun.recovery-slotBonus.weaponRecovery)
+    const targets=available.filter(function(enemy,index) {
+        return SkillArt.footprint(enemy)!==before[index]
+    }).sort(function(a,b) {return Number(b.id===aimId)-Number(a.id===aimId) || a.depth-b.depth}).slice(0,5)
+    const summary=run.health>healthBefore ? "+"+Math.round(run.health-healthBefore)+" HP"
+        : run.barrierHp>barrierBefore ? "+"+(run.barrierHp-barrierBefore)+" BARRIER"
+        : gun.ammo>ammoBefore ? "+"+(gun.ammo-ammoBefore)+" ROUNDS"
+        : run.bolts.length<boltsBefore ? (boltsBefore-run.bolts.length)+" INTERCEPTED" : ""
+    abilityVisual(run,id,view,stats,aim,targets,summary)
     run.cooldowns[id] = abilityRecovery(run, equipped, stats, slotBonus)
     announce(run, feedback || activeAbilities[id].title + " activated", sound)
     return true
@@ -3869,22 +3905,35 @@ function rewindBolts(run,view,seconds) {
     }
 }
 
-function abilityVisual(run,id,view,stats,aim) {
+function abilityVisual(run,id,view,stats,aim,targets,summary) {
     const ability=activeAbilities[id]
-    const kind=ability.element || (/frost|freeze|cryo|thaw|winter|borrowed/i.test(id) ? "freeze"
-        : /burn|ember|fire|flame/i.test(id) ? "burn" : /arc|volt|electric|spark|static/i.test(id) ? "electric"
-        : /poison|spore|yellow|venom|slime|sticky/i.test(id) ? "poison" : /void|rift|seal|soul|black|shade/i.test(id) ? "void"
-        : /bloodLibation/i.test(id) ? "blood" : /heal|repair|renew|mend/i.test(id) ? "heal" : /shield|guard|ward|parry/i.test(id) ? "guard"
-        : /grenade|blast|bomb|breach|detonat|explos/i.test(id) ? "explosive" : /wind|draft|dodge|step/i.test(id) ? "wind" : "rune")
-    const colors={freeze:"#93e8ff",burn:"#ff6c28",electric:"#e4b5ff",poison:"#a7df3e",void:"#a581e9",blood:"#ff4962",heal:"#73f0b5",guard:"#6fcaff",explosive:"#ffbe68",wind:"#b6eddb",rune:Gear.rarities[ability.rarity].color}
+    const style=SkillArt.profile(ability)
+    const rank=SkillArt.intensity(ability.rarity)
+    const points=(targets || []).map(arcPoint)
+    const self=style.anchor==="self"
+    const target=style.anchor==="target"
+    const exact=target ? points.slice(0,1) : self ? [] : points
+    addSkillVisual(run,{ability:id,front:view,kind:style.kind,motif:style.motif,anchor:style.anchor,points:exact,
+        color:SkillArt.colors[style.kind],x:self ? .5 : aim && style.anchor!=="field" ? aim.x : .5,
+        y:self ? .73 : aim && style.anchor!=="field" ? aim.y : .47,
+        power:rank,span:[0,.88,1.08,1.28,1.65][rank],label:SkillArt.caption(style.kind,rank,summary,stats.elementLevel)})
+}
+
+function addSkillVisual(run, effect) {
     run.abilityEvents=run.abilityEvents.slice(-3)
-    run.abilityEvents.push({id:run.nextId++,ability:id,front:view,kind:kind,color:colors[kind],x:aim ? aim.x : .5,y:aim ? aim.y : .48,
-        life:ability.rarity==="legendary" ? 1.5 : ability.rarity==="epic" ? 1.15 : .8,span:ability.rarity==="legendary" ? 1.5 : ability.rarity==="epic" ? 1.15 : .8,
-        power:["common","rare","epic","legendary"].indexOf(ability.rarity)+1})
+    run.abilityEvents.push(Object.assign(effect,{id:run.nextId++,life:effect.span}))
+}
+
+function passiveVisual(run,id,frontId,kind,motif,point,label,interval) {
+    if (run.time<(run.passiveFxReady[id] || 0)) return
+    run.passiveFxReady[id]=run.time+(interval ?? .38)
+    addSkillVisual(run,{ability:id,front:frontId,kind:kind,motif:motif,anchor:point ? "target" : "self",
+        points:point ? [{lane:point.lane,elevation:point.elevation,depth:point.depth}] : [], color:SkillArt.colors[kind],
+        x:.5,y:.71,power:1,span:.72,label:label,passive:true})
 }
 
 function abilityRecovery(run, slot, stats, bonus) {
-    const power = bonus || Gear.slotPower("active", slot)
+    const power = bonus || Gear.socketEffect(run,"active",slot)
     const ability = stats || Gear.activeStats(slot.item, power.strength)
     const kitTiming = slot.item.id === "execution" && Gear.hasKit(run,"verdictSet") ? .82 : 1
     return ability.cooldown * kitTiming * (run.waveTime<30 ? Math.max(.60,1-.07*rank(run,"secondHand")) : 1) * Math.max(.38, 1 - rank(run, "cooling") * .085
@@ -3902,6 +3951,8 @@ function evadesImpact(run, projectile) {
         run.dodgeReadyAt = run.time + Math.max(6, 11 - (evasive - 1) * 1.25)
     }
     run.dodgeFlash = .34
+    if (rank(run,"slipstream"))
+        passiveVisual(run,"slipstream",run.playerFront,"wind","evade",null,"DODGED")
     record(run, "dodges")
     run.health = Math.min(Gear.maxHealth(run), run.health + rank(run,"secondWind") * 2.5)
     announce(run, "Attack dodged", "playerDodge")
@@ -3961,7 +4012,7 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
     const insulation = attacker.role === "alien" ? rank(run, "insulation") * .085 : 0
     const ground = affected.element === "electric" ? rank(run, "arcGround") * .08 : 0
     const blast = affected.blast || affected.element === "explosive" || ["princoratus","meteor","seraphijus"].includes(type)
-        ? rank(run, "blastPlating") * .09 : 0
+        ? rank(run, "blastPlating") * .09 + Gear.passiveSockets(run,"blastResist",.16) : 0
     const steady = Gear.current(run).reload > 0 ? rank(run, "holdFirm") * .079 : 0
     const first = !run.hurtThisWave ? rank(run, "survivor") * .15 : 0
     const fragile = rank(run,"glassCannon")
@@ -3975,6 +4026,7 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
         if (Math.abs(screenX - guard.x) <= guard.half) {
             guarded = 1 - guard.defence
             run.guardFlash = .39
+            passiveVisual(run,"orbitWard",origin,"guard","shield",null,"ORBITAL BLOCK")
         }
     }
     const criticalPower = critical ? Math.max(1, 2 - rank(run,"hardplate")*.25 - Gear.perk(run,"critResist")) : 1
@@ -4190,6 +4242,8 @@ function updateDetonations(run, dt) {
             damagePlayer(run, damage, origin.front, origin.enemyType || "princoratus", false, { blast:true })
         run.rumble = Math.max(run.rumble, .12 + origin.level * .055)
         run.bursts.push(Object.assign({ radius:radius, life:.61 }, origin))
+        if (fuse && nearby.length)
+            passiveVisual(run,"chainfuse",origin.front,"explosive","shockwave",origin,"CHAIN EXPLOSION",.13)
         if (run.phase === "defeat")
             return
         announce(run, origin.danger ? enemyTypes[origin.enemyType || "princoratus"].title + " detonated" : "Volatile target detonated", "detonation")
@@ -4215,14 +4269,25 @@ function petStrike(run, pet, helper, enemy) {
     pet.strikes += 1
     announce(run, null, "pet")
     const power = helper.power
+    const secondary=Pets.secondary[helper.id]
+    const charged=!!secondary && pet.chargePending && pet.chargeLeft<=0
+    if (charged) {
+        pet.chargePending=false
+        pet.chargedFlash=.72
+        if (helper.id==="beetle") {
+            petIntercept(run,pet)
+            petIntercept(run,pet)
+        }
+    }
     if (power === "seal" && enemy.front === "down" && enemyTypes[enemy.type].abyss)
         advanceSeal(run,(pet.id === "firefly" ? .23 : .16)+pet.level*.045)
     const damage = (helper.damage + (power === "peck" && enemy.depth <= 425 ? .57 : 0))
         * pet.stats.damageScale * (power === "break" && enemy.barrier ? 3 : 1)
+        * (charged ? secondary.power : 1)
     if (power === "delay")
         enemy.attack += .75 + pet.level * .28
     else if (power === "mark")
-        enemy.mark = (pet.id === "archive" ? 6 : 3.5) + pet.level * .42
+        enemy.mark = (charged ? 5.7 : pet.id === "archive" ? 6 : 3.5) + pet.level * .42
     else if (power === "slow")
         enemy.slow = 1.45 + pet.level * .44
     else if (power === "ammo" && pet.strikes % 2 === 0) {
@@ -4230,8 +4295,13 @@ function petStrike(run, pet, helper, enemy) {
         gun.ammo = Math.min(magazine(run), gun.ammo + 1)
     }
     const third = pet.strikes % 3 === 0
+    const element=charged && secondary.kind==="burn" ? "burn"
+        : power==="blind" ? "blind" : power==="mind" ? "weaken" : power==="spark" && third ? "electric" : ""
     wound(run, enemy, damage * (pet.cursed ? .78 : 1), pet,
-        power === "blind" ? "blind" : power === "mind" ? "weaken" : power === "spark" && third ? "electric" : "",power === "blind" ? 2 : 1)
+        element,power==="blind" ? 2 : 1)
+    if (charged && helper.id==="owl") recoverBlood(run,3)
+    if (charged && helper.id==="chicken" && enemy.hp>0)
+        applyKnockback(run,enemy,1)
     if (power === "mend" && third)
         run.health = Math.min(Gear.maxHealth(run), run.health + 2 + pet.level * .70)
     if (power === "heal" && enemy.hp <= 0)
@@ -4239,11 +4309,22 @@ function petStrike(run, pet, helper, enemy) {
     if (power === "splash") {
         const nearby = run.enemies.filter(function(other) {
             return other.id !== enemy.id && other.front === pet.front
-                && other.warp <= 0 && !ghosted(other) && Math.abs(other.depth - enemy.depth) < 190
-                && Math.abs(other.lane - enemy.lane) < (pet.id === "wyvern" ? 220 : 165)
-        }).slice(0, 2)
+                && other.warp <= 0 && !ghosted(other) && Math.abs(other.depth - enemy.depth) < (charged ? 290 : 190)
+                && Math.abs(other.lane - enemy.lane) < (charged ? 280 : pet.id === "wyvern" ? 220 : 165)
+        }).slice(0, charged ? 3 : 2)
         for (const other of nearby)
             wound(run, other, damage * .61, pet)
+    }
+    if (charged)
+        passiveVisual(run,helper.id,pet.front,secondary.kind,"companion",arcPoint(enemy),secondary.title.toUpperCase(),.5)
+    else if (secondary) {
+        pet.ordinaryStrikes=(pet.ordinaryStrikes || 0)+1
+        if (pet.ordinaryStrikes%secondary.every===0) {
+            pet.chargeLength=secondary.charge*(1-pet.level*.09)
+            pet.chargeLeft=pet.chargeLength
+            pet.chargePending=true
+            pet.next=pet.chargeLength
+        }
     }
 }
 
@@ -4257,6 +4338,7 @@ function updatePet(run, pet, dt) {
     pet.hostile = !!fallen
     pet.next = Math.max(0, pet.next - dt)
     pet.flash = Math.max(0, pet.flash - dt)
+    pet.chargedFlash=Math.max(0,(pet.chargedFlash || 0)-dt)
     if (pet.resting > 0) {
         pet.resting = Math.max(0, pet.resting - dt)
         if (!pet.resting)
@@ -4265,7 +4347,7 @@ function updatePet(run, pet, dt) {
     }
     pet.stamina = Math.max(0, pet.stamina - dt)
     if (!pet.stamina) {
-        pet.resting = Math.max(3, pet.stats.rest - rank(run,"sparePart") * .80)
+        pet.restLength=pet.resting = Math.max(3, pet.stats.rest - rank(run,"sparePart") * .80 - Gear.passiveSockets(run,"petRest",2))
         pet.targetId = 0
         return
     }
@@ -4315,7 +4397,7 @@ function updatePet(run, pet, dt) {
         if (focused)
             pet.next = Math.max(pet.next, run.wave <= 3 ? 2.1 : .75)
     }
-    if (!pet.next && helper.power === "guard" && petIntercept(run, pet)) {
+    if (!pet.next && !pet.chargePending && helper.power === "guard" && petIntercept(run, pet)) {
         pet.next = pet.stats.interval
         return
     }
@@ -4335,7 +4417,9 @@ function updatePet(run, pet, dt) {
     pet.lane += (targetLane - pet.lane) * approach
     pet.depth += (targetDepth - pet.depth) * approach
     pet.elevation += (targetElevation - pet.elevation) * approach
-    if (focused && pet.next === 0) {
+    if (focused && pet.chargePending)
+        pet.chargeLeft=Math.max(0,pet.chargeLeft-dt)
+    if (focused && pet.next === 0 && (!pet.chargePending || pet.chargeLeft===0)) {
         pet.next = pet.stats.interval
         petStrike(run, pet, helper, focused)
     }
@@ -4610,9 +4694,9 @@ function heatLimit(run, weapon, stats) {
     return stats.heat + (longBurn ? .6 : 0)
 }
 
-function coolWeapon(run, gun, weapon, stats) {
+function coolWeapon(run, gun, weapon, stats, slot) {
     gun.firing = false
-    gun.cool = stats.cooling
+    gun.cool = stats.cooling * (Gear.weaponSocket(run,slot).heatRecovery || 1)
     gun.spin = 0
     gun.focus = 0
     announce(run, weapon.title + " cooling", "overheat")
@@ -4651,7 +4735,7 @@ function tickWeapon(run, slot, index, dt, firingHeld) {
         } else if (gun.firing) {
             gun.heat = Math.min(limit, gun.heat + dt)
             if (gun.heat >= limit)
-                coolWeapon(run, gun, weapon, stats)
+                coolWeapon(run, gun, weapon, stats,slot)
         } else {
             gun.heat = Math.max(0, gun.heat - dt * .80)
             if (weapon.signature === "beamFocus")
@@ -5208,7 +5292,8 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         Elements.clearPoison(run.elements)
         run.fearCut = false
         const cap = Gear.maxHealth(run)
-        const heal = Math.max(0, Math.min(Math.round(cap * Mission.difficulty(run.difficulty).recovery), cap - run.health))
+        const recovery=Math.round(cap*Mission.difficulty(run.difficulty).recovery) + Gear.passiveSockets(run,"waveHeal",8)
+        const heal = Math.max(0, Math.min(recovery, cap - run.health))
         run.health += heal
         run.gifts = []
         run.venomClouds = []
@@ -5389,13 +5474,13 @@ function openShop(run) {
     run.shopStock = Gear.makeShop(run, function() { return random(run) })
 }
 
-function buy(run, id, slot) {
-    const card = run.shopStock.find(function(item) { return item.id === id })
+function buy(run, id, slot, confirmed) {
+    const card = id==="expand-counter" ? Gear.counterOffer(run) : run.shopStock.find(function(item) { return item.id === id })
     const rankUp = card && (card.action === "upgrade" || card.action === "power-upgrade" || card.action === "pet" || card.action === "shield-upgrade"
-        || card.action === "repeat-upgrade" || card.action === "shop-stat"
+        || card.action === "repeat-upgrade" || card.action === "shop-stat" || card.action==="shop-quality"
         || card.action === "gear" && Gear.ownedItem(run, card.group, card.gearId))
     const before = run.gold
-    if (!Gear.buy(run, id, slot, function() { return random(run) }))
+    if (!Gear.buy(run, id, slot, function() { return random(run) }, confirmed))
         return false
     const spent = before-run.gold
     if (spent > 0) {
@@ -5406,7 +5491,10 @@ function buy(run, id, slot) {
     if (rankUp)
         record(run, "upgrades")
     if (card.action === "expand-shop") {
-        const extra = Gear.makeShop(run,function() { return random(run) },run.shopStock.map(function(row) { return row.id }),1)
+        if (id==="expand-counter")
+            run.shopStock=run.shopStock.filter(function(item) { return item.id!=="expand-counter" })
+        const extra = Gear.makeShop(run,function() { return random(run) },run.shopStock.map(function(row) { return row.id }),
+            Math.max(0,run.shopCapacity-run.shopStock.length))
         run.shopStock.push(...extra)
     }
     if (!run.shopCleared && run.shopStock.length >= 5 && run.shopStock.every(function(row) {return row.sold})) {

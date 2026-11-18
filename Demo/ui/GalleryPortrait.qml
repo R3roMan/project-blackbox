@@ -26,7 +26,7 @@ Rectangle {
     Loader {
         anchors.fill: parent
         anchors.margins: 3
-        sourceComponent: portrait.kind === "enemy" ? enemyArt : portrait.kind === "weapon" ? weaponArt
+        sourceComponent: portrait.entry.shopItem ? shopArt : portrait.kind === "enemy" ? enemyArt : portrait.kind === "weapon" ? weaponArt
             : portrait.kind === "pet" ? petArt : portrait.kind === "weather" ? weatherArt : abilityArt
     }
     Rectangle {
@@ -107,14 +107,24 @@ Rectangle {
     Component {
         id: petArt
         Item {
+            Game.PetPortrait3D {
+                anchors.fill:parent
+                visible:portrait.engraved && GraphicsInfo.api!==GraphicsInfo.Software
+                helper:portrait.entry.form ? portrait.entry : Pets.spec("crow")
+            }
             Game.ProjectedPet {
                 anchors.centerIn: parent
+                visible:!portrait.engraved || GraphicsInfo.api===GraphicsInfo.Software
                 width: Math.min(parent.height * 1.21, parent.width * .76)
                 height: width * .69
                 helper: portrait.entry.form ? portrait.entry : Pets.spec("crow")
                 flap: .12
             }
         }
+    }
+    Component {
+        id:shopArt
+        ShopItemGlyph { item:portrait.entry; tint:portrait.entry.color || portrait.itemTint; onPaper:portrait.engraved }
     }
     Component {
         id:abilityArt

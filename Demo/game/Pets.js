@@ -51,6 +51,14 @@ var attackGestures = {
     fairy:[-27,77,56,13], chibi:[-31,-49,-46,27], minishade:[51,-28,32,37]
 }
 
+var secondary = {
+    crow:{title:"Cinder dive",every:3,charge:2.2,kind:"burn",power:1.48,description:"A hard dive with Burn I and a longer mark."},
+    owl:{title:"Brass toll",every:2,charge:2.8,kind:"heal",power:1.4,description:"A heavy strike that restores 3 HP."},
+    drake:{title:"Flux breath",every:3,charge:2.45,kind:"burn",power:1.38,description:"A wider breath attack with Burn I."},
+    beetle:{title:"Aegis discharge",every:3,charge:2.3,kind:"intercept",power:1.32,description:"Breaks up to two hostile projectiles on its wallpaper before striking."},
+    chicken:{title:"Wind-up peck",every:3,charge:2.1,kind:"knockback",power:1.63,description:"A stronger peck that knocks its target back."}
+}
+
 function attackPose(id, remaining) {
     const shape = attackGestures[id] || attackGestures.crow
     if (!remaining)
@@ -80,11 +88,28 @@ function trained(helper, level) {
         duty:helper.duty + level*3.8, rest:Math.max(3,helper.rest-level*1.25), travel:helper.travel*(1-level*.09) }
 }
 
+function flight(pet, clock, animate) {
+    const resting=pet.resting>0
+    const fold=resting ? Math.min(1,Math.max(0,((pet.restLength || pet.stats.rest)-pet.resting)*3.1+.12)) : 0
+    const phase=animate ? clock : 0
+    const crawl=spec(pet.id).crawl
+    const steering=pet.travel>0 ? pet.heading : Math.sin(phase*1.8)
+    return {
+        lane:pet.lane+(resting || crawl ? 0 : Math.cos(phase*1.9)*13),
+        elevation:pet.elevation-fold*(crawl ? 9 : 49)+Math.sin(phase*(resting ? 3.6 : 4.7))*(resting ? 3 : crawl ? 4 : 11),
+        depth:pet.depth+(resting ? 19*fold : Math.cos(phase*2.3)*9),
+        pitch:fold*18+Math.sin(phase*3.2)*(resting ? 1 : crawl ? 3 : 8),
+        yaw:resting ? 0 : steering*(pet.travel>0 ? 23 : 12),
+        bank:resting ? -7*fold : steering*(pet.travel>0 ? 29 : 15)
+    }
+}
+
 function deploy(id, level) {
     const helper = spec(id)
     const rank = level || 0
     const stats = trained(helper,rank)
     return { id:id, level:rank, stats:stats, front:"front", lane:-155, elevation:helper.crawl ? -126 : 75, depth:720,
-        stamina:stats.duty, resting:0, heading:-1, travel:0, destination:"", next:4.0, flash:0,
+        stamina:stats.duty, resting:0, restLength:0, heading:-1, travel:0, destination:"", next:4.0, flash:0,
+        chargeLeft:0, chargeLength:0, chargePending:false, chargedFlash:0, ordinaryStrikes:0,
         targetId: 0, strikes: 0, aimLane: 0, aimElevation: 0, aimDepth: 0 }
 }

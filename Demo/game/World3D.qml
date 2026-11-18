@@ -20,6 +20,7 @@ View3D {
     property var guestPet: null
     property var smokes: []
     property var bubbleBursts:[]
+    property var abilityEvents:[]
     property real turnRatio: 1
     property real blindness: 0
     property int quality: 0
@@ -30,6 +31,7 @@ View3D {
     property real wallpaperZoom: 1
     readonly property real pixelRatio: Math.max(1, Screen.devicePixelRatio)
     property bool voidIncursion: false
+    property string sunlight: ""
     readonly property int autoHeight: detail === 0 ? 900
         : detail === 1 && (hypnotised || voidIncursion) ? 1080 : 1440
     readonly property real renderScale: Math.min(pixelRatio,(quality || autoHeight)/Math.max(1,height))
@@ -147,6 +149,21 @@ View3D {
         id: frontFrame
         readonly property var location: Rules.front(world.frontId)
         eulerRotation: Qt.vector3d(location.pitch, location.yaw, 0)
+        ActorRoster {
+            id:casts
+            entries:world.detail>0 && !world.hypnotised ? world.abilityEvents.filter(function(effect) {return effect.front===world.frontId}) : []
+        }
+        Repeater3D {
+            model:casts
+            delegate:AbilityBurst3D {
+                required property int actorId
+                effect:casts.records[actorId]
+                revision:world.revision
+                aspect:world.width/Math.max(1,world.height)
+                detail:world.detail
+                motion:world.motion
+            }
+        }
     }
 
     PerspectiveCamera {
@@ -174,10 +191,13 @@ View3D {
     }
 
     DirectionalLight {
-        eulerRotation: Qt.vector3d(-28, -38, 0)
-        color: world.detail === 2 ? "#ffb178" : "#ffc4a4"
-        ambientColor: world.detail === 2 ? "#514765" : "#70617e"
-        brightness: world.detail === 2 ? 2.15 : 1.8
+        eulerRotation: Qt.vector3d(world.sunlight ? -12 : -28, world.sunlight
+            ? (world.sunlight==="sunrise" ? -56 : 65)+(world.motion ? Math.sin(world.elapsed*.023)*28 : 0)
+            : -38,0)
+        color: world.sunlight ? (world.sunlight==="sunrise" ? "#ffc07b" : "#ff8759")
+            : world.detail === 2 ? "#ffb178" : "#ffc4a4"
+        ambientColor: world.sunlight ? "#724470" : world.detail === 2 ? "#514765" : "#70617e"
+        brightness: world.sunlight ? 2.55 : world.detail === 2 ? 2.15 : 1.8
         castsShadow:world.detail === 2
         shadowMapQuality:Light.ShadowMapQualityMedium
         shadowFactor:69
@@ -240,6 +260,10 @@ View3D {
         readonly property var helper: Pets.spec(petAnchor.pet ? petAnchor.pet.id : "crow")
         readonly property real flash: { world.revision; return petAnchor.pet ? petAnchor.pet.flash : 0 }
         readonly property var gesture: Pets.attackPose(helper.id, world.motion ? flash : 0)
+        readonly property var flight:{
+            world.revision
+            return pet ? Pets.flight(pet,world.elapsed,world.motion) : {lane:0,elevation:0,depth:900,pitch:0,yaw:0,bank:0}
+        }
         eulerRotation: {
             world.revision
             const side = Rules.front(petAnchor.pet ? petAnchor.pet.front : "front")
@@ -251,14 +275,17 @@ View3D {
             strike: petAnchor.flash
             resting: { world.revision; return petAnchor.pet ? petAnchor.pet.resting > 0 : false }
             animate: world.motion
-            y: {
+            chargeProgress:{
                 world.revision
-                return petAnchor.pet ? petAnchor.pet.elevation + (world.motion ? Math.sin(world.elapsed * 4.8) * (petAnchor.helper.crawl ? 3 : 11) : 0) : 0
+                const pet=petAnchor.pet
+                return pet?.chargePending && !pet.resting ? 1-pet.chargeLeft/Math.max(.1,pet.chargeLength) : 0
             }
-            x: { world.revision; return petAnchor.pet ? petAnchor.pet.lane : 0 }
-            z: { world.revision; return petAnchor.pet ? -petAnchor.pet.depth - petAnchor.gesture[3] : 0 }
-            eulerRotation: Qt.vector3d(petAnchor.gesture[0], petAnchor.gesture[1], petAnchor.gesture[2]
-                + (world.motion ? Math.sin(world.elapsed * 2.7) * 10 : 0))
+            chargedFlash:{world.revision;return petAnchor.pet?.chargedFlash || 0}
+            x:petAnchor.flight.lane
+            y:petAnchor.flight.elevation
+            z:-petAnchor.flight.depth-petAnchor.gesture[3]
+            eulerRotation:Qt.vector3d(petAnchor.gesture[0]+petAnchor.flight.pitch,
+                petAnchor.gesture[1]+petAnchor.flight.yaw,petAnchor.gesture[2]+petAnchor.flight.bank)
         }
         Repeater3D {
             model: petAnchor.helper.form === "bat" || petAnchor.helper.form === "chicken" ? 3 : 5

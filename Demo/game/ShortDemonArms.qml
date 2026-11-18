@@ -7,30 +7,35 @@ Node {
     required property color skin
     required property real clock
     required property real strike
-    PrincipledMaterial {id:flesh; baseColor:arms.skin; roughness:.74}
-    PrincipledMaterial {id:knuckle; baseColor:Qt.darker(arms.skin,1.19); roughness:.64}
+    PrincipledMaterial {id:flesh; baseColor:Qt.lighter(arms.skin,1.22); roughness:.74}
+    PrincipledMaterial {id:knuckle; baseColor:Qt.darker(arms.skin,1.12); roughness:.64}
+    PrincipledMaterial {id:ridge; baseColor:Qt.lighter(arms.skin,1.48); roughness:.62}
     PrincipledMaterial {id:nail; baseColor:"#bdaa97"; roughness:.64}
 
     Repeater3D {
         model:[-1,1]
         Node {
+            id:arm
             required property int modelData
-            x:48*modelData
+            x:53*modelData
             y:15
-            z:18
-            scale:Qt.vector3d(modelData,1,1)
-            eulerRotation.z:modelData*(5+Math.sin(arms.clock*5)*4)
+            z:25
+            eulerRotation.z:modelData*(9+Math.sin(arms.clock*5)*4)
             eulerRotation.x:-Math.max(0,arms.strike)*46+Math.min(0,arms.strike)*20
             Model {source:"#Sphere"; scale:Qt.vector3d(.25,.30,.26); materials:[flesh]}
             Model {
-                source:"#Sphere"; x:4; y:-13; eulerRotation.z:11
-                scale:Qt.vector3d(.19,.35,.19); materials:[flesh]
+                source:"#Sphere"; x:arm.modelData*4; y:-13; eulerRotation.z:arm.modelData*11
+                scale:Qt.vector3d(.19,.35,.19); materials:[knuckle]
+            }
+            Model {
+                source:"#Sphere"; x:arm.modelData*8; y:-9; z:8; eulerRotation.z:arm.modelData*12
+                scale:Qt.vector3d(.072,.26,.064); materials:[ridge]
             }
             Node {
-                x:6; y:-25; z:5
+                x:arm.modelData*6; y:-25; z:5
                 eulerRotation.x:-19-arms.strike*37
                 Model {
-                    source:"#Sphere"; y:-8; z:3; eulerRotation.z:-8
+                    source:"#Sphere"; y:-8; z:3; eulerRotation.z:-arm.modelData*8
                     scale:Qt.vector3d(.151,.29,.17); materials:[knuckle]
                 }
                 Model {source:"#Sphere"; y:-20; z:7; scale:Qt.vector3d(.187,.15,.15); materials:[flesh]}
@@ -42,7 +47,7 @@ Node {
                         scale:Qt.vector3d(.056,.11,.063); materials:[knuckle]
                     }
                 }
-                Model {source:"#Sphere"; x:-7; y:-20; z:13; eulerRotation.z:36; scale:Qt.vector3d(.054,.10,.061); materials:[knuckle]}
+                Model {source:"#Sphere"; x:-arm.modelData*7; y:-20; z:13; eulerRotation.z:arm.modelData*36; scale:Qt.vector3d(.054,.10,.061); materials:[knuckle]}
                 Repeater3D {
                     model:3
                     Model {

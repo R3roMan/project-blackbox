@@ -868,8 +868,8 @@ Item {
             readonly property var point: {
                 world.revision
                 const model = companion.model
-                return model ? world.projection(model.lane, model.elevation + (world.motion ? Math.sin(world.elapsed * 4.8) * 11 : 0),
-                    model.depth - gesture[3]) : world.projection(0, 0, 900)
+                const pose=model ? Pets.flight(model,world.elapsed,world.motion) : {lane:0,elevation:0,depth:900}
+                return world.projection(pose.lane,pose.elevation,pose.depth-gesture[3])
             }
             x: point.x - width * .5
             y: point.y - height * .5
@@ -877,9 +877,10 @@ Item {
             height: width * .69
             z: { world.revision; return companion.model ? 2000 - companion.model.depth : 0 }
             resting: { world.revision; return companion.model ? companion.model.resting > 0 : false }
-            opacity: resting ? .49 : 1
+            opacity: resting ? .78 : 1
             flap: world.motion && !resting ? Math.sin(world.elapsed * 13) : 0
-            rotation: gesture[2] + gesture[1] * .18
+            rotation: gesture[2]+gesture[1]*.18
+                +(companion.model ? Pets.flight(companion.model,world.elapsed,world.motion).bank : 0)
         }
         Rectangle {
             readonly property real flash: { world.revision; return companion.model ? companion.model.flash : 0 }

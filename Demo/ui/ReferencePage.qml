@@ -58,17 +58,13 @@ FocusScope {
         return (weaponSort === "Kills" ? (career["weaponKills_"+b.id] || 0)-(career["weaponKills_"+a.id] || 0) : 0)
             || a.title.localeCompare(b.title)
     })
-    readonly property var abilityEntries: {
-        const list = Object.values(Gear.activeAbilities).concat(Object.values(Gear.passives))
-        for (const group of Object.keys(Gear.slotPowers))
-            for (const power of Gear.slotPowers[group])
-                list.push(Object.assign({category:Gear.groupLabels[group]+" slot effect"},Gear.slotPowerAt(power,0)))
-        return list.sort(function(a,b) { return a.title.localeCompare(b.title) })
-    }
+    readonly property var abilityEntries:Object.values(Gear.activeAbilities).concat(Object.values(Gear.passives))
+        .sort(function(a,b) {return a.title.localeCompare(b.title)})
+    readonly property var shopEntries:Gear.shopEntries()
     readonly property var displayed: tab === "enemies" ? enemyEntries : tab === "weapons" ? weaponEntries
         : tab === "abilities" ? abilityEntries : tab === "weather" ? Object.values(Conditions.entries)
         : tab === "pets" ? Pets.pets : tab === "achievements" ? Progress.achievements
-        : tab === "kits" ? Book.kitEntries() : Book.manual
+        : tab === "kits" ? Book.kitEntries() : tab === "shop" ? shopEntries : Book.manual
     readonly property var entry: displayed[Math.max(0,Math.min(pageIndex,displayed.length-1))] || null
     readonly property bool seen: visibleEntry(entry)
     readonly property bool controller: tab === "controls" && entry?.id === "controller"
@@ -83,7 +79,8 @@ FocusScope {
             ? "Tutorial" : Encounters.firstWave(entry.id) === -1 ? "Blood Moon" : "Wave "+Encounters.firstWave(entry.id))
         : tab === "weapons" ? Gear.weaponClass(entry)+" · "+Gear.rarities[entry.rarity].label
         : tab === "abilities" ? entry.category+(entry.rarity ? " · "+Gear.rarities[entry.rarity].label : "")
-        : tab === "pets" ? "Companion" : tab === "kits" ? "Three-piece set" : chapterTitle
+        : tab === "pets" ? "Companion" : tab === "kits" ? "Three-piece set"
+        : tab === "shop" ? (entry.group ? Gear.groupLabels[entry.group]+" · " : "")+entry.category : chapterTitle
 
     function visibleEntry(record) {
         if (!record) return false
@@ -636,6 +633,7 @@ FocusScope {
     }
 
     component LeafPicker: ComboBox {
+        id:picker
         font.family:"Inter"
         font.pixelSize:UiMetrics.text(page.compact ? 12 : 13)
         implicitContentWidthPolicy:ComboBox.WidestText
@@ -647,6 +645,36 @@ FocusScope {
         palette.text:"#f6ded0"
         palette.buttonText:"#f6ded0"
         palette.highlight:"#673748"
+        contentItem:Text {
+            text:picker.displayText
+            font:picker.font
+            color:"#f6ded0"
+            verticalAlignment:Text.AlignVCenter
+            elide:Text.ElideRight
+        }
+        indicator:Text {
+            text:"⌄"
+            x:picker.width-width-9
+            y:Math.round((picker.height-height)*.5)-2
+            font.pixelSize:18
+            color:"#e3b994"
+        }
+        delegate:ItemDelegate {
+            required property string modelData
+            required property int index
+            width:picker.width
+            text:modelData
+            font:picker.font
+            highlighted:picker.highlightedIndex===index
+            contentItem:Text {
+                text:parent.text
+                font:parent.font
+                color:"#f6ded0"
+                verticalAlignment:Text.AlignVCenter
+                elide:Text.ElideRight
+            }
+            background:Rectangle {color:parent.highlighted || parent.hovered ? "#533347" : "#231b26"}
+        }
         background:Rectangle {
             radius:5
             color:parent.hovered ? "#382736" : "#241b26"

@@ -18,6 +18,7 @@ Item {
     property bool compact: false
     property real paradeHeight: 160
     property int hoveredMember:-1
+    property bool nativeBossHovered:false
     readonly property var company: stage.groups.filter(function(group) { return group.rank !== "Overlord" })
     readonly property string overlord: Mission.boss(stage.wave)
     readonly property var placements:Muster.placements(company,stage.wave*7919,overlord.length>0)
@@ -99,7 +100,7 @@ Item {
             visible: looming.active
             hoverEnabled:true
             EnemyHint {
-                anchorItem:parent; hovered:parent.containsMouse && muster.hoveredMember < 0
+                anchorItem:parent; hovered:muster.software ? parent.containsMouse : muster.nativeBossHovered
                 enemyType:muster.overlord; discoveries:muster.discoveries
                 onEntryRequested:function(chapter,id) { muster.entryRequested(chapter,id) }
             }
@@ -111,19 +112,25 @@ Item {
             active:!muster.software
             sourceComponent:MusterScene3D {company:muster.company; placements:muster.placements; motion:muster.motion}
         }
-        HoverHandler {
+        MouseArea {
             id:paradeHover
-            enabled:!!nativeParade.item
+            anchors.fill:parent
+            hoverEnabled:!!nativeParade.item
+            acceptedButtons:Qt.NoButton
             function updateMember() {
-                if (!hovered || !nativeParade.item) {
+                if (!containsMouse || !nativeParade.item) {
                     muster.hoveredMember=-1
+                    muster.nativeBossHovered=false
                     return
                 }
-                const local=nativeParade.mapFromItem(parade,point.position)
+                const local=nativeParade.mapFromItem(parade,mouseX,mouseY)
                 muster.hoveredMember=nativeParade.item.indexAt(local.x,local.y)
+                muster.nativeBossHovered=muster.hoveredMember<0 && looming.active
+                    && Math.hypot((mouseX-looming.x-looming.width*.5)/(looming.width*.32),
+                        (mouseY-looming.y-looming.height*.5)/(looming.height*.35))<1
             }
-            onPointChanged:updateMember()
-            onHoveredChanged:updateMember()
+            onPositionChanged:updateMember()
+            onContainsMouseChanged:updateMember()
         }
         Item {
             id: army

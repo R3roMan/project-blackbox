@@ -25,6 +25,10 @@ Canvas {
         ctx.fillStyle = Qt.lighter(pet.helper.skin, 1.35)
         ctx.strokeStyle = pet.helper.accent
         ctx.lineWidth = .032
+        if (["crow","owl","finch","chicken"].includes(pet.helper.form)) {
+            drawBird(ctx)
+            return
+        }
         if (pet.helper.crawl) {
             ctx.lineWidth = .026
             for (let i = 0; i < 8; i += 1) {
@@ -126,16 +130,22 @@ Canvas {
         ctx.ellipse(.32, .29, .36, .47)
         ctx.fill()
         ctx.stroke()
-        if (pet.helper.form === "chicken") {
-            ctx.fillStyle = "#c93842"
-            for (let i = 0; i < 3; i += 1) {
-                ctx.beginPath()
-                ctx.ellipse(.406+i*.060,.20-i%2*.060,.081,.15)
-                ctx.fill()
+        if (pet.helper.form==="wasp" || pet.helper.form==="beetle" || pet.helper.id==="firefly") {
+            for (let i=0;i<4;i++)
+                oval(ctx,.38+i*.018,.61+i*.050,.24-i*.036,.16, i%2 ? "#23202e" : pet.helper.accent)
+        }
+        if (pet.helper.form==="moth" || pet.helper.form==="ray") {
+            for (const side of [-1,1]) {
+                oval(ctx,.415+side*.26,.39,.17,.15,Qt.darker(pet.helper.skin,2.2))
+                oval(ctx,.465+side*.26,.416,.071,.087,pet.helper.accent)
             }
-            ctx.beginPath()
-            ctx.ellipse(.482,.62,.068,.105)
-            ctx.fill()
+        }
+        if (["fox","bat","drake","kite"].includes(pet.helper.form)) {
+            for (const side of [-1,1]) {
+                const spread=pet.helper.form==="kite" ? .31 : .13
+                path(ctx,[.5+side*(spread+.10),.40,.5+side*(spread+.046),.13+(pet.helper.id==="wyvern" ? -.05 : 0),
+                    .5+side*(spread-.063),.42],pet.helper.form==="fox" ? "#deb999" : pet.helper.accent)
+            }
         }
         ctx.fillStyle = pet.angry ? "#fff09a" : pet.helper.accent
         ctx.fillRect(.39, .42, .065, .075)
@@ -149,6 +159,52 @@ Canvas {
         ctx.lineTo(.5, .68)
         ctx.closePath()
         ctx.fill()
+    }
+
+    function oval(ctx,x,y,w,h,color) {
+        ctx.fillStyle=color
+        ctx.beginPath();ctx.ellipse(x,y,w,h);ctx.fill()
+    }
+
+    function path(ctx,points,color) {
+        ctx.beginPath();ctx.moveTo(points[0],points[1])
+        for (let index=2; index<points.length; index+=2) ctx.lineTo(points[index],points[index+1])
+        ctx.closePath();ctx.fillStyle=color;ctx.fill()
+    }
+
+    function drawBird(ctx) {
+        const wendy=helper.id==="chicken", owl=helper.id==="owl", finch=helper.id==="finch", raven=helper.id==="archive"
+        const tan=wendy ? "#f0d7af" : owl ? "#c6a062" : finch ? "#c3d5a1" : raven ? "#baccc4" : "#6d5668"
+        const bill=wendy || finch ? "#e4af5b" : owl ? "#b98755" : "#191a25"
+        for (const side of [-1,1]) {
+            const tip=owl ? .46 : finch ? .34 : wendy ? .33 : .46
+            for (let i=0;i<6;i++) {
+                const reach=tip-i*(finch ? .041 : .049)
+                const y=(owl ? .23 : .16)+i*.064-flap*.18
+                path(ctx,[.5+side*.12,.43,.5+side*reach,y,.5+side*(reach-.051),y+.17,.5+side*.16,.68],
+                    i%3===1 ? Qt.lighter(helper.skin,1.36) : helper.skin)
+            }
+            path(ctx,[.5+side*.076,.70,.5+side*.087,.84,.5+side*.156,.88,.5+side*.055,.90,.5+side*.049,.72],bill)
+        }
+        oval(ctx, wendy ? .265 : .32, .33,wendy ? .47 : .36,wendy ? .43 : .38,helper.skin)
+        oval(ctx,.355,.426,.29,.26,tan)
+        oval(ctx,owl ? .31 : .364,owl ? .24 : .25,owl ? .38 : .272,owl ? .35 : .33,Qt.lighter(helper.skin,1.28))
+        if (wendy) {
+            for (let i=0;i<4;i++)
+                oval(ctx,.427+i*.048,.17-i%2*.052,.079,.132,"#de494d")
+            oval(ctx,.466,.54,.064,.12,"#d84248")
+        } else if (owl || raven) {
+            for (const side of [-1,1])
+                path(ctx,[.5+side*.11,.37,.5+side*.156,.19,.5+side*.068,.30],helper.skin)
+        }
+        for (const side of [-1,1]) {
+            const x=.50+side*(owl ? .095 : .067)
+            if (owl || finch) oval(ctx,x-.071,.318,.142,.156,tan)
+            oval(ctx,x-.041,.372,.082,.091,"#151420")
+            oval(ctx,x-.027,.388,.054,angry ? .031 : .057,angry ? "#ff544a" : helper.accent)
+        }
+        if (angry) brows(ctx)
+        path(ctx,[.451,.475,.55,.475,.52+(raven ? .043 : 0),finch ? .534 : .588,.49,.562],bill)
     }
 
     function brows(ctx) {

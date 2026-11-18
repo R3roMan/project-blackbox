@@ -133,6 +133,8 @@ function decodeRun(text, unlocks) {
     }
     if (data.pet && !Pets.pets.some(function(pet) {return pet.id === data.pet.id}))
         return null
+    if (data.shopQuality!==undefined && (!Number.isInteger(data.shopQuality) || data.shopQuality<0 || data.shopQuality>3))
+        return null
     if (!validStage(data.stage) || !validStage(data.nextStage) || !data.bolts.every(function(bolt) {
         return plain(bolt) && Number.isFinite(bolt.id) && Number.isFinite(bolt.remaining) && !!Mission.enemyTypes[bolt.source]
     }) || !data.shopStock.every(function(card) {

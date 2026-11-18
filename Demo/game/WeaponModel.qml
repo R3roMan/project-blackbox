@@ -18,6 +18,7 @@ View3D {
     property real stab: 0
     property int sequence: 0
     property int detail:1
+    property string sunlight:""
     property int combo: 0
     property real staffCharge: 0
     property real staffCast:0
@@ -56,8 +57,8 @@ View3D {
     }
     PerspectiveCamera {
         id: eye
-        position: Qt.vector3d(-6, 102, 188)
-        eulerRotation: Qt.vector3d(-24, -1.7, 0)
+        position: Qt.vector3d(0, 89, 194)
+        eulerRotation: Qt.vector3d(-22, 0, 0)
         clipNear: 4
         clipFar: 850
         fieldOfView: view.staff ? 60 : view.twins ? 56 : 42 + (view.art.width - 49) * .13
@@ -70,7 +71,13 @@ View3D {
         readonly property real halfHeight: Math.max(241,280*view.height/Math.max(1,view.width))
         fieldOfView: 2*Math.atan(halfHeight/z)*180/Math.PI
     }
-    DirectionalLight { eulerRotation: Qt.vector3d(-48, -36, -13); color: "#fff0d6"; brightness: 2.1; ambientColor: "#7885a7" }
+    DirectionalLight {
+        eulerRotation:Qt.vector3d(-48,view.sunlight ?
+            (view.sunlight==="sunrise" ? -61 : 55)+(view.motion ? Math.sin(view.clock*.023)*27 : 0) : -36,-13)
+        color:view.sunlight ? (view.sunlight==="sunrise" ? "#ffd093" : "#ff9c6c") : "#fff0d6"
+        brightness:view.sunlight ? 2.6 : 2.1
+        ambientColor:view.sunlight ? "#806079" : "#7885a7"
+    }
     DirectionalLight { eulerRotation: Qt.vector3d(13, 118, 12); color: "#a4b9ff"; brightness: 1.43 }
     PrincipledMaterial { id: enamel; baseColor: view.art.shell; roughness: .53; metalness: .61 }
     PrincipledMaterial { id: rim; baseColor: Qt.lighter(view.art.shell, 1.58); roughness: .42; metalness: .60 }
@@ -146,7 +153,7 @@ View3D {
                 x: side * (79 + view.pose.shellTravel * .21)
                 y: 5 + recoil * 6 - view.pose.shellTravel * .47
                 z: recoil * 19 - view.stab * 74
-                eulerRotation: Qt.vector3d(-10 - recoil * 13-view.aimOffset.y*8.5,-side*13-view.aimOffset.x*14,view.pose.roll*side)
+                eulerRotation: Qt.vector3d(-10 - recoil * 13-view.aimOffset.y*8.5,-side*2-view.aimOffset.x*12,view.pose.roll*side)
                 Model { source:"#Cube"; scale:Qt.vector3d(view.art.width*.0076,.27,view.art.length*.0098); materials:[enamel] }
                 Model { source:"#Cube"; y:14; z:-11; scale:Qt.vector3d(.35,.12,.82); materials:[rim] }
                 Model {
@@ -192,8 +199,8 @@ View3D {
     Node {
         id: rig
         visible: !view.handWeapon && !view.twins && !view.staff
-        position: Qt.vector3d(9, -15 + view.pose.rise + view.stab * 14, view.pose.rear + 4 - view.stab * 105)
-        eulerRotation: Qt.vector3d(view.pose.pitch-view.aimOffset.y*8.5,15-view.aimOffset.x*12,view.pose.roll)
+        position: Qt.vector3d(0, -15 + view.pose.rise + view.stab * 14, view.pose.rear + 4 - view.stab * 105)
+        eulerRotation: Qt.vector3d(view.pose.pitch-view.aimOffset.y*8.5,-view.aimOffset.x*12,view.pose.roll)
 
         Repeater3D {
             model:view.weapon.id === "kingsRansom" ? 10 : 0

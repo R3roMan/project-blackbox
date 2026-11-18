@@ -9,18 +9,23 @@ Node {
     required property real strike
     property bool animate: true
     property bool resting: false
+    property real chargeProgress:0
+    property real chargedFlash:0
+    property real fold:resting ? 1 : 0
+    Behavior on fold { enabled:pet.animate; NumberAnimation {duration:430;easing.type:Easing.OutCubic} }
     readonly property bool brain: helper.form === "brain"
     readonly property bool miniShadow: helper.form === "minishade"
+    readonly property bool bird:["crow","owl","finch","chicken"].includes(helper.form)
     readonly property bool chicken: helper.form === "chicken"
     readonly property bool angry: strike > .04
     readonly property bool fairy: helper.form === "fairy"
     readonly property bool spriteGirl: fairy || helper.form === "chibi"
-    opacity: resting ? .49 : 1
+    opacity: 1-fold*.23
 
     readonly property bool mechanical: ["wasp", "kite", "ray", "beetle"].includes(helper.form)
     readonly property bool membraneWing: ["bat", "drake", "ray", "fox"].includes(helper.form)
     readonly property bool roundWing: spriteGirl || ["owl", "moth", "finch", "beetle", "wasp", "chicken"].includes(helper.form)
-    readonly property real flap: animate && !resting ? Math.sin(phase * (mechanical ? 24 : 11)) : 0
+    readonly property real flap: animate ? Math.sin(phase * (mechanical ? 24 : 11))*(1-fold) : 0
 
     PrincipledMaterial { id: body; baseColor: pet.helper.skin; roughness: .56; metalness: pet.mechanical ? .54 : .07 }
     PrincipledMaterial { id: wing; baseColor: Qt.lighter(pet.helper.skin, 1.39); roughness: .69; metalness: pet.mechanical ? .25 : .04 }
@@ -30,10 +35,20 @@ Node {
     PrincipledMaterial { id: hair; baseColor: pet.fairy ? "#435747" : "#c95291"; roughness: .65 }
     PrincipledMaterial {
         id: glow
-        baseColor: pet.angry ? "#fff290" : pet.helper.accent
+        baseColor: pet.angry || pet.chargedFlash>0 ? "#fff290" : pet.helper.accent
         lighting: PrincipledMaterial.NoLighting
     }
 
+    Loader3D {
+        active:pet.bird
+        sourceComponent:BirdPet {
+            helper:pet.helper; phase:pet.phase; strike:pet.strike; animate:pet.animate; resting:pet.resting
+        }
+    }
+    Loader3D {
+        active:!pet.bird
+        sourceComponent:Node {
+    PetDetails {helper:pet.helper; phase:pet.phase; strike:pet.strike; flap:pet.flap; resting:pet.resting}
     Model {
         visible: !pet.brain && !pet.miniShadow
         source: pet.spriteGirl ? "#Cone" : pet.helper.form === "kite" ? "#Cube" : "#Sphere"
@@ -74,7 +89,8 @@ Node {
             readonly property int side: index === 0 ? -1 : 1
             x: side * 12
             y: 7
-            eulerRotation.z: side * (pet.membraneWing ? 10 : 3) + side * pet.flap * (pet.mechanical ? 10 : 30)
+            eulerRotation.z: side * ((pet.membraneWing ? 10 : 3) - pet.fold*48 + pet.flap * (pet.mechanical ? 10 : 30))
+            eulerRotation.y: side*pet.fold*32
             Model {
                 source: pet.roundWing ? "#Sphere" : pet.helper.form === "kite" ? "#Cube" : "#Cone"
                 x: wingJoint.side * (pet.membraneWing ? 23 : 20)
@@ -147,7 +163,7 @@ Node {
             Model {
                 source: "#Sphere"
                 z: 4
-                scale: Qt.vector3d(pet.angry ? .066 : .050, pet.angry ? .048 : .079, .04)
+                scale: Qt.vector3d(pet.angry ? .066 : .050, pet.resting ? .017 : pet.angry ? .048 : .079, .04)
                 materials: [glow]
             }
             Model {
@@ -228,7 +244,7 @@ Node {
                 x: leg.side * 13
                 y: leg.step * 4
                 eulerRotation.z: leg.side * -66
-                scale: Qt.vector3d(.04, .34, .04)
+                    scale: Qt.vector3d(.04, .34-pet.fold*.075, .04)
                 materials: [dark]
             }
             Model {
@@ -249,5 +265,22 @@ Node {
         y: 9
         opacity: .4 + pet.strike
         materials: [glow]
+    }
+        }
+    }
+    Repeater3D {
+        model:pet.chargeProgress>0 || pet.chargedFlash>0 ? 5 : 0
+        Model {
+            required property int index
+            readonly property real theta:index*2*Math.PI/5+(pet.animate ? pet.phase*4.5 : 0)
+            readonly property real radius:30+pet.chargeProgress*9+(pet.chargedFlash>0 ? (1-pet.chargedFlash/.72)*38 : 0)
+            source:"#Sphere"
+            x:Math.cos(theta)*radius
+            y:19+Math.sin(theta)*radius*.60
+            z:Math.sin(theta)*radius*.45
+            scale:Qt.vector3d(.032+pet.chargeProgress*.04,.05,.046)
+            opacity:.35+pet.chargeProgress*.56
+            materials:[glow]
+        }
     }
 }

@@ -9,6 +9,7 @@
 .import "Expansion.js" as Extra
 .import "Arsenal.js" as Arsenal
 .import "Defense.js" as Defense
+.import "SlotEffects.js" as Sockets
 
 var weapons = {
     pistol: { id: "pistol", title: "Service pistol", category: "Weapon", rarity: "common", effect: "ballistic", capacity:7, damage:2, delay:0.25,
@@ -285,6 +286,8 @@ var slotPowers = {
             description: "Reduces damage taken by %1% while this passive slot is occupied." }
     ]
 }
+for (const group of Object.keys(slotPowers))
+    slotPowers[group] = slotPowers[group].concat({weapon:Sockets.weapon,active:Sockets.active,passive:Sockets.passive}[group])
 
 function usesAmmo(spec) {
     return !spec.melee && !spec.sustain && !spec.throwing && !spec.staff && !spec.stab
@@ -336,9 +339,10 @@ function slotPowerAt(spec, level) {
     if (!spec)
         return {}
     const value = spec.levels[level]
-    const displayed = spec.format === "reduction" ? Math.round((1 - value) * 100)
-        : spec.format === "percent" ? Math.round(value * 100) : value
-    return { id: spec.id, title: spec.title, level: level, color:spec.color, description: spec.description.replace("%1", displayed),
+    const displayed = spec.format === "reduction" ? Number(((1 - value) * 100).toFixed(1))
+        : ["percent","points"].includes(spec.format) ? Number((value * 100).toFixed(1)) : value
+    return { id: spec.id, title: spec.title, level: level, color:spec.color, condition:spec.condition,
+        description: spec.description.replace("%1", displayed),
         [spec.stat]: value }
 }
 
@@ -347,6 +351,29 @@ function slotPower(group, slot, level) {
         return {}
     const spec = slotPowers[group].find(function(entry) { return entry.id === slot.power })
     return slotPowerAt(spec, level === undefined ? slot.powerLevel || 0 : level)
+}
+
+function socketEffect(run, group, slot) {
+    if (!slot?.power || !slot.item)
+        return {}
+    const power=slotPower(group,slot)
+    const item=catalogs[group][slot.item.id]
+    const weapon=weapons[current(run)?.id]
+    const pair=power.condition==="paired" && run.slots.active.filter(function(cell) {return !!cell.item}).length>1
+    const set=power.condition==="fullKit" && completeKit(run,kitFor(group,item.id))
+    return Sockets.matches(power.condition,item,weapon,pair,set) ? power : {}
+}
+
+function weaponSocket(run, slot) {
+    return socketEffect(run,"weapon",slot || run.slots.weapon[run.selectedWeapon])
+}
+
+function passiveSockets(run, stat, cap) {
+    const total=run.slots.passive.reduce(function(value,slot) {
+        if (!slot.power) return value
+        return value+(socketEffect(run,"passive",slot)[stat] || 0)
+    },0)
+    return Math.min(cap,total)
 }
 
 function findSlot(run, group, id) {
@@ -545,7 +572,7 @@ var startingHealth = 200
 
 function maxHealth(run) {
     const base = (run.debugBuild === "star" ? 9999 : startingHealth) + (run.boons ? run.boons.health : 0) + passiveRank(run, "capacity") * 10
-        + passiveRank(run, "deepcell") * 3 + perk(run, "health")
+        + passiveRank(run, "deepcell") * 3 + perk(run, "health") + passiveSockets(run,"health",18)
     return Math.max(1, Math.ceil(base * Elements.healthFactor(run.elements || {}) * (run.fearCut ? .5 : 1)))
 }
 
@@ -554,7 +581,7 @@ function magazine(run, index) {
     if (!usesAmmo(weapons[slot.item.id]))
         return 0
     return effectiveWeaponStats(run,slot.item).capacity + passiveRank(run, "magazine") * 2 + passiveRank(run, "sparebox") + perk(run, "ammo")
-        + (slotPower("weapon", slot).ammo || 0) + run.bonusAmmo
+        + (weaponSocket(run, slot).ammo || 0) + passiveSockets(run,"ammo",6) + run.bonusAmmo
 }
 
 function clampStats(run) {
@@ -732,6 +759,7 @@ function equipmentStock(run) {
             if (current.id && current.level < 3) {
                 const next = slotPower(group, slot, current.level + 1)
                 cards.push({ id:"power-upgrade-" + group + "-" + index, action:"power-upgrade", group:group, index:index,
+                    powerId:current.id, level:next.level, rarity:"rare",
                     title:next.title + " · Lv " + next.level, cost:220 + 110 * current.level,
                     description:groupLabels[group] + " slot " + (index + 1) + ". " + next.description })
             }
@@ -741,14 +769,23 @@ function equipmentStock(run) {
 }
 
 function slotOffer(run, random) {
-    const groups = Object.keys(limits)
-    const group = groups[Math.floor(random() * groups.length)]
-    const index = Math.floor(random() * run.slots[group].length)
+    const slots=[]
+    for (const group of Object.keys(limits))
+        for (let index=0;index<run.slots[group].length;index++)
+            slots.push({group:group,index:index,slot:run.slots[group][index]})
+    const occupied=slots.filter(function(item) {return item.slot.item})
+    const choices=random()<.80 && occupied.length ? occupied : slots
+    const {group,index}=choices[Math.floor(random()*choices.length)]
     const previous = slotPower(group, run.slots[group][index])
     const options = slotPowers[group].filter(function(effect) { return effect.id !== previous.id })
-    const power = slotPowerAt(options[Math.floor(random() * options.length)], 0)
-    return { id:"slot-power", action:"power", group:group, index:index, powerId:power.id,
-        title:power.title, cost:395,
+    const compatible=options.filter(function(effect) {
+        const slot=run.slots[group][index]
+        return socketEffect(run,group,{item:slot.item,power:effect.id,powerLevel:0}).id
+    })
+    const pool=random()<.72 && compatible.length ? compatible : options
+    const power = slotPowerAt(pool[Math.floor(random() * pool.length)], 0)
+    return { id:"slot-power", action:"power", group:group, index:index, powerId:power.id, rarity:"rare",
+        title:power.title, cost:395, color:power.color, level:0,
         description:groupLabels[group] + " slot " + (index + 1) + ". " + power.description
             + (previous.title ? " Replaces " + previous.title + " · Lv " + previous.level + "." : " This slot has no ability yet.") }
 }
@@ -784,6 +821,85 @@ var shopUpgrades = [
     {id:"speed",title:"Bearing grease",amount:.12,perk:"+12% turn speed"}
 ]
 
+function shopOdds(rank) {
+    return { premium:.24+.08*rank, legendary:.045+.028*rank }
+}
+
+function counterOffer(run) {
+    const capacity=run.shopCapacity || 5
+    return capacity>=8 ? null : {id:"expand-counter",title:"Unlock listing "+(capacity+1),action:"expand-shop",
+        rarity:"rare",index:capacity,cost:shopPrice(run,475+(capacity-5)*180),
+        description:"Stock this space now and keep it for future boss shops in this run."}
+}
+
+function shopPrice(run, price) {
+    return Math.round(price*(1-.05*Math.max(0,passiveRank(run,"rewire")-1)))
+}
+
+function replacement(run, card) {
+    return card?.action==="power" ? slotPower(card.group,run.slots[card.group]?.[card.index]) : {}
+}
+
+function replacementKey(power) {
+    return power.id ? power.id+":"+power.level : ""
+}
+
+function shopCategory(action) {
+    return ({power:"Slot effect","power-upgrade":"Slot rank",upgrade:"Equipment rank",gear:"Equipment",
+        "shop-quality":"Stock quality","expand-shop":"Counter space",unlock:"Equipment slot",inventory:"Storage",
+        mystery:"Sealed cache","repeat-upgrade":"Stock affinity",pet:"Companion",
+        "barrier-core":"Protection","shield-upgrade":"Protection",scramble:"Rebuild","shop-stat":"Run stat"})[action] || "Supplies"
+}
+
+function shopEntryId(offer) {
+    if (offer.action==="power" || offer.action==="power-upgrade")
+        return offer.powerId || "slot-work"
+    if (offer.action==="upgrade")
+        return "equipment-rank"
+    if (offer.action==="shop-stat")
+        return "counter-"+offer.stat
+    return offer.id
+}
+
+function shopEntries() {
+    const entries=[
+        {id:"counter",title:"The bone counter",action:"shop",description:"Visit the counter after a boss. Buy, skip or refresh unpurchased listings. Sold listings keep their place. You start with five and can buy another three in sequence."},
+        {id:"expand-counter",title:"Unlock a counter listing",action:"expand-shop",description:"Unlock and stock listing six, seven or eight immediately. Each space lasts for the run.",price:"475 / 655 / 835 gold"},
+        {id:"shop-quality",title:"Curated stock",action:"shop-quality",rarity:"epic",
+            description:"Ranks I–III increase the odds of better gear in future shops, newly unlocked listings and refreshes.",
+            price:"515 / 700 / 885 gold",levels:[0,1,2,3].map(function(rank) {
+                const odds=shopOdds(rank)
+                return (rank ? "Rank "+rank : "Base")+" · "+Math.round(odds.premium*100)+"% premium, including "
+                    +Number((odds.legendary*100).toFixed(1))+"% Legendary"
+            })},
+        {id:"repeat-upgrade",title:"Repeat luck",action:"repeat-upgrade",description:"Once a rarity is picked, an eligible item you own has extra weight inside that rarity. Special crates still use their own rarity roll.",price:"430 / 585 / 740 gold"},
+        {id:"mystery-cache",title:"Wrapped mystery cache",action:"mystery",rarity:"epic",description:"Unwrap one eligible Epic item (80%) or Legendary item (20%). Then choose its destination.",price:"670 gold"},
+        {id:"loaded-dice",title:"Loaded dice",action:"scramble",description:"Replace equipped gear with matching-rarity gear at Lv 0. Inventory and slot effects remain.",price:"560 gold"},
+        {id:"expand-inventory",title:"Expand inventory",action:"inventory",description:"One extra bag space for this run, up to ten.",price:"310 gold"},
+        {id:"pet-token",title:"Pet upgrade token",action:"pet",description:"Train your current companion up to three times. Each rank increases its damage and duty time and shortens rest.",price:"360 / 500 / 640 gold"},
+        {id:"shield-upgrade",title:"Shield upgrade",action:"shield-upgrade",description:"Each purchase cuts shield recovery by 0.65 seconds. Rank II adds one block per raise.",price:"390 / 575 / 760 gold"},
+        {id:"barrier-core",title:"Barrier core",action:"barrier-core",description:"Install a fresh Barrier with two, three or four charges. A broken Barrier needs another purchase.",price:"375 / 560 / 745 gold"},
+        {id:"equipment-rank",title:"Equipment rank",action:"upgrade",description:"Improve one equipped item. Its item-specific upgrade is shown on the listing.",price:"170 / 270 / 370 gold"},
+        {id:"slot-work",title:"Slot effects",action:"power",description:"Buy a slot effect to engrave that slot. It stays there when you replace the equipped item. Some effects require a particular item type or a complete kit. Replace a previous effect only after confirming.",
+            price:"395 gold to install · 220 / 330 / 440 gold for ranks"}
+    ]
+    for (const group of Object.keys(limits)) {
+        entries.push({id:"unlock-"+group,action:"unlock",title:"Unlock "+group+" slot",
+            description:"Adds an equipment slot for the current run, up to "+limits[group]+".",
+            price:unlockPrices[group].find(function(price) { return price>0 })+" gold per slot"})
+        for (const spec of slotPowers[group]) {
+            entries.push(Object.assign(slotPowerAt(spec,0),{action:"power",group:group,rarity:"rare",
+                price:"395 gold to install · 220 / 330 / 440 gold for ranks",
+                levels:spec.levels.map(function(_,index) {return "Lv "+index+" · "+slotPowerAt(spec,index).description})}))
+        }
+    }
+    for (const stat of shopUpgrades)
+        entries.push({id:"counter-"+stat.id,title:stat.title,action:"shop-stat",description:stat.perk+" for this run, per level. Up to three levels.",price:"380 / 545 / 710 gold"})
+    for (const offer of supplies)
+        entries.push(Object.assign({price:offer.cost+" gold"},offer))
+    return entries.map(function(entry) {return Object.assign({category:shopCategory(entry.action),shopItem:true},entry)})
+}
+
 function mysteryItem(run, tierRoll, itemRoll) {
     const eligible = Object.values(weapons).concat(Object.values(activeAbilities),Object.values(passives))
     const tier = tierRoll * (88+22) < 88 ? "epic" : "legendary"
@@ -806,9 +922,10 @@ function makeShop(run, random, excluded, maximum) {
             options.splice(index, 1)
     }
 
+    const odds=shopOdds(run.shopQuality || 0)
     const roll = random()
-    if (roll < .24) {
-        const rarity = roll < .045 ? "legendary" : "epic"
+    if (roll < odds.premium) {
+        const rarity = roll < odds.legendary ? "legendary" : "epic"
         const premium = Object.values(activeAbilities).concat(Object.values(passives)).filter(function(item) {
             return item.rarity === rarity && !blocked.includes("premium-" + item.id) && canOffer(run, item)
         })
@@ -818,7 +935,8 @@ function makeShop(run, random, excluded, maximum) {
                 title:item.title, rarity:item.rarity, cost:rarity === "legendary" ? 850 : 590,
                 description:item.description })
         }
-    } else if (!blocked.includes("slot-power") && random() < .70) {
+    }
+    if (stock.length < limit && !blocked.includes("slot-power") && random() < .75) {
         stock.push(slotOffer(run, random))
     }
     if (stock.length < limit && !blocked.includes("pet-token") && run.pet && run.pet.level < 3) {
@@ -828,9 +946,13 @@ function makeShop(run, random, excluded, maximum) {
             description:pet.title + " reaches Lv " + (run.pet.level + 1) + " with stronger attacks every "
                 + next.interval.toFixed(1) + "s, " + next.duty.toFixed(1) + "s on duty and " + next.rest.toFixed(1) + "s rest." })
     }
-    if (stock.length < limit && run.shopCapacity < 8 && !blocked.includes("expand-counter") && random() < .46) {
-        stock.push({id:"expand-counter",title:"Expand the counter",action:"expand-shop",rarity:"rare",
-            cost:475+(run.shopCapacity-5)*180,description:"Adds one listing now and to future boss shops. Up to eight listings."})
+    const quality=run.shopQuality || 0
+    if (stock.length < limit && quality < 3 && !blocked.includes("shop-quality") && random() < .43) {
+        const next=shopOdds(quality+1)
+        stock.push({id:"shop-quality",title:"Curated stock · Lv "+(quality+1),action:"shop-quality",rarity:"epic",
+            level:quality+1,cost:515+quality*185,
+            description:"Future stock draws have "+Math.round(next.premium*100)+"% chance to offer Epic or Legendary gear, including "
+                +Number((next.legendary*100).toFixed(1))+"% for Legendary. Also improves newly unlocked listings and refreshes."})
     }
     if (stock.length < limit && run.repeatRank < 3 && !blocked.includes("repeat-upgrade") && random() < .38) {
         stock.push({id:"repeat-upgrade",title:"Repeat luck · Lv "+(run.repeatRank+1),action:"repeat-upgrade",rarity:"rare",
@@ -876,7 +998,7 @@ function makeShop(run, random, excluded, maximum) {
         if (stock.length < limit)
             stock.push(dice)
         else if (limit >= 5) {
-            const replaceable = stock.filter(function(card) { return !["gear","pet"].includes(card.action) })
+            const replaceable = stock.filter(function(card) { return !["gear","pet","power","shop-quality"].includes(card.action) })
             if (replaceable.length)
                 stock[stock.indexOf(replaceable[Math.floor(random()*replaceable.length)])] = dice
         }
@@ -887,8 +1009,7 @@ function makeShop(run, random, excluded, maximum) {
             break
         draw(available)
     }
-    const discount = .05 * Math.max(0, passiveRank(run, "rewire") - 1)
-    return stock.map(function(card) { return Object.assign({ sold:false }, card, { cost:Math.round(card.cost * (1 - discount)) }) })
+    return stock.map(function(card) { return Object.assign({ sold:false }, card, { cost:shopPrice(run,card.cost) }) })
 }
 
 function shopCards(run) {
@@ -920,10 +1041,11 @@ function scramble(run, random) {
     return changes.length > 0
 }
 
-function buy(run, id, preferred, random) {
+function buy(run, id, preferred, random, confirmed) {
     if (run.phase !== "shop")
         return false
-    const card = shopCards(run).find(function(entry) { return entry.id === id })
+    const stored = shopCards(run).find(function(entry) { return entry.id === id })
+    const card = id==="expand-counter" ? counterOffer(run) : stored
     if (!card || card.sold || run.gold < card.cost)
         return false
 
@@ -937,6 +1059,11 @@ function buy(run, id, preferred, random) {
         if (run.shopCapacity >= 8)
             return false
         run.shopCapacity += 1
+        break
+    case "shop-quality":
+        if ((run.shopQuality || 0)>=3 || card.level!==(run.shopQuality || 0)+1)
+            return false
+        run.shopQuality=card.level
         break
     case "repeat-upgrade":
         if (run.repeatRank >= 3)
@@ -986,14 +1113,21 @@ function buy(run, id, preferred, random) {
         break
     }
     case "power-upgrade":
-        if (!slots[card.index].power || slots[card.index].powerLevel >= 3)
+        if (!slots?.[card.index]?.power || slots[card.index].powerLevel >= 3
+            || card.powerId && slots[card.index].power!==card.powerId)
             return false
         slots[card.index].powerLevel += 1
         break
-    case "power":
+    case "power": {
+        if (!slots?.[card.index] || !slotPowers[card.group].some(function(power) {return power.id===card.powerId}))
+            return false
+        const current = replacement(run,card)
+        if (current.id && (current.id===card.powerId || replacementKey(current)!==confirmed))
+            return false
         slots[card.index].power = card.powerId
         slots[card.index].powerLevel = 0
         break
+    }
     case "gear": {
         const gear = catalogs[card.group][card.gearId]
         if (!canOffer(run, gear) || !equip(run, gear, preferred))
@@ -1033,7 +1167,7 @@ function buy(run, id, preferred, random) {
         return false
     }
     const index = run.shopStock.indexOf(card)
-    run.shopStock[index] = Object.assign({}, card, { sold:true })
+    if (index >= 0) run.shopStock[index] = Object.assign({}, card, { sold:true })
     run.gold -= card.cost
     clampStats(run)
     return true

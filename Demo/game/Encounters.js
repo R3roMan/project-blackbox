@@ -480,6 +480,9 @@ function waveBudget(wave, preset) {
 }
 
 function stageWeather(wave, seed, preset) {
+    const horizon=Conditions.twilight(wave,seed)
+    if (horizon)
+        return horizon
     const rate = Conditions.frequency(preset)
     if (incursion(wave,seed,rate))
         return "incursion"

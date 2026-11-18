@@ -9,6 +9,8 @@ Popup {
     required property string details
     required property string chapter
     required property string entryId
+    property string metadata:""
+    property color metadataTint:"#e4bbc7"
     property int delay:300
     signal entryRequested(string chapter, string id)
 
@@ -66,14 +68,27 @@ Popup {
             anchors.left:parent.left
             anchors.right:parent.right
             spacing:7
-            Text {
+            ColumnLayout {
                 Layout.fillWidth:true
-                text:card.details.split("\n")[0]
-                font.family:"Inter"
-                font.pixelSize:UiMetrics.text(15)
-                font.bold:true
-                color:"#fff0d7"
-                wrapMode:Text.WordWrap
+                spacing:2
+                Text {
+                    Layout.fillWidth:true
+                    text:card.details.split("\n")[0]
+                    font.family:"Inter"
+                    font.pixelSize:UiMetrics.text(15)
+                    font.bold:true
+                    color:"#fff0d7"
+                    wrapMode:Text.WordWrap
+                }
+                Text {
+                    Layout.fillWidth:true
+                    visible:card.metadata.length>0
+                    text:card.metadata
+                    color:card.metadataTint
+                    font.family:"Inter"
+                    font.pixelSize:UiMetrics.text(12)
+                    wrapMode:Text.WordWrap
+                }
             }
             Button {
                 id:expand

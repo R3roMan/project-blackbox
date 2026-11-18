@@ -20,6 +20,8 @@ Item {
     property real clock: 0
     property point aimOffset: Qt.point(0,0)
     property bool catalogue: false
+    property string sunlight:""
+    readonly property bool forwardView:!catalogue && !staff && !handWeapon
     required property bool motion
     readonly property bool handWeapon: !!weapon.melee || !!weapon.throwing || !!weapon.stab
     readonly property bool staff: !!weapon.staff
@@ -38,6 +40,8 @@ Item {
             return steel.mapToItem(sprite,steel.width*.06,steel.height*.34)
         if (staff)
             return Qt.point(width * .28, height * .27)
+        if (forwardView)
+            return forward.muzzle
         if (twins)
             return Qt.point(width * (sequence % 2 ? .11 : .49), height * (sequence % 2 ? .36 : .54))
         return rig.mapToItem(sprite, design.tip[0] * width / 336, design.tip[1] * height / 150)
@@ -163,7 +167,7 @@ Item {
     Item {
         id: rig
         anchors.fill: parent
-        visible: !sprite.handWeapon && !sprite.twins && !sprite.staff
+        visible: sprite.catalogue && !sprite.handWeapon && !sprite.twins && !sprite.staff
         transform: [
             Translate { x: sprite.kick - sprite.stab * 54; y: -sprite.pose.rise + sprite.pose.shellTravel * .13 - sprite.stab * 19 },
             Rotation { origin.x: sprite.width * .78; origin.y: sprite.height * .60; angle: sprite.pose.roll * .47 }
@@ -326,6 +330,21 @@ Item {
             }
         }
     }
+    ForwardGun {
+        id:forward
+        anchors.fill:parent
+        visible:sprite.forwardView
+        design:sprite.art
+        pose:sprite.pose
+        aim:sprite.aimOffset
+        accent:sprite.accent
+        twins:sprite.twins
+        sequence:sprite.sequence
+        intensity:sprite.intensity
+        sunlight:sprite.sunlight
+        bayonet:sprite.bayonet
+        stab:sprite.stab
+    }
     StaffSprite {
         objectName: "heldStaffSprite"
         anchors.fill: parent
@@ -361,7 +380,7 @@ Item {
     Canvas {
         id: pair
         anchors.fill: parent
-        visible: sprite.twins
+        visible: sprite.twins && sprite.catalogue
         onVisibleChanged: if (visible) requestPaint()
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()

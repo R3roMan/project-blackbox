@@ -3,6 +3,10 @@
 var entries = {
     clear:{id:"clear", title:"Clear skies",glyph:"☀",tint:"#ffcf8a",
         description:"The normal rules of each wallpaper apply."},
+    sunrise:{id:"sunrise",title:"Sunrise",glyph:"◒",tint:"#ffc08f",
+        description:"Peach light and drifting horizon lightning. The moving light affects the scenery, weapons and creatures."},
+    sunset:{id:"sunset",title:"Sunset",glyph:"◓",tint:"#ff9876",
+        description:"A copper-red sky with distant lightning. A moving warm light catches the edges of weapons and creatures."},
     night:{id:"night",title:"Night",glyph:"☾",tint:"#b8b2ff",
         description:"Enemies gain 5% health, damage, barrier strength, speed and attack cadence. You have Blindness I."},
     bloodMoon:{id:"bloodMoon",title:"Blood Moon Night",glyph:"●",tint:"#ff625e",
@@ -50,4 +54,11 @@ function isNight(condition) {
 
 function nightVariant(wave,seed) {
     return roll(wave,seed,0x760fea47)<.10 ? "bloodMoon" : "night"
+}
+
+function twilight(wave,seed) {
+    if (wave<2 || [5,8,12,14,18,31].includes(wave))
+        return ""
+    const choice=roll(wave,seed,0x74ce32ab)
+    return choice<.16 ? "sunrise" : choice<.32 ? "sunset" : ""
 }

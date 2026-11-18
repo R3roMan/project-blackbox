@@ -39,6 +39,7 @@ PlasmoidItem {
         Text {text:"PROJECT BLACKBOX";color:"#f0cdac";font.pixelSize:22;font.bold:true}
         Label {Layout.fillWidth:true;text:Native.Desktop.visibilityReady ? (Native.Desktop.atHome ? "Desktop active" : "Paused while using another app") : "Enable Blackbox visibility in KWin Scripts";wrapMode:Text.WordWrap}
         Label {text:"Wave "+(Native.Desktop.state.wave || 0)+" · "+(Native.Desktop.state.hp || 200)+" / "+(Native.Desktop.state.maxHp || 200)+" HP"}
+        Label {text:Native.Desktop.state.renderer || ""; visible:text.length>0}
         ComboBox {Layout.fillWidth:true;model:["Idle","Play","Performance","XD"];currentIndex:["idle","play","performance","xd"].indexOf(Native.Desktop.config.mode);onActivated:Native.Desktop.setOption("mode",["idle","play","performance","xd"][currentIndex])}
         RowLayout {
             Button {text:"New run";onClicked:Native.Desktop.command("new")}
