@@ -17,6 +17,7 @@ import "Tutorial.js" as Tutorial
 import "Meta.js" as Meta
 import "Selection.js" as Draw
 import "Tarot.js" as Tarot
+import "Autoplay.js" as Autoplay
 
 FocusScope {
     id: play
@@ -26,11 +27,19 @@ FocusScope {
 
     required property url artDirectory
     required property bool allowed
+    property bool interactive:allowed
+    property bool backgroundPlay:false
+    signal backgroundPlayRequested(bool enabled)
     property bool tutorial:false
     property var backgroundFiles:({})
     property int frameLimit:60
     property bool showTimer:false
     property real gameSpeed:1
+    property int autoLimit:0
+    property bool autoPlaying:false
+    property real autoDecisionAt:0
+    property var autoPlan:({})
+    readonly property bool autoEligible:!run.training && !run.rehearsal && wave>0 && wave<=autoLimit
     signal timerRequested(bool value)
     signal frameLimitRequested(int value)
     readonly property bool trainingBlocked:{revision;return Tutorial.frozen(run)}
@@ -112,7 +121,10 @@ FocusScope {
     readonly property real frost: { revision; return 1 - Elements.pace(run.elements) }
     readonly property real blindness: { revision; return Rules.blindness(run) }
     readonly property int blindRank: { revision; return Rules.blindRank(run) }
-    readonly property real blindStrength: { revision; return Rules.blindStrength(run) }
+    readonly property real blindStrength: {
+        revision
+        return Rules.blindStrength(run)*(1-abyssDepth)+Rules.blindStrength(run,true)*abyssDepth
+    }
     readonly property bool hypnotised: { revision; return !!run.hypnosis }
     readonly property var grab: { revision; return run.grab }
     readonly property bool constricted: !!grab && grab.constrict
@@ -255,7 +267,7 @@ FocusScope {
         const item = Gear.current(run)
         return weapon.sustain ? Math.min(1, item.heat / Rules.heatLimit(run, weapon, Gear.weaponStats(item))) : 0
     }
-    readonly property bool sustainedFire: { revision; return fireHeld && !fieldGuard.raised && !turning && !stunned && !!Gear.current(run).firing }
+    readonly property bool sustainedFire: { revision; return (fireHeld || autoPlaying && !!autoPlan.point) && !fieldGuard.raised && !turning && !stunned && !!Gear.current(run).firing }
     readonly property bool primed: { revision; return !!Gear.current(run).primed }
     readonly property bool chargedStrike: { revision; return !!Gear.current(run).chargedStrike }
     readonly property int shotSequence: { revision; return Gear.current(run).sequence || 0 }
@@ -348,7 +360,7 @@ FocusScope {
     readonly property real sealProgress: { revision; return sealState ? sealState.progress : 0 }
     readonly property bool sealClosed: { revision; return !!sealState && sealState.closed }
 
-    function keyTargetFocus() {keyTarget.forceActiveFocus()}
+    function keyTargetFocus() {if (interactive) keyTarget.forceActiveFocus()}
 
     function syncTrainingView() {
         if (!run.training || run.playerFront===frontId) return
@@ -568,6 +580,7 @@ FocusScope {
     function restoreRun(restored) {
         if (vault) vault.reload()
         if (!restored || SaveData.isClosed(restored,vault?.state)) return false
+        stopAuto()
         if (!restored.attemptId) restored.attemptId=SaveData.checkpointId(restored)
         turn.stop()
         turnAnimation.stop()
@@ -632,10 +645,11 @@ FocusScope {
         shotFlash = 0
         accumulated = 0
         publish()
-        keyTarget.forceActiveFocus()
+        keyTargetFocus()
     }
 
     function resetRun() {
+        stopAuto()
         outcomeTimer.stop()
         deathSequence.stop()
         deathProgress=0
@@ -703,7 +717,7 @@ FocusScope {
     function turnView(direction) {
         if (!fighting || bookVisible || trainingBlocked || stunned || turnLocked || play.turning || lunging)
             return
-        keyTarget.forceActiveFocus()
+        keyTargetFocus()
         direction = Rules.turnInput(run,direction)
         const destination = turns[direction]
         if (!destination || !Rules.lookFront(run, destination))
@@ -773,8 +787,11 @@ FocusScope {
         })
         const targets = weapon.melee ? swingTargets(x, y, Math.max(weapon.aim, height * weapon.aim / 650) * .74)
             : traces.reduce(function(all, trace) { return all.concat(trace.targets) }, [])
-        const fired = Rules.shoot(run, targets, frontId,
-            { x:x / width, y:y / height, scoped:aimingGun }, continuation)
+        commitShot(targets,traces,{x:x/width,y:y/height,scoped:aimingGun},continuation)
+    }
+
+    function commitShot(targets,traces,point,continuation) {
+        const fired = Rules.shoot(run, targets, frontId,point,continuation)
         if (fired) {
             shotRays = traces
             shotFlash = motion ? weapon.afterglow : Math.min(.10, weapon.afterglow)
@@ -787,6 +804,74 @@ FocusScope {
             const grip = heldWeapon.mapToItem(play, heldWeapon.width * .5, heldWeapon.height * .69)
             weaponFeedback.ejectCase(weapon, shotSequence, barrel, grip)
         }
+    }
+
+    function stopAuto() {
+        if (!autoPlaying) return
+        autoPlaying=false
+        autoPlan=({})
+        sealing=false
+        fireHeld=false
+        Rules.holdShield(run,false)
+    }
+
+    function toggleAuto() {
+        if (autoPlaying) stopAuto()
+        else if (fighting && autoEligible) {
+            autoPlaying=true
+            autoPlan=({})
+            autoDecisionAt=run.time+.24
+            fireHeld=false
+            heldShiftKeys=[]
+        }
+        keyTargetFocus()
+    }
+
+    function autoCombat(frameTime) {
+        if (!autoEligible) {stopAuto();return null}
+        if (turning || !Rules.canAct(run)) {
+            sealing=false
+            return null
+        }
+        const deciding=run.time>=autoDecisionAt
+        if (deciding) {
+            autoDecisionAt=run.time+.17+Math.random()*.11
+            autoPlan=Autoplay.plan(run)
+            Rules.holdShield(run,autoPlan.guard)
+            if (autoPlan.direction && !run.shield.raised) {
+                sealing=false
+                turnView(Rules.turnInput(run,autoPlan.direction))
+                return null
+            }
+        }
+        sealing=!!autoPlan.seal
+        if (!autoPlan.point || !worldItem) return null
+        const point=autoPlan.point
+        const projected=worldItem.projection(point.lane,point.elevation,point.depth)
+        const screen=worldItem.mapToItem(aim,projected.x,projected.y)
+        const x=Math.max(3,Math.min(width-3,screen.x))
+        const y=Math.max(3,Math.min(height-3,screen.y))
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+        updateAim(glitchInput ? width-x : x,glitchInput ? height-y : y,frameTime)
+        const sight={x:pointer.x/width,y:pointer.y/height,aspect:width/height,scoped:false}
+        const gun=Gear.current(run)
+        const hits=[autoPlan.id]
+        if (deciding && !run.shield.raised) {
+            if (weapon.staff && runes>=runeCost || weapon.melee && !gun.primed && point.depth>280 && gun.recovery<=0)
+                Rules.reload(run,hits,frontId,sight)
+            const slot=run.slots.active.findIndex(entry => entry.item && !Rules.activeCooldown(run,entry.item.id)
+                && Gear.environmentMatches(run,Gear.activeAbilities[entry.item.id].environment))
+            if (slot>=0 && autoPlan.enemy && Math.random()<.43)
+                Rules.useAbility(run,slot,frontId,autoPlan.enemy.id,sight)
+        }
+        const burst=Rules.queuedShot(run)
+        if (burst || gun.recovery<=0 && (!weapon.spinup || gun.spin>=1)) {
+            const pellets=weapon.spread?.length || 1
+            const landed=Math.random()<.87 ? Math.max(1,Math.ceil(pellets*(point.depth<450 ? .76 : .40))) : 0
+            const traces=[{x:pointer.x,y:pointer.y,dx:0,dy:0,hit:landed ? autoPlan.id : 0}]
+            commitShot(Array(landed).fill(autoPlan.id),traces,sight,burst)
+        }
+        return sight
     }
 
     function pickReward(id, slot) {
@@ -806,7 +891,7 @@ FocusScope {
     }
 
     function giveMenuFocus() {
-        if (!allowed || fighting || bookVisible || outcomeKind)
+        if (!interactive || !allowed || fighting || bookVisible || outcomeKind)
             return
         if (phase==="defeat") {postcard.item?.forceActiveFocus();return}
         const choice = phase === "reward" && !paused
@@ -869,10 +954,18 @@ FocusScope {
         else
             Qt.callLater(giveMenuFocus)
     }
+    onInteractiveChanged: if (!interactive) {
+        fireHeld=false
+        heldShiftKeys=[]
+        if (!autoPlaying) {
+            sealing=false
+            Rules.holdShield(run,false)
+        }
+    }
     onPhaseChanged: {
         const finished=previousPhase==="combat"
         previousPhase=phase
-        if (phase==="defeat") finishAttempt()
+        if (phase==="defeat") {stopAuto();finishAttempt()}
         if (finished && ["between","reward","bossReward","defeat"].includes(phase) && !run.training) {
             if (phase==="defeat") {
                 deathProgress=0
@@ -927,6 +1020,23 @@ FocusScope {
     }
     onStunnedChanged: if (stunned) sealing = false
 
+    Timer {
+        interval:Math.round(460/play.gameSpeed)
+        running:play.autoPlaying && play.allowed && !play.paused && !play.bookVisible && !play.outcomeKind
+            && ["between","reward","bossReward","shop"].includes(play.phase)
+        repeat:true
+        onTriggered:{
+            if (play.phase==="between") {
+                if (play.wave>=play.autoLimit) play.stopAuto()
+                else play.startWave()
+            } else if (Autoplay.select(play.run)) {
+                play.selectedOffer=""
+                play.publish()
+                play.saveCheckpoint(true)
+            }
+        }
+    }
+
     Item { id: keyTarget; focus: true }
 
     Timer {
@@ -977,12 +1087,12 @@ FocusScope {
             previous=now
             play.accumulated+=frameTime*play.gameSpeed
             const step=1/60
-            play.updateAim(aim.mouseX,aim.mouseY,frameTime)
-            const sight=aim.containsMouse && !play.turning && !play.stunned
+            if (play.interactive && !play.autoPlaying) play.updateAim(aim.mouseX,aim.mouseY,frameTime)
+            const sight=play.autoPlaying ? play.autoCombat(frameTime) : play.interactive && aim.containsMouse && !play.turning && !play.stunned
                 ? {x:play.pointer.x/play.width,y:play.pointer.y/play.height,aspect:play.width/play.height} : null
             let steps=0
             while (play.accumulated>=step && play.run.phase==="combat" && steps++<12) {
-                Tutorial.update(play.run,step,play.sealing && !!play.sealState && !play.turning,play.fireHeld && !!sight,sight,!play.turning)
+                Tutorial.update(play.run,step,play.sealing && !!play.sealState && !play.turning,(play.fireHeld || play.autoPlaying) && !!sight,sight,!play.turning)
                 play.accumulated-=step
             }
             play.syncTrainingView()
@@ -991,14 +1101,16 @@ FocusScope {
             if (play.weapon.spinup) play.rotaryAngle=(play.rotaryAngle+play.spin*frameTime*play.gameSpeed*1440)%360
             play.publish()
             if (play.phase!=="combat" && play.phase!=="defeat") play.saveCheckpoint(true)
-            if (sight && Rules.queuedShot(play.run)) play.fire(play.pointer.x,play.pointer.y,true)
-            else if (play.fireHeld && aim.containsMouse) play.fire(play.pointer.x,play.pointer.y)
+            if (!play.autoPlaying) {
+                if (sight && Rules.queuedShot(play.run)) play.fire(play.pointer.x,play.pointer.y,true)
+                else if (play.fireHeld && aim.containsMouse) play.fire(play.pointer.x,play.pointer.y)
+            }
         }
     }
 
     Keys.priority: Keys.BeforeItem
     Keys.onPressed: function(event) {
-        if (!fighting || bookVisible)
+        if (!fighting || bookVisible || !interactive || autoPlaying)
             return
         if (trainingBlocked) return
         switch (event.key) {
@@ -1315,20 +1427,20 @@ FocusScope {
     WeatherFX {
         anchors.fill: parent
         ultra:play.graphicsDetail===3
-        condition: play.fighting && (play.weather !== "meteor" || play.frontId === "up")
-            && (play.weather!=="incursion" || play.takeover) ? play.weather : "clear"
+        condition: play.fighting && (play.weather!=="incursion" || play.takeover)
+            ? Scenery.roomWeather(play.weather,play.frontId) : "clear"
         gust: { play.revision; return play.run.gustLeft }
-        opacity:(1-play.blindness)*(Scenery.surfaceWeather(condition) ? 1-play.abyssDepth : 1)
+        opacity:1-play.blindness
         time: play.elapsed
         motion: play.motion
     }
     Loader {
         anchors.fill:parent
-        active:play.fighting && play.windy && play.weather!=="windy" && play.abyssDepth<1
+        active:play.fighting && play.windy && play.weather!=="windy"
         sourceComponent:WeatherFX {
             condition:"windy"
             gust:{play.revision;return play.run.gustLeft}
-            opacity:(1-play.blindness)*(1-play.abyssDepth)
+            opacity:1-play.blindness
             time:play.elapsed
             motion:play.motion
         }
@@ -1581,7 +1693,7 @@ FocusScope {
     Text {
         objectName: "criticalReadout"
         anchors.horizontalCenter: parent.horizontalCenter
-        y: parent.height*.24 - (play.motion ? (1-play.criticalFlash/.60)*13 : 0)
+        y: Math.max(parent.height*.24,combatMessages.y+combatMessages.height+22) - (play.motion ? (1-play.criticalFlash/.60)*13 : 0)
         visible: play.fighting && play.criticalFlash > 0
         opacity: Math.min(1,play.criticalFlash*3.4)
         text: { play.revision; return "CRITICAL  " + play.run.criticalNumber.toFixed(1) }
@@ -1594,7 +1706,7 @@ FocusScope {
     }
     Column {
         anchors.horizontalCenter: parent.horizontalCenter
-        y: parent.height*.29
+        y: Math.max(parent.height*.29,combatMessages.y+combatMessages.height+45)
         visible: play.fighting
         spacing: 2
         Repeater {
@@ -1649,7 +1761,7 @@ FocusScope {
         objectName: "aimArea"
         anchors.fill: parent
         visible: play.fighting
-        enabled: visible
+        enabled: visible && play.interactive && !play.autoPlaying
         hoverEnabled: enabled
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         cursorShape: play.glitchInput ? Qt.BlankCursor : play.fighting ? Qt.CrossCursor : Qt.ArrowCursor
@@ -1813,10 +1925,13 @@ FocusScope {
     }
 
     Rectangle {
+        id:fieldHeader
+        objectName:"fieldHeader"
         anchors.top: parent.top
         width: parent.width
         visible:!play.outcomeKind
-        height: play.fighting ? Math.max(88, waveReadout.y + waveReadout.height * play.hudZoom + 6) : 76
+        height: play.fighting ? Math.max(88,fieldControls.y+fieldControls.height+8,
+            waveReadout.y+waveReadout.height*play.hudZoom+6,fieldTitle.y+fieldTitle.height+8) : Math.max(76,fieldControls.y+fieldControls.height+8)
         color: "#d0161b28"
         border.color: "#5c5065"
         Ui.PanelPlating {
@@ -1827,11 +1942,16 @@ FocusScope {
     }
 
     Column {
+        id:fieldTitle
+        objectName:"fieldTitle"
         visible:!play.outcomeKind
-        x: 24
-        y: 19
+        x: play.compactLayout ? 14 : 24
+        y: 16
+        width:play.fighting ? Math.max(60,(play.width-waveReadout.width*play.hudZoom)/2-x-12) : play.width*.53
         spacing: 2
         Text {
+            width:parent.width
+            elide:Text.ElideRight
             text: play.lab ? "AFTER WAVE " + play.wave : "PROJECT BLACKBOX"
             color: play.location.color
             font.family: "IBM Plex Mono"
@@ -1839,6 +1959,8 @@ FocusScope {
             font.letterSpacing: 2
         }
         Text {
+            width:parent.width
+            elide:Text.ElideRight
             text: play.phase === "shop" ? "Supply room" : play.lab ? "Droid Lab" : play.location.title
             color: "#fff2e9"
             font.family: "Inter"
@@ -1849,12 +1971,13 @@ FocusScope {
 
     Column {
         id: waveReadout
+        objectName:"waveReadout"
         scale: play.hudZoom
         transformOrigin: Item.Top
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: 18
-        width: Math.min(250, play.width * .30)
+        width: Math.max(136,Math.min(258,play.width*.36,(play.width-2*(fieldControls.width+22))/play.hudZoom))
         spacing: 7
         visible: play.fighting
 
@@ -1863,11 +1986,11 @@ FocusScope {
             width: parent.width
             implicitHeight: 42
             text: "Wave " + play.wave
-            contentItem:Row {
-                spacing:14
-                Text {text:"Wave "+play.wave;color:"#f0dfd3";font.pixelSize:14;anchors.verticalCenter:parent.verticalCenter}
+            contentItem:RowLayout {
+                spacing:7
+                Text {text:"Wave "+play.wave;color:"#f0dfd3";font.pixelSize:14}
                 Ui.BloodNumber {value:play.remaining}
-                Text {visible:play.summons>0;text:"+"+play.summons+" summoned";color:"#bfa9c9";font.pixelSize:10;anchors.verticalCenter:parent.verticalCenter}
+                Text {Layout.fillWidth:true;visible:play.summons>0 && waveReadout.width>=186;text:"+"+play.summons+" summoned";elide:Text.ElideRight;color:"#bfa9c9";font.pixelSize:10}
             }
             Accessible.name: text + ". Open Waves"
             font.pixelSize: Ui.UiMetrics.text(14)
@@ -1953,37 +2076,75 @@ FocusScope {
         }
     }
 
-    Row {
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: 18
+    Column {
+        id: fieldControls
+        objectName:"fieldControls"
+        z:25
+        anchors.right:parent.right
+        anchors.top:parent.top
+        anchors.topMargin:14
+        anchors.rightMargin:16
         visible:!play.outcomeKind
-        spacing: 7
-        Ui.ActionButton {
-            objectName: "audioButton"
-            visible:play.fighting
-            text:"Audio"
-            onClicked:play.pauseRun("settings")
+        spacing:6
+
+        Row {
+            anchors.right:parent.right
+            spacing:6
+            Ui.ActionButton {
+                objectName:"audioButton"
+                visible:play.fighting && play.width>=650
+                text:"Audio"
+                onClicked:play.pauseRun("settings")
+            }
+            Ui.ActionButton {
+                visible:play.fighting || (play.lab && !play.paused)
+                text:play.compactLayout ? "Pause" : "Pause · Esc"
+                objectName:"pausePlay"
+                onClicked:play.pauseRun("build")
+            }
+            Ui.ActionButton {
+                objectName:"exitPlay"
+                visible:play.phase==="ready" || play.phase==="defeat"
+                text:"Home · Esc"
+                onClicked:play.exitRequested()
+            }
         }
-        Ui.ActionButton {
-            visible: play.fighting || (play.lab && !play.paused)
-            text: "Pause · Esc"
-            objectName: "pausePlay"
-            onClicked: play.pauseRun("build")
+
+        Row {
+            anchors.right: parent.right
+            spacing: 5
+            visible:(play.fighting || play.autoPlaying) && !play.trainingDialogue
+            Ui.ActionButton {
+                objectName:"autoPlayButton"
+                visible:!play.run.training
+                text:play.autoPlaying ? "Auto on" : "Auto"
+                hintText:play.autoLimit ? "Auto through Wave "+play.autoLimit : "Clear a wave to unlock Auto"
+                Accessible.name:play.autoPlaying ? "Turn Auto off" : "Turn Auto on"
+                enabled:play.interactive && (play.autoPlaying || play.autoEligible)
+                primary:play.autoPlaying
+                onClicked:play.toggleAuto()
+            }
+            Ui.ActionButton {
+                objectName:"gameSpeed"
+                text:play.gameSpeed+"×"
+                hintText:"Change simulation speed"
+                onClicked:{play.gameSpeed=play.gameSpeed===1 ? 2 : play.gameSpeed===2 ? .5 : 1;play.keyTargetFocus()}
+            }
         }
-        Ui.ActionButton {
-            objectName: "exitPlay"
-            visible: play.phase === "ready" || play.phase === "defeat"
-            text: "Home · Esc"
-            onClicked: play.exitRequested()
+        Text {
+            visible:play.fighting && play.showTimer
+            anchors.right:parent.right
+            text:{play.revision;const seconds=Math.floor(play.run.waveTime);return Math.floor(seconds/60)+":"+String(seconds%60).padStart(2,"0")}
+            color:"#f5dfd0";font.family:"monospace";font.pixelSize:Ui.UiMetrics.text(13)
         }
     }
 
     Column {
         id: combatMessages
         anchors.top: parent.top
-        anchors.topMargin: Math.max(111,waveReadout.y+waveReadout.height*play.hudZoom+12)
+        anchors.topMargin:fieldHeader.height+12
         anchors.horizontalCenter: parent.horizontalCenter
+        width:Math.min(play.width-32,780)
         spacing: 6
         visible: play.fighting
         Text {
@@ -2030,6 +2191,9 @@ FocusScope {
                     hexes.unshift("BURN " + play.run.elements.burn + " · " + play.run.elements.burnLeft.toFixed(1) + " s")
                 return hexes.join("  ·  ")
             }
+            width:parent.width
+            horizontalAlignment:Text.AlignHCenter
+            wrapMode:Text.WordWrap
             visible: text.length > 0
             color: "#ffc082"
             style: Text.Outline
@@ -2634,6 +2798,8 @@ FocusScope {
                     frameLimit:play.frameLimit
                     showTimer:play.showTimer
                     autoSave:play.autoSave
+                    backgroundPlay:play.backgroundPlay
+                    onBackgroundPlayRequested:function(value) {play.backgroundPlayRequested(value)}
                     onAutoSaveRequested:function(value) { play.autoSaveRequested(value) }
                     onHudScaleRequested:function(value) { play.hudScaleRequested(value) }
                     onTextScaleRequested:function(value) { play.textScaleRequested(value) }
@@ -2915,7 +3081,7 @@ FocusScope {
         width: achievementLabel.implicitWidth + 28
         height: Math.max(32,Ui.UiMetrics.text(22))
         x: play.fighting ? 24 : (play.width - width) / 2
-        y: play.fighting ? 114 : play.height - height - 20
+        y: play.fighting ? fieldHeader.height+6 : play.height - height - 20
         radius: 5
         color: "#ee20343c"
         border.color: "#73b8aa"
@@ -2964,7 +3130,7 @@ FocusScope {
         readonly property Item gameplay:play
         active:gameplay.sound
         sourceComponent:Audio {
-            allowed:audio.gameplay.allowed && !audio.gameplay.paused && !audio.gameplay.bookVisible
+            allowed:audio.gameplay.interactive && audio.gameplay.allowed && !audio.gameplay.paused && !audio.gameplay.bookVisible
             weaponId:audio.gameplay.weapon.id
             continuous:audio.gameplay.sustainedFire
             sustainWeapon:!!audio.gameplay.weapon.sustain
@@ -3036,20 +3202,6 @@ FocusScope {
         revision:play.revision
         frontId:play.frontId
         motion:play.motion
-    }
-    Row {
-        z:25
-        anchors.right:parent.right;anchors.top:parent.top;anchors.rightMargin:19;anchors.topMargin:70
-        spacing:8
-        visible:play.fighting && !play.trainingDialogue
-
-        Text {
-            visible:play.showTimer
-            text:{play.revision;const seconds=Math.floor(play.run.waveTime);return Math.floor(seconds/60)+":"+String(seconds%60).padStart(2,"0")}
-            color:"#f5dfd0";font.family:"monospace";font.pixelSize:17
-        }
-        Ui.ActionButton {objectName:"gameSpeed";text:play.gameSpeed+"×";implicitHeight:29;implicitWidth:49
-            onClicked:play.gameSpeed=play.gameSpeed===1 ? 2 : play.gameSpeed===2 ? .5 : 1}
     }
     Rectangle {
         z:26

@@ -22,6 +22,7 @@ Item {
     property real solarTime:clock
     property bool motion:true
     property bool swarm:false
+    property bool weatherParticles:false
     property var labAppearance:({})
     property int detail:1
     property string framing:"fill"
@@ -46,12 +47,12 @@ Item {
             required property string modelData
             property alias surface:wall
             readonly property bool incoming:modelData===backdrop.activeFront
-            visible:incoming || backdrop.progress<1 && !backdrop.lab && modelData===backdrop.previousFront
+            readonly property bool inView:incoming || backdrop.moving && modelData===backdrop.previousFront
             width:backdrop.width;height:backdrop.height
             clip:true
             // During a dissolve the departing view stays opaque beneath the arrival.
             z:incoming ? 1 : 0
-            opacity:backdrop.moving && !backdrop.rotating && incoming ? backdrop.progress : 1
+            opacity:!inView ? 0 : backdrop.moving && !backdrop.rotating && incoming ? backdrop.progress : 1
             readonly property var descent:backdrop.descending ? ViewTurn.descent(height,backdrop.progress,incoming,
                 backdrop.previousFront==="down",backdrop.transitionStrength) : ({scale:1,y:0})
             transform:Matrix4x4 {
@@ -71,7 +72,7 @@ Item {
                 property bool failed:false
                 onRequestedChanged:failed=false
                 onStatusChanged:if(status===Image.Error && String(source)!==String(fallback))failed=true
-                source:panel.visible ? (failed ? fallback : requested) : ""
+                source:failed ? fallback : requested
                 smooth:true;mipmap:true
                 scale:backdrop.zoom*panel.descent.scale
                 sourceSize:Qt.size(Math.max(1,Math.round(width*backdrop.sampleScale*backdrop.zoom*distanceScale)),
@@ -80,12 +81,16 @@ Item {
                 Loader {
                     anchors.centerIn:parent
                     width:wall.paintedWidth;height:wall.paintedHeight
-                    active:panel.visible && wall.status===Image.Ready
+                    active:wall.status===Image.Ready
                     sourceComponent:RoomAtmosphere {
                         front:panel.modelData;phase:backdrop.phase;weather:backdrop.weather
                         lightingWeather:backdrop.lightingWeather
                         custom:String(wall.source)!==String(wall.fallback)
-                        cloudy:backdrop.cloudy;windy:backdrop.windy;clock:backdrop.clock;solarTime:backdrop.solarTime;motion:backdrop.motion
+                        cloudy:backdrop.cloudy;windy:backdrop.windy
+                        clock:panel.inView ? backdrop.clock : Math.floor(backdrop.clock/5)*5
+                        solarTime:panel.inView ? backdrop.solarTime : Math.floor(backdrop.solarTime/5)*5
+                        motion:backdrop.motion && panel.inView
+                        weatherParticles:backdrop.weatherParticles && panel.inView
                         detail:backdrop.detail;swarm:backdrop.swarm;labAppearance:backdrop.labAppearance
                     }
                 }

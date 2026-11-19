@@ -29,8 +29,10 @@ function skyColors(phase,weather) {
     return ["#235888","#428bc0","#86b9d8","#cbe1e9"]
 }
 
-function surfaceWeather(weather) {
-    return !["clear","incursion","glitch"].includes(weather)
+function roomWeather(weather,front) {
+    if (Conditions.validSky(weather) || weather==="meteor" && front!=="up" && front!=="down")
+        return "clear"
+    return weather
 }
 
 function dayPart(hour) {

@@ -17,6 +17,8 @@ FocusScope {
     property bool motionAllowed: true
     property var roomArtwork:({})
     property Component roomLighting:null
+    property Component artworkView:null
+    readonly property bool useArtworkView:!!artworkView && !!roomArtwork[room] && (!moving || !!roomArtwork[destination])
     property bool preview: false
     property bool exposed: true
     property bool coverDemo: false
@@ -55,7 +57,7 @@ FocusScope {
     property string pickRoom: ""
     property string imageError: ""
     property string invalidImage: ""
-    readonly property bool artReady: base.status === Image.Ready
+    readonly property bool artReady: useArtworkView || base.status === Image.Ready
     readonly property bool moving: destination.length > 0
     readonly property real signalLevel: audioDemo && ambient
         ? .24 + .58 * Math.pow(Math.max(0, Math.sin(phase * Math.PI / 14)), 6) : 0
@@ -209,11 +211,19 @@ FocusScope {
         color: "#080b13"
     }
 
+    Loader {
+        anchors.fill:parent
+        active:!!root.artworkView
+        visible:root.useArtworkView
+        sourceComponent:root.artworkView
+    }
+
     Image {
         id: base
+        visible:!root.useArtworkView
         objectName: "roomImage"
         anchors.fill: parent
-        source: root.wallSource
+        source: root.useArtworkView ? "" : root.wallSource
         sourceSize.width: Math.min(3840, Math.max(1600, Math.ceil(root.width * Screen.devicePixelRatio)))
         fillMode: Image.PreserveAspectCrop
         asynchronous: false
@@ -233,7 +243,7 @@ FocusScope {
             width:base.paintedWidth;height:base.paintedHeight
             readonly property string sceneRoom:root.room
             readonly property bool customImage:String(base.source)!==root.defaultArt(sceneRoom)
-            active:!!root.roomLighting && base.status===Image.Ready && !!root.roomArtwork[sceneRoom]
+            active:base.visible && !!root.roomLighting && base.status===Image.Ready && !!root.roomArtwork[sceneRoom]
             sourceComponent:root.roomLighting
         }
         onStatusChanged: {
@@ -253,8 +263,8 @@ FocusScope {
     Image {
         id: incoming
         anchors.fill: parent
-        visible: root.moving
-        source: root.moving ? root.artFor(root.destination) : ""
+        visible: root.moving && !root.useArtworkView
+        source: visible ? root.artFor(root.destination) : ""
         sourceSize: base.sourceSize
         fillMode: Image.PreserveAspectCrop
         cache: false
@@ -286,11 +296,11 @@ FocusScope {
 
     TurnJoin {
         anchors.fill:parent
-        active:root.looking;outgoing:base;direction:root.lookDirection;progress:root.progress
+        active:root.looking && !root.useArtworkView;outgoing:base;direction:root.lookDirection;progress:root.progress
     }
     DescentShade {
         anchors.fill:parent
-        progress:root.artworkDescent ? root.progress : 0
+        progress:root.artworkDescent && !root.useArtworkView ? root.progress : 0
     }
 
     Rectangle {

@@ -6,6 +6,7 @@ import QtQuick.Dialogs
 import "game" as Game
 import "ui" as Ui
 import "game/Progress.js" as Progress
+import "game/Autoplay.js" as Autoplay
 import "game/SaveData.js" as SaveData
 import "game/Meta.js" as Meta
 
@@ -90,6 +91,7 @@ ApplicationWindow {
         property real hudScale:1
         property real textScale:1
         property bool autoSave:true
+        property bool backgroundPlay:false
         property bool audioEnabled:true
         property real audioMaster:audioEnabled ? 1 : 0
         property real audioMusic:1
@@ -154,7 +156,7 @@ ApplicationWindow {
     function displayValues() {
         return {backgroundFiles:display.backgroundFiles,framing:display.framing,quality:display.quality,zoom:display.zoom,mouseTurns:display.mouseTurns,
             frameLimit:display.frameLimit,showTimer:display.showTimer,detail:display.detail,transitionStyle:display.transitionStyle,transitionStrength:display.transitionStrength,
-            hudScale:display.hudScale,textScale:display.textScale,autoSave:display.autoSave,
+            hudScale:display.hudScale,textScale:display.textScale,autoSave:display.autoSave,backgroundPlay:display.backgroundPlay,
             audioMaster:display.audioMaster,audioMusic:display.audioMusic,audioEffects:display.audioEffects,audioAmbience:display.audioAmbience,audioInterface:display.audioInterface}
     }
 
@@ -500,7 +502,11 @@ ApplicationWindow {
             showTimer:display.showTimer
             onFrameLimitRequested:function(value) {display.frameLimit=value}
             onTimerRequested:function(value) {display.showTimer=value}
-            allowed: window.activeHome
+            allowed: window.activeHome || display.backgroundPlay && window.visible && !window.tutorial
+            interactive:window.activeHome
+            backgroundPlay:display.backgroundPlay
+            autoLimit:Autoplay.waveLimit(window.profile,careerVault.state)
+            onBackgroundPlayRequested:function(value) {display.backgroundPlay=value}
             software: window.software
             sound: window.sound
             motion: window.motion

@@ -1,5 +1,6 @@
 import QtQuick
 import "Conditions.js" as Conditions
+import "Scenery.js" as Scenery
 
 Item {
     id:room
@@ -10,12 +11,14 @@ Item {
     property real solarTime:clock
     property string lightingWeather:weather
     property bool custom:false
+    property bool weatherParticles:false
     property bool cloudy:false
     property bool windy:false
     property bool motion:true
     property bool swarm:false
     property var labAppearance:({})
     property int detail:1
+    readonly property string localWeather:Scenery.roomWeather(lightingWeather,front)
     readonly property var sky:Conditions.sky(phase,solarTime,front)
     Loader {
         anchors.fill:parent
@@ -28,7 +31,7 @@ Item {
     }
     Loader {
         anchors.fill:parent
-        active:room.custom
+        active:room.custom && room.front!=="down"
         sourceComponent:SkyDome {
             sky:room.sky;frontId:room.front;night:room.phase
             sunTint:"#fff2c7";customWall:true;projected:true
@@ -59,10 +62,26 @@ Item {
             LunarDisc {redNight:room.phase==="bloodMoon";orbitX:room.sky.moonX;orbitY:room.sky.moonY}
         }
     }
+    Rectangle {
+        anchors.fill:parent
+        visible:room.front==="down" && ["cloudy","heatwave"].includes(room.localWeather)
+        gradient:Gradient {
+            GradientStop {position:0; color:room.localWeather==="heatwave" ? "#306a3b29" : "#3d383e53"}
+            GradientStop {position:1; color:room.localWeather==="heatwave" ? "#6d8a3a27" : "#172f3240"}
+        }
+    }
+    Loader {
+        anchors.fill:parent
+        active:room.weatherParticles && room.localWeather!=="clear"
+        sourceComponent:WeatherFX {
+            condition:room.localWeather; time:room.clock; motion:room.motion
+            opacity:room.front==="right" ? .45 : 1
+        }
+    }
     WeatherFX {
         anchors.fill:parent
         sky:true
-        condition:room.front==="down" && room.lightingWeather!=="incursion" ? "clear" : room.lightingWeather
+        condition:room.localWeather
         opacity:room.front==="right" && condition!=="incursion" ? .55 : 1
         time:room.clock
         motion:room.motion

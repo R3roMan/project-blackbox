@@ -84,7 +84,7 @@ function merge(profile, delta) {
 }
 
 function keepsBest(key) {
-    return ["bestWave","bestShieldCrits","bestFlawlessWave","bestWallet","bestRunSpent","bestTimedWave"].includes(key)
+    return ["bestWave","bestClearedWave","bestShieldCrits","bestFlawlessWave","bestWallet","bestRunSpent","bestTimedWave"].includes(key)
 }
 
 function withGrades(profile, ledger) {

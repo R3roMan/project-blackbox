@@ -14,7 +14,7 @@ Item {
     property string weather: "clear"
     property bool windy: weather==="windy"
     property bool inAbyss:false
-    readonly property bool surfaceWeather:allowed && inBattle && !inAbyss
+    readonly property bool weatherActive:allowed && inBattle
     readonly property real ambience:Ui.SoundMix.gain("ambience")
     visible: false
     property bool alternate: false
@@ -117,7 +117,7 @@ Item {
         clip:"harvester-loop"; active:audio.allowed && audio.soulDrain; gain:.37*audio.ambience
     }
     LoopPlayback {
-        clip:"wind-loop"; active:audio.surfaceWeather && audio.windy; gain:.37*audio.ambience
+        clip:"wind-loop"; active:audio.weatherActive && audio.windy; gain:.37*audio.ambience
     }
     LoopPlayback {
         clip:"glitch-loop"; active:audio.allowed && audio.inBattle && audio.weather==="glitch"; gain:.28*audio.ambience
@@ -129,14 +129,14 @@ Item {
     }
     LoopPlayback {
         clip:"rain-loop"
-        active:audio.surfaceWeather && (audio.weather==="rain" || audio.weather==="thunder")
-        gain:.25*audio.ambience
+        active:audio.weatherActive && (audio.weather==="rain" || audio.weather==="thunder")
+        gain:(audio.inAbyss ? .17 : .25)*audio.ambience
     }
     LoopPlayback {
-        clip:"inferno-loop"; active:audio.surfaceWeather && audio.weather==="inferno"; gain:.45*audio.ambience
+        clip:"inferno-loop"; active:audio.weatherActive && audio.weather==="inferno"; gain:.45*audio.ambience
     }
     LoopPlayback {
-        clip:"winter-loop"; active:audio.surfaceWeather && audio.weather==="winter"; gain:.29*audio.ambience
+        clip:"winter-loop"; active:audio.weatherActive && audio.weather==="winter"; gain:.29*audio.ambience
     }
     LoopPlayback {
         clip:"abyss-bubble-loop"; active:audio.allowed && audio.inBattle && audio.flooded; gain:.37*audio.ambience

@@ -32,6 +32,8 @@ ColumnLayout {
     property int frameLimit:60
     property bool showTimer:false
     property bool autoSave:true
+    property bool backgroundPlay:false
+    signal backgroundPlayRequested(bool enabled)
     signal autoSaveRequested(bool enabled)
     signal hudScaleRequested(real scale)
     signal textScaleRequested(real scale)
@@ -182,6 +184,8 @@ ColumnLayout {
         frameLimit:overview.frameLimit
         showTimer:overview.showTimer
         autoSave:overview.autoSave
+        backgroundPlay:overview.backgroundPlay
+        onBackgroundPlayChangedByUser:function(value) {overview.backgroundPlayRequested(value)}
         onAutoSaveChangedByUser:function(value) { overview.autoSaveRequested(value) }
         onHudScaleChangedByUser:function(value) {overview.hudScaleRequested(value)}
         onTextScaleChangedByUser:function(value) { overview.textScaleRequested(value) }

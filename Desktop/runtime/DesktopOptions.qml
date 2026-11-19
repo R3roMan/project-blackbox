@@ -17,7 +17,7 @@ ScrollView {
         Label {Layout.fillWidth:true;text:"Changes apply immediately and are saved in Blackbox's own settings.";wrapMode:Text.WordWrap}
         Label {text:"Mode"}
         ComboBox {Layout.fillWidth:true;model:["Idle","Play"];currentIndex:Native.Desktop.config.mode==="play" ? 1 : 0;onActivated:Native.Desktop.setOption("mode",currentIndex ? "play" : "idle")}
-        CheckBox {text:"Only active on the desktop";checked:Native.Desktop.config.homeOnly;onClicked:Native.Desktop.setOption("homeOnly",checked)}
+        CheckBox {text:"Keep battles running behind other apps";checked:Native.Desktop.config.backgroundPlay;onClicked:Native.Desktop.setOption("backgroundPlay",checked)}
         CheckBox {text:"CPU heat replaces ammunition";checked:Native.Desktop.config.cpuAmmo;onClicked:Native.Desktop.setOption("cpuAmmo",checked)}
         Label {Layout.fillWidth:true;text:"Shots raise virtual heat. Real CPU use is its floor; after reaching 100%, let it cool. Turn off for ordinary magazines.";wrapMode:Text.WordWrap}
         CheckBox {text:"Respond to GPU load";checked:Native.Desktop.config.gpuEffects;onClicked:Native.Desktop.setOption("gpuEffects",checked)}

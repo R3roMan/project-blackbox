@@ -8,6 +8,7 @@ import "../Demo/ui" as Ui
 import "../Demo/game/Rules.js" as Rules
 import "../Demo/game/Loadout.js" as Gear
 import "../Demo/game/Progress.js" as Progress
+import "../Demo/game/Autoplay.js" as Autoplay
 import "../Demo/game/SaveData.js" as SaveData
 import "../Demo/game/Meta.js" as Meta
 
@@ -99,7 +100,7 @@ Item {
         const game=battle.item,run=game.run
         const actives=run.slots.active.map(function(slot,i){return slot.item ? {title:Gear.activeAbilities[slot.item.id].title,id:slot.item.id,cooldown:Rules.activeCooldown(run,slot.item.id),duration:Rules.abilityRecovery(run,slot)} : {title:"Empty",cooldown:0,duration:1}})
         Native.Desktop.publish({renderer:game.projectedMode ? "2D fallback" : "Qt Quick 3D",
-            canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
+            canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(home && mode==="play" && battle.item)battle.item.keyTargetFocus()
     property int initialDetail:1
@@ -139,7 +140,11 @@ Item {
             vault:careerVault
             artDirectory:Qt.resolvedUrl("../V0.1/kde/contents/images/")
             backgroundFiles:host.backgrounds
-            allowed:host.home && host.mode==="play"
+            allowed:host.mode==="play" && host.visible && !host.editingDesktop && (host.home || host.options.backgroundPlay)
+            interactive:host.home
+            backgroundPlay:host.options.backgroundPlay
+            autoLimit:Autoplay.waveLimit(host.availableRecords,careerVault.state)
+            onBackgroundPlayRequested:function(value) {Native.Desktop.setOption("backgroundPlay",value)}
             bookVisible:host.bookOpen || host.vaultOpen
             enabled:!bookVisible
             onCodexRequested:function(chapter,id) { host.openBook(chapter,id) }
@@ -273,7 +278,7 @@ Item {
         anchors.horizontalCenter:parent.horizontalCenter;anchors.top:parent.top;anchors.topMargin:20
         visible:!Native.Desktop.visibilityReady
         width:Math.min(650,parent.width-30);height:54;color:"#ef211823";radius:6;border.color:"#c89b61";z:70
-        Text {anchors.fill:parent;anchors.margins:9;wrapMode:Text.WordWrap;color:"#f2dfbf";text:"Enable the Blackbox desktop visibility helper in System Settings → Window Management → KWin Scripts. Play pauses whenever another app takes focus."}
+        Text {anchors.fill:parent;anchors.margins:9;wrapMode:Text.WordWrap;color:"#f2dfbf";text:"Enable the Blackbox desktop visibility helper in System Settings → Window Management → KWin Scripts. It tells Blackbox when the wallpaper has focus."}
     }
     Row {
         anchors.bottom:parent.bottom;anchors.horizontalCenter:parent.horizontalCenter;spacing:3;visible:host.home && host.options.musicReactive;z:9

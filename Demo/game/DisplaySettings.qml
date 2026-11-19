@@ -11,6 +11,8 @@ GridLayout {
     property int frameLimit:60
     property bool showTimer:false
     property bool autoSave:true
+    property bool backgroundPlay:false
+    signal backgroundPlayChangedByUser(bool enabled)
     signal autoSaveChangedByUser(bool enabled)
     signal hudScaleChangedByUser(real scale)
     signal textScaleChangedByUser(real scale)
@@ -125,6 +127,8 @@ GridLayout {
         currentIndex:Math.max(0,scales.indexOf(Ui.UiMetrics.textScale))
         onActivated:settings.textScaleChangedByUser(scales[currentIndex])
     }
+    SettingLabel { text:"Keep battles running when unfocused" }
+    CheckBox {objectName:"backgroundPlaySetting";checked:settings.backgroundPlay;onClicked:settings.backgroundPlayChangedByUser(checked)}
     SettingLabel { text:"Save at wave checkpoints" }
     CheckBox { objectName:"autoSaveSetting"; checked:settings.autoSave; onClicked:settings.autoSaveChangedByUser(checked) }
 }

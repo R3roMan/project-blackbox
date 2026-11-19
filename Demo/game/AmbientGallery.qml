@@ -21,6 +21,28 @@ Template.Scene {
         interval:60000;repeat:true;triggeredOnStart:true
         onTriggered:gallery.localTime=new Date()
     }
+    artworkView:Component {
+        WallpaperTurn {
+            artDirectory:Qt.resolvedUrl("../../V0.1/kde/contents/images/")
+            frontId:Scenery.rooms[gallery.destination || gallery.room] || "front"
+            previousFront:Scenery.rooms[gallery.room] || "front"
+            direction:gallery.lookDirection || (frontId==="down" ? "down" : "up")
+            progress:gallery.moving ? gallery.progress : 1
+            lab:false
+            sources:{
+                const files={}
+                for (const key of Object.keys(Scenery.rooms)) files[Scenery.rooms[key]]=gallery.artFor(key)
+                return files
+            }
+            phase:gallery.forecast.phase;weather:gallery.forecast.weather
+            clock:gallery.frames/Math.max(1,gallery.ambientFps)
+            solarTime:gallery.forecast.solarTime; motion:gallery.ambient
+            windy:gallery.forecast.windy;cloudy:gallery.forecast.cloudy;swarm:gallery.forecast.swarm
+            detail:gallery.performance ? 0 : gallery.sceneryDetail
+            labAppearance:gallery.labAppearance; weatherParticles:true
+        }
+    }
+
     roomLighting:Component {
         Item {
             id:litRoom
@@ -34,12 +56,7 @@ Template.Scene {
                 windy:gallery.forecast.windy;cloudy:gallery.forecast.cloudy;swarm:gallery.forecast.swarm
                 motion:gallery.ambient;clock:litRoom.clock;detail:gallery.performance ? 0 : gallery.sceneryDetail
                 labAppearance:gallery.labAppearance
-            }
-            WeatherFX {
-                anchors.fill:parent
-                condition:litRoom.front==="down" ? "clear" : gallery.forecast.weather
-                opacity:litRoom.front==="right" ? .32 : 1
-                motion:gallery.ambient;time:litRoom.clock
+                weatherParticles:true
             }
         }
     }

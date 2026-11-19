@@ -696,8 +696,8 @@ function thunderStrike(run) {
     }
 }
 
-function blindStrength(run) {
-    return Elements.kinds.blind.intensity[blindRank(run)] * Math.max(.55,1-rank(run,"nightFilter")*.13)
+function blindStrength(run, ignoreSky) {
+    return Elements.kinds.blind.intensity[ignoreSky ? run.elements.blind : blindRank(run)] * Math.max(.55,1-rank(run,"nightFilter")*.13)
 }
 
 function turnDuration(run) {
@@ -5741,6 +5741,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
 function finishWave(run) {
     if (takeoverActive(run)) return false
     record(run, "waves")
+    run.metrics.bestClearedWave = Math.max(run.metrics.bestClearedWave || 0,run.wave)
     if (run.waveTime<30) record(run,"quickWaves")
     if (run.waveTime<60) {run.metrics.bestTimedWave=Math.max(run.metrics.bestTimedWave || 0,run.wave);run.progress++}
     if (!run.hurtThisWave)

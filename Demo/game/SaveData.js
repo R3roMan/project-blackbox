@@ -282,6 +282,7 @@ function decodeBundle(text) {
     if (![.8,1,1.15,1.3].includes(d.hudScale)) return null
     if (d.textScale!==undefined && ![1,1.15,1.3,1.45].includes(d.textScale)) return null
     if (d.autoSave!==undefined && typeof d.autoSave!=="boolean") return null
+    if (d.backgroundPlay!==undefined && typeof d.backgroundPlay!=="boolean") return null
     if (data.runSave !== "" && !decodeRun(data.runSave,[]))
         return null
     if (data.vault!==undefined && !Meta.decode(data.vault)) return null

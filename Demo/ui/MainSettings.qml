@@ -85,6 +85,8 @@ Item {
                             frameLimit:page.display.frameLimit
                             showTimer:page.display.showTimer
                             autoSave:page.display.autoSave
+                            backgroundPlay:page.display.backgroundPlay
+                            onBackgroundPlayChangedByUser:function(value) {page.displayRequested("backgroundPlay",value)}
                             detail:page.display.detail
                             initialDetail:page.initialDetail
                             transitionStyle:page.display.transitionStyle
