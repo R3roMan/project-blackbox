@@ -44,8 +44,8 @@ var actives={
     lineAudit:{title:"Line audit",rarity:"rare",cooldown:19,form:"seekMark",value:4.5,description:"Wound and mark an enemy for extra follow-up damage."},
     stalledClock:{title:"Stalled clock",rarity:"rare",cooldown:15,form:"wideSlow",value:2.2,description:"Add 2.2 seconds to the next attacks of the three closest threats."},
     inkOfRecord:{title:"Ink of record",rarity:"epic",cooldown:22,form:"corrode",value:8,description:"Strike a target with Poison II and Weaken I."},
-    closeTheBook:{title:"Close the book",rarity:"legendary",cooldown:25,form:"interrupt",value:13,description:"Interrupt and Stun the first two charging demons, wounding them."},
-    silenceTheCourt:{title:"Silence the court",rarity:"legendary",cooldown:32,form:"edgeRing",value:17,description:"Send a wide blade through every foe within 575 units on this wallpaper."}
+    closeTheBook:{title:"Close the book",rarity:"legendary",cooldown:23,form:"interrupt",value:13,description:"Interrupt and Stun the first two charging demons, wounding them."},
+    silenceTheCourt:{title:"Silence the court",rarity:"legendary",cooldown:24,form:"edgeRing",value:17,description:"Send a wide blade through every foe within 575 units on this wallpaper."}
 }
 var passives={
     bareHands:{title:"Bare hands",rarity:"common",description:"Reduces reload time by 3%. The second upgrade adds another 3%."},
@@ -71,7 +71,9 @@ var kits=chapters.map(function(row){
 })
 var achievements=chapters.map(function(row){
     return {id:"grade"+row.grade,title:row.title,metric:"grade"+row.grade,target:1,group:row.reward,
-        reward:row[row.reward],requirement:"Earn an overall "+row.grade+" grade in a regular expedition."}
+        reward:row[row.reward],requirement:row.grade==="SSS"
+            ? "Retire with SSS after 120 hitless wave clears. Meet the accuracy, combat and finance benchmarks."
+            : "Earn an overall "+row.grade+" grade (−, plain or +) in a regular expedition."}
 })
 for (const [category,catalog] of [["Weapon",weapons],["Active",actives],["Passive",passives]])
     for (const id of Object.keys(catalog))

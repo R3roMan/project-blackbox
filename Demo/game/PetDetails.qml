@@ -9,6 +9,8 @@ Node {
     required property real strike
     required property real flap
     required property real fold
+    property bool detailed:false
+    property string bodyPattern:""
     readonly property string form:helper.form
     readonly property bool wyvern:helper.id==="wyvern"
     readonly property bool firefly:helper.id==="firefly"
@@ -16,12 +18,48 @@ Node {
     readonly property color shade:Qt.darker(helper.skin,1.47)
     readonly property color highlight:helper.accent
 
-    PrincipledMaterial {id:plate; baseColor:Qt.lighter(pet.helper.skin,1.30); roughness:.42; metalness:.44}
+    PetSurface {
+        id:plate
+        textured:pet.detailed
+        pattern:pet.bodyPattern
+        baseColor:Qt.lighter(pet.helper.skin, textured && pet.form === "beetle" ? 1.65 : 1.30)
+        roughness:.42
+        metalness:!textured ? .44 : pet.form === "beetle" ? .31
+            : ["fox","drake","moth","fairy"].includes(pet.form) ? .06 : .44
+        normalStrength:pattern === "fur" || pattern === "down" ? .34 : .71
+        clearcoatAmount:textured && pet.form === "beetle" ? .63 : 0
+        clearcoatRoughnessAmount:.21
+    }
     PrincipledMaterial {id:groove; baseColor:pet.shade; roughness:.60}
     PrincipledMaterial {id:light; baseColor:pet.helper.accent; lighting:PrincipledMaterial.NoLighting}
-    PrincipledMaterial {id:pale; baseColor:"#ead0b6"; roughness:.70}
-    PrincipledMaterial {id:membraneSkin; baseColor:Qt.lighter(pet.helper.skin,1.47);roughness:.70;cullMode:Material.NoCulling}
-    PrincipledMaterial {id:glass; baseColor:Qt.rgba(pet.highlight.r,pet.highlight.g,pet.highlight.b,.43); roughness:.28; cullMode:Material.NoCulling; alphaMode:PrincipledMaterial.Blend}
+    PetSurface {
+        id:pale
+        textured:pet.detailed && pet.form === "fox"
+        pattern:"fur"
+        baseColor:"#ead0b6"
+        roughness:.70
+        normalStrength:.34
+    }
+    PetSurface {
+        id:membraneSkin
+        textured:pet.detailed
+        pattern:pet.form === "bat" || pet.form === "drake" ? "membrane"
+            : pet.form === "ray" ? "circuit" : pet.form === "moth" && !pet.firefly ? "moth" : ""
+        baseColor:Qt.lighter(pet.helper.skin,1.47)
+        roughness:.70
+        normalStrength:.54
+        cullMode:Material.NoCulling
+    }
+    PetSurface {
+        id:glass
+        textured:pet.detailed && (pet.sprites || pet.firefly || pet.form === "wasp")
+        pattern:"veil"
+        baseColor:Qt.rgba(pet.highlight.r,pet.highlight.g,pet.highlight.b,.43)
+        roughness:.28
+        normalStrength:.39
+        cullMode:Material.NoCulling
+        alphaMode:PrincipledMaterial.Blend
+    }
 
     Loader3D {
         active:pet.form==="wasp" || pet.firefly
@@ -55,7 +93,7 @@ Node {
     Loader3D {
         active:pet.form==="bat" || pet.form==="drake"
         sourceComponent:Node {
-            ScallopedWingGeometry {id: membrane}
+            ScallopedWingGeometry {id: membrane; textured:pet.detailed}
             Repeater3D {
                 model:[-1,1]
                 Node {

@@ -9,6 +9,9 @@ View3D {
     required property var company
     required property var placements
     property bool motion: true
+    property int detail:1
+    readonly property bool ultra:detail===3
+    SurfaceSet {id:materials;detailed:scene.ultra}
     property real clock: 0
     property int revision: 0
     function indexAt(x,y) {
@@ -34,7 +37,7 @@ View3D {
         return selected
     }
     readonly property real radius:Muster.radius(company,placements,width/Math.max(1,height))
-    explicitTextureWidth: Math.max(1,Math.round(Math.min(2560,width*Screen.devicePixelRatio)))
+    explicitTextureWidth: Math.max(1,Math.round(Math.min(scene.ultra ? 3840 : 2560,width*Screen.devicePixelRatio)))
     explicitTextureHeight: Math.max(1,Math.round(explicitTextureWidth*height/Math.max(1,width)))
     camera:previewCamera
     Timer {
@@ -46,8 +49,15 @@ View3D {
     onClockChanged:revision += 1
     environment: SceneEnvironment {
         backgroundMode:SceneEnvironment.Transparent
-        antialiasingMode:SceneEnvironment.MSAA
-        antialiasingQuality:SceneEnvironment.Medium
+        antialiasingMode:scene.detail>0 ? SceneEnvironment.MSAA : SceneEnvironment.NoAA
+        antialiasingQuality:scene.detail===2 ? SceneEnvironment.High : SceneEnvironment.Medium
+        lightProbe:scene.ultra ? materials.lightProbe : null
+        probeExposure:.44
+        tonemapMode:scene.ultra ? SceneEnvironment.TonemapModeAces : SceneEnvironment.TonemapModeLinear
+        aoEnabled:scene.ultra
+        aoStrength:46
+        aoDistance:39
+        aoBias:1.2
     }
     OrthographicCamera {
         id:previewCamera
@@ -56,8 +66,8 @@ View3D {
         verticalMagnification:horizontalMagnification
         clipNear:1; clipFar:2000
     }
-    DirectionalLight {eulerRotation:Qt.vector3d(-25,-26,0); brightness:2.5; color:"#ffe0cf"; ambientColor:"#726c89"}
-    DirectionalLight {eulerRotation:Qt.vector3d(12,143,0); brightness:2.2; color:"#bdd2ff"}
+    DirectionalLight {eulerRotation:Qt.vector3d(-25,-26,0); brightness:scene.ultra ? 1.55 : 1.35; color:"#fff5e9"; ambientColor:"#554f52"}
+    DirectionalLight {eulerRotation:Qt.vector3d(12,143,0); brightness:.58; color:"#d6e1eb"}
     Repeater3D {
         id:figures
         model:scene.company
@@ -79,7 +89,7 @@ View3D {
                 target:scene
                 function onClockChanged() {figure.enemy.age=scene.clock+figure.index*.731}
             }
-            Threat3D {enemy:figure.enemy; revision:scene.revision; animate:scene.motion; preview:true}
+            Threat3D {enemy:figure.enemy; revision:scene.revision; animate:scene.motion; preview:true;surfaces:scene.ultra ? materials : null}
         }
     }
 }

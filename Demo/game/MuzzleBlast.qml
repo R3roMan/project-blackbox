@@ -9,6 +9,7 @@ Canvas {
     required property real life
     property bool motion: true
     property int sequence: 0
+    property bool ultra: false
     readonly property string family:weapon.staff ? "rune" : weapon.effect
     readonly property real strength: Math.max(0,Math.min(1,life/Math.max(.06,weapon.afterglow)))
     readonly property real widthScale:family==="rocket" || family==="spread" ? 1.27
@@ -25,8 +26,102 @@ Canvas {
     onSequenceChanged: if (visible) requestPaint()
     onTintChanged: if (visible) requestPaint()
     onFamilyChanged: if (visible) requestPaint()
+    onUltraChanged: if (visible) requestPaint()
     onVisibleChanged: if (visible) requestPaint()
     onWidthChanged: if (visible) requestPaint()
+
+    function detailedBlast(c, size, energy, radiant, shell, pigment) {
+        const age = 1 - energy
+        const hot = Math.pow(energy, 1.9)
+        const length = size * (shell ? .87 : radiant ? .69 : .57)
+        if (motion && family !== "laser") {
+            for (let i = 0; i < 4; ++i) {
+                const expansion = size * (.18 + age * .26 + i * .025)
+                const x = size * (age * (.21 + i * .052) + i * .07)
+                const y = -size * age * (.10 + i * .049) + Math.sin(i * 7 + sequence) * size * .075
+                const smoke = c.createRadialGradient(x,y,0,x,y,expansion)
+                smoke.addColorStop(0,radiant ? Qt.rgba(tint.r,tint.g,tint.b,.45) : "#b4876870")
+                smoke.addColorStop(.48,radiant ? "#63535692" : "#86645766")
+                smoke.addColorStop(1,"transparent")
+                c.globalAlpha = Math.sin(Math.PI * age) * .65
+                c.fillStyle = smoke
+                c.fillRect(x-expansion,y-expansion,expansion*2,expansion*2)
+            }
+        }
+
+        const radius = size * (.50 + hot * .28)
+        const glow = c.createRadialGradient(length*.19,0,0,length*.19,0,radius)
+        glow.addColorStop(0,"#fffeee")
+        glow.addColorStop(.23,pigment)
+        glow.addColorStop(.57,radiant ? Qt.rgba(tint.r,tint.g,tint.b,.48) : "#abdf612e")
+        glow.addColorStop(1,"transparent")
+        c.globalAlpha = hot * .88
+        c.fillStyle = glow
+        c.fillRect(-radius, -radius, radius * 2 + length*.19, radius * 2)
+
+        const rays = shell ? 9 : 7
+        for (let i = 0; i < rays; ++i) {
+            const angle = (i === 0 ? 0 : (i*2.399+sequence*.37))
+            const sweep = length * (i === 0 ? 1 : .31 + (i % 4) * .13) * (.79 + hot*.21)
+            const spread = size * (i % 3 === 0 ? .126 : .076)
+            c.save()
+            c.rotate(angle)
+            c.beginPath()
+            c.moveTo(-size*.08,0)
+            c.quadraticCurveTo(sweep*.29,-spread*1.7,sweep,0)
+            c.quadraticCurveTo(sweep*.25,spread*1.25,-size*.08,0)
+            const ray = c.createLinearGradient(0,0,sweep,0)
+            ray.addColorStop(0,"#fffdea")
+            ray.addColorStop(.46,pigment)
+            ray.addColorStop(1,radiant ? Qt.rgba(tint.r,tint.g,tint.b,.46) : "#73fd5624")
+            c.fillStyle = ray
+            c.fill()
+            c.restore()
+        }
+        c.fillStyle = "#ffffed"
+        c.beginPath()
+        c.ellipse(-size*.13,-size*.075,length*.78,size*.15)
+        c.fill()
+
+        if (radiant) {
+            c.globalAlpha = energy * .69
+            c.strokeStyle = pigment
+            c.lineWidth = Math.max(1,size*.018)
+            c.beginPath()
+            c.ellipse(-size*.11,-size*(.32+age*.21),size*(.15+age*.22),size*(.64+age*.42))
+            c.stroke()
+        }
+        if (family === "rune") {
+            c.globalAlpha = energy * .86
+            c.strokeStyle = "#fff1d7"
+            c.beginPath()
+            for (let i = 0; i < 6; ++i) {
+                const angle = i * Math.PI / 3 + age * 2.2
+                const x = Math.cos(angle) * radius * .62
+                const y = Math.sin(angle) * radius * .62
+                if (i) c.lineTo(x,y)
+                else c.moveTo(x,y)
+            }
+            c.closePath()
+            c.stroke()
+        }
+        if (motion && family !== "laser") {
+            for (let i = 0; i < (shell ? 19 : 12); ++i) {
+                const angle = (i*.618%1-.50) * (shell ? 2.94 : 1.87)
+                    + Math.sin(i*6+sequence)*.16
+                const travel = size * (.22 + age*(.45+i%4*.074) + i%3*.094)
+                const x = Math.cos(angle) * travel
+                const y = Math.sin(angle) * travel + age * age * size * .13
+                c.globalAlpha = energy * (.44+i%4*.17)
+                c.strokeStyle = i % 3 ? pigment : "#fffbe3"
+                c.lineWidth = Math.max(1,size*(.009+i%3*.005))
+                c.beginPath()
+                c.moveTo(x - Math.cos(angle) * size*(.044+energy*.10), y - Math.sin(angle)*size*.12)
+                c.lineTo(x,y)
+                c.stroke()
+            }
+        }
+    }
 
     onPaint: {
         const c=getContext("2d")
@@ -40,6 +135,11 @@ Canvas {
         const pulse=family==="pulse" || family==="burst"
         const pigment=radiant || pulse ? tint : shell ? "#ffa94f" : "#ffd08a"
         c.translate(side,side)
+        if (ultra) {
+            detailedBlast(c,side,energy,radiant || family==="pulse",shell,
+                radiant || family==="pulse" ? pigment : weapon.element==="frost" ? "#baeaff" : shell ? "#ffad53" : "#ffcb76")
+            return
+        }
         const radius=side*(shell ? .69 : radiant ? .57 : .46)*(1+age*.23)
         const glow=c.createRadialGradient(0,0,1,0,0,radius)
         glow.addColorStop(0,"#fffcde")

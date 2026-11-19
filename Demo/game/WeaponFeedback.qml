@@ -1,4 +1,5 @@
 import QtQuick
+import "WeaponArt.js" as Art
 
 Item {
     id: feedback
@@ -24,6 +25,10 @@ Item {
     property real muzzleLife:0
     property bool motion:true
     property int sequence:0
+    property bool ultra:false
+    property real clock:0
+    property int nextCasing:0
+    property real lastCasingTime:-1
 
     readonly property bool scatter: weapon.effect === "spread"
     readonly property bool beam: weapon.effect === "beam" || weapon.effect === "laser"
@@ -33,6 +38,37 @@ Item {
     readonly property bool ink: weapon.id === "nightInk"
     readonly property color paint: tracerColor
     readonly property real fade: sustained ? .90 : Math.min(1, life / weapon.afterglow)
+
+    function ejectCase(spec, shot, barrel, grip) {
+        const form = Art.design(spec).form
+        if (!["slide", "box", "rotary", "pump", "break"].includes(form)
+                && !(form === "rail" && spec.effect === "tracer"))
+            return
+        const casing = casings.itemAt(nextCasing)
+        if (!casing)
+            return
+        nextCasing = (nextCasing + 1) % casings.count
+        casing.side = spec.dual || spec.id === "twinpistols" ? (barrel.x < grip.x ? -1 : 1) : 1
+        casing.origin = Qt.point(barrel.x * .47 + grip.x * .53 + casing.side * height * .034,
+            barrel.y * .47 + grip.y * .53)
+        casing.shot = shot
+        casing.shell = spec.effect === "spread"
+        casing.born = clock
+        lastCasingTime = clock
+    }
+
+    onVisibleChanged: if (!visible) clearCases()
+    onClockChanged: if (clock < lastCasingTime) clearCases()
+
+    function clearCases() {
+        for (let i=0; i<casings.count; ++i) {
+            const casing = casings.itemAt(i)
+            if (casing)
+                casing.born = -1
+        }
+        nextCasing = 0
+        lastCasingTime = -1
+    }
 
     Repeater {
         model: (feedback.life > 0 || feedback.sustained) && !feedback.weapon.melee && !feedback.weapon.throwing
@@ -105,7 +141,56 @@ Item {
     }
 
     MuzzleBlast {weapon:feedback.weapon;tint:feedback.paint;tip:feedback.muzzle;aim:feedback.pointer
-        life:feedback.muzzleLife;motion:feedback.motion;sequence:feedback.sequence}
+        life:feedback.muzzleLife;motion:feedback.motion;sequence:feedback.sequence;ultra:feedback.ultra}
+
+    Repeater {
+        id:casings
+        model:feedback.ultra && feedback.motion ? 12 : 0
+        delegate:Item {
+            id:casing
+            property real born:-1
+            property point origin
+            property int side:1
+            property int shot:0
+            property bool shell:false
+            readonly property real age:born < 0 ? 1 : (feedback.clock-born)/.54
+            readonly property real spread:Math.min(124,feedback.height*.145)
+            readonly property real roll:Math.cos(age*13+shot*2.7)
+            width:Math.max(9,Math.min(22,feedback.height*(shell ? .024 : .019)))
+            height:width*(shell ? .43 : .34)
+            visible:age>=0 && age<1
+            opacity:Math.min(1,(1-age)*3.7)
+            x:origin.x+side*age*spread*(1.11+shot%5*.094)-width/2
+            y:origin.y+spread*(age*age*1.64-age*(.84+shot%3*.15))-height/2
+            rotation:side*(shot*37+age*(226+shot%5*34))
+            transform:Scale {origin.x:casing.width/2; xScale:.31+Math.abs(casing.roll)*.69}
+
+            Rectangle {
+                anchors.fill:parent
+                radius:1.2
+                gradient:Gradient {
+                    GradientStop {position:0;color:casing.shell ? "#ff974e" : "#fff3b3"}
+                    GradientStop {position:.34;color:casing.shell ? "#d65330" : "#d5a24c"}
+                    GradientStop {position:1;color:casing.shell ? "#66231f" : "#624022"}
+                }
+            }
+            Rectangle {
+                width:parent.width*.20;height:parent.height+1
+                y:-.5;color:"#ffcf77";radius:1
+                border.width:1;border.color:"#815729"
+            }
+            Rectangle {
+                anchors.right:parent.right
+                width:parent.width*.16;height:parent.height
+                radius:1;color:"#62432d";border.width:1;border.color:"#bc9454"
+            }
+            Rectangle {
+                x:parent.width*.25;y:parent.height*.13
+                width:parent.width*.44;height:Math.max(1,parent.height*.18)
+                color:"#fff8d6";opacity:Math.abs(casing.roll)*.72
+            }
+        }
+    }
 
     Canvas {
         id: bladeTrail

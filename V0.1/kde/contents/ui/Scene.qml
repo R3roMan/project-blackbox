@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import "Rooms.js" as Rooms
+import "ViewTurn.js" as ViewTurn
 
 FocusScope {
     id: root
@@ -14,6 +15,8 @@ FocusScope {
     property int durationMs: 480
     property int ambientFps: 24
     property bool motionAllowed: true
+    property var roomArtwork:({})
+    property Component roomLighting:null
     property bool preview: false
     property bool exposed: true
     property bool coverDemo: false
@@ -29,6 +32,10 @@ FocusScope {
     property string destination: ""
     property string transitionKind: ""
     property string transitionLabel: ""
+    readonly property string lookDirection:({lookLeft:"left",lookRight:"right",lookUp:"up",lookDown:"down"})[transitionKind] || ""
+    readonly property bool looking:moving && lookDirection.length>0
+    readonly property bool artworkDescent:moving && !!roomArtwork.abyss && ["drop","rise"].includes(transitionKind)
+    readonly property bool returningFromAbyss:transitionKind==="rise"
     property real progress: 0
     property int frames: 0
     property int phase: 0
@@ -58,12 +65,12 @@ FocusScope {
 
     function artFor(id) {
         var custom = edits[id] && edits[id].image
-        var basename = id === "abyss" && abyssVariant ? "trench.jpg" : Rooms.rooms[id].image
         return typeof custom === "string" && custom.indexOf("file:") === 0
-            ? custom : String(Qt.resolvedUrl("../images/" + basename))
+            ? custom : defaultArt(id)
     }
 
     function defaultArt(id) {
+        if (roomArtwork[id]) return String(roomArtwork[id])
         return String(Qt.resolvedUrl("../images/" +
             (id === "abyss" && abyssVariant ? "trench.jpg" : Rooms.rooms[id].image)))
     }
@@ -106,7 +113,7 @@ FocusScope {
             return
         imageError = ""
         invalidImage = ""
-        if (id === "abyss" && !performance)
+        if (id === "abyss" && !roomArtwork.abyss && !performance)
             abyssVariant = (abyssVariant + 1) % 2
         destination = id
         var decision = Rooms.transitions[room + ":" + id]
@@ -182,7 +189,7 @@ FocusScope {
         objectName: "ambientTimer"
         interval: Math.round(1000 / Math.max(1, root.ambientFps))
         repeat: true
-        running: root.ambient && !root.clean && !root.moving && (root.audioDemo || ["sky", "abyss", "lab"].indexOf(root.room) >= 0)
+        running: root.ambient && (root.roomLighting || !root.clean && !root.moving && (root.audioDemo || ["sky","abyss","lab"].includes(root.room)))
         onTriggered: {
             root.frames += 1
             root.phase = (root.phase + 1) % 1680
@@ -211,30 +218,24 @@ FocusScope {
         fillMode: Image.PreserveAspectCrop
         asynchronous: false
         cache: false
-        opacity: root.moving ? Math.min(1, 1.42 - root.progress * 1.42) : 1
+        opacity: root.moving && !root.looking && !root.artworkDescent ? Math.min(1, 1.42 - root.progress * 1.42) : 1
         x: 0
-        scale: root.moving && root.transitionKind === "drop" ? 1 + root.progress * .52 : 1
+        readonly property var descent:root.artworkDescent ? ViewTurn.descent(height,root.progress,false,root.returningFromAbyss,1)
+            : ({scale:root.moving && root.transitionKind==="drop" ? 1+root.progress*.52 : 1,y:0})
+        scale:descent.scale
 
         transform: [
-            Translate {
-                x: !root.moving ? 0
-                    : (root.transitionKind === "lookLeft" ? 1 : root.transitionKind === "lookRight" ? -1 : 0)
-                      * root.width * root.progress * .32
-                y: !root.moving ? 0
-                    : (["lookUp","rise"].indexOf(root.transitionKind) >= 0 ? 1
-                        : ["lookDown","drop"].indexOf(root.transitionKind) >= 0 ? -1 : 0)
-                      * root.height * root.progress * .43
-            },
-            Rotation {
-                origin.x: root.width / 2
-                origin.y: root.height / 2
-                axis.x: root.transitionKind === "lookUp" || root.transitionKind === "lookDown" ? 1 : 0
-                axis.y: root.transitionKind === "lookLeft" || root.transitionKind === "lookRight" ? 1 : 0
-                axis.z: 0
-                angle: root.moving ? root.progress * (["lookUp","lookLeft"].indexOf(root.transitionKind) >= 0 ? 28 : -28) : 0
-            }
+            Translate {y:base.descent.y},
+            Matrix4x4 {matrix:root.looking ? ViewTurn.panel(root.width,root.height,root.lookDirection,root.progress,false,1) : ViewTurn.identity()}
         ]
-
+        Loader {
+            anchors.centerIn:parent
+            width:base.paintedWidth;height:base.paintedHeight
+            readonly property string sceneRoom:root.room
+            readonly property bool customImage:String(base.source)!==root.defaultArt(sceneRoom)
+            active:!!root.roomLighting && base.status===Image.Ready && !!root.roomArtwork[sceneRoom]
+            sourceComponent:root.roomLighting
+        }
         onStatusChanged: {
             if (status === Image.Error && String(source) !== root.defaultArt(root.room)) {
                 var failed = String(source)
@@ -257,32 +258,50 @@ FocusScope {
         sourceSize: base.sourceSize
         fillMode: Image.PreserveAspectCrop
         cache: false
-        opacity: Math.max(0, (root.progress - .19) / .81)
+        opacity: root.looking ? 1 : root.artworkDescent ? root.progress : Math.max(0, (root.progress - .19) / .81)
+        readonly property var descent:root.artworkDescent ? ViewTurn.descent(height,root.progress,true,root.returningFromAbyss,1)
+            : ({scale:1,y:0})
         scale: {
+            if (root.artworkDescent)
+                return descent.scale
             if (root.transitionKind === "drop")
                 return 1 + (1 - root.progress) * .30
             if (root.transitionKind === "rise")
                 return .86 + root.progress * .14
             return 1
         }
-        transform: Translate {
-            x: (root.transitionKind === "lookLeft" ? -1 : root.transitionKind === "lookRight" ? 1 : 0)
-                * root.width * (1 - root.progress) * .25
-            y: (["lookUp","rise"].indexOf(root.transitionKind) >= 0 ? -1
-                    : ["lookDown","drop"].indexOf(root.transitionKind) >= 0 ? 1 : 0)
-                * root.height * (1 - root.progress) * .34
+        transform: [
+            Translate {y:incoming.descent.y},
+            Matrix4x4 {matrix:root.looking ? ViewTurn.panel(root.width,root.height,root.lookDirection,root.progress,true,1) : ViewTurn.identity()}
+        ]
+        Loader {
+            anchors.centerIn:parent
+            width:incoming.paintedWidth;height:incoming.paintedHeight
+            readonly property string sceneRoom:root.destination
+            readonly property bool customImage:sceneRoom.length>0 && String(incoming.source)!==root.defaultArt(sceneRoom)
+            active:!!root.roomLighting && incoming.status===Image.Ready && !!root.roomArtwork[sceneRoom]
+            sourceComponent:root.roomLighting
         }
+    }
+
+    TurnJoin {
+        anchors.fill:parent
+        active:root.looking;outgoing:base;direction:root.lookDirection;progress:root.progress
+    }
+    DescentShade {
+        anchors.fill:parent
+        progress:root.artworkDescent ? root.progress : 0
     }
 
     Rectangle {
         anchors.fill: parent
-        visible: root.moving && ["drop","seal","unseal","birthstars","extinguish"].indexOf(root.transitionKind) >= 0
+        visible: root.moving && !root.artworkDescent && ["drop","seal","unseal","birthstars","extinguish"].indexOf(root.transitionKind) >= 0
         color: "#02040a"
         opacity: Math.sin(root.progress * Math.PI) * (root.transitionKind === "drop" ? .85 : .95)
     }
 
     Rectangle {
-        visible: root.moving && root.transitionKind === "drop" && root.progress < .66
+        visible: root.moving && !root.artworkDescent && root.transitionKind === "drop" && root.progress < .66
         width: root.width * (.08 + root.progress * 2.85)
         height: width * (.24 + root.progress * .51)
         x: (root.width - width) / 2
@@ -528,7 +547,7 @@ FocusScope {
             spacing: 7
             Layout.fillWidth: true
             Repeater {
-                model: Rooms.actions[root.room] || []
+                model: (Rooms.actions[root.room] || []).filter(function(action){return action.action!=="variant" || !root.roomArtwork.abyss})
                 BlackboxButton {
                     required property var modelData
                     text: modelData.title

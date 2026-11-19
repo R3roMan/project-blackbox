@@ -2,6 +2,7 @@ import QtQuick
 import "Rules.js" as Rules
 import "Encounters.js" as Encounters
 import "CutArt.js" as CutArt
+import "Conditions.js" as Weather
 
 EffectCanvas {
     id: field
@@ -12,6 +13,20 @@ EffectCanvas {
     required property bool active
     required property bool motion
     property bool projected: false
+    property bool ultra:false
+    property color sceneLight:"#fff0db"
+    property real darkness:0
+    property real obscurity:0
+
+    function litBlood(ink,depth) {
+        const color=Qt.color(ink)
+        const shade=1-darkness*.46
+        const fog=obscurity*(1-Weather.fogVisibility(depth))
+        const red=color.r*(.6+.4*sceneLight.r)*shade
+        const green=color.g*(.6+.4*sceneLight.g)*shade
+        const blue=color.b*(.6+.4*sceneLight.b)*shade
+        return Qt.rgba(red*(1-fog)+.46*fog,green*(1-fog)+.49*fog,blue*(1-fog)+.54*fog,color.a)
+    }
 
     readonly property var seals: ({
         humontafagus:{ tint:"#ff6b69", rings:2, vanes:5, spin:1.6, pattern:"teeth" },
@@ -172,9 +187,11 @@ EffectCanvas {
         const age = motion ? progress : .23
         const scale = Math.max(8, Math.min(112, where.scale * event.size * 101))
         const arc = blades[event.style] || [.33,.49,1]
-        const count = event.boss && event.fatal ? 44 : event.fatal ? 25 : Math.round(10 * arc[2])
+        const count=event.crystal ? 28 : event.fatal && ultra ? 13 : event.boss && event.fatal ? 34
+            : event.fatal ? 20 : Math.round(7*arc[2])
+        const visibility=1-obscurity*(1-Weather.fogVisibility(event.depth))*.68
         const mass = event.boss && event.fatal ? 2.22 : event.fatal ? 1.42 : .70
-        ctx.globalAlpha = Math.min(.92, Math.pow(1-progress,.46)*1.15)
+        ctx.globalAlpha=visibility*Math.min(.86,Math.pow(1-progress,.55))
         for (let i = 0; i < count; i += 1) {
             const seed = event.id * .862 + i * 2.399
             const spread = Math.sin(seed * 11.4)
@@ -183,8 +200,10 @@ EffectCanvas {
             const x = point.x + xSpeed*scale*(.16 + age*2.9)
             const y = point.y + ySpeed*scale*(.14 + age*1.52) + scale*age*age*mass*1.92
             const r = (event.fatal ? 3.6 : 2.0) + scale*.072 * (i%5) * (1-age) * mass
-            ctx.fillStyle = event.crystal ? i%4 === 0 ? "#df99ff" : event.tint
-                : event.dark ? i%4 ? event.tint : "#2c1937" : i%4 === 0 ? "#4d1028" : i%3 === 0 ? "#d33f4d" : event.tint
+            const pigment=event.crystal ? i%4===0 ? "#df99ff" : event.tint
+                : event.dark ? i%4 ? event.tint : "#2c1937"
+                    : i%4===0 ? "#4d1028" : i%3===0 ? "#b23746" : event.tint
+            ctx.fillStyle=litBlood(pigment,event.depth)
             ctx.strokeStyle = ctx.fillStyle
             if (event.fatal && i%4 === 0) {
                 ctx.beginPath()
@@ -208,19 +227,29 @@ EffectCanvas {
             }
         }
         if (event.fatal && !event.crystal) {
-            ctx.fillStyle = event.dark ? "#160b21" : "#6f1528"
-            ctx.globalAlpha *= Math.min(.8, age*2.3)
+            const pool=scale*mass*(.19+age*.62)
+            const floor=point.y+scale*(.86+age*.86)
+            const puddle=ctx.createRadialGradient(point.x,floor,0,point.x,floor,pool)
+            puddle.addColorStop(0,litBlood(event.dark ? "#160b21" : "#591020",event.depth))
+            puddle.addColorStop(.82,litBlood(event.dark ? "#1b1029" : "#752338",event.depth))
+            puddle.addColorStop(1,litBlood(event.dark ? "#001b1029" : "#00752338",event.depth))
+            ctx.fillStyle=puddle
+            ctx.globalAlpha*=Math.min(.82,age*2.3)
             ctx.beginPath()
-            ctx.ellipse(point.x - scale*mass*.77, point.y + scale*(.86 + age*.86),
-                scale*mass*1.54, scale*(.19 + age*.28)*mass)
+            for (let s=0;s<=16;s++) {
+                const angle=s*Math.PI/8
+                const edge=pool*(.77+.23*Math.sin(s*6.82+event.id))
+                ctx.lineTo(point.x+Math.cos(angle)*edge,floor+Math.sin(angle)*edge*.31)
+            }
+            ctx.closePath()
             ctx.fill()
         }
         if (event.boss && event.fatal)
-            rupture(ctx,point,scale,progress,age,event.type)
+            rupture(ctx,point,scale,progress,age,event.type,event.depth,visibility)
         ctx.globalAlpha = 1
     }
 
-    function rupture(ctx, point, scale, progress, age, type) {
+    function rupture(ctx,point,scale,progress,age,type,depth,visibility) {
         const profile = deaths[type]
         if (!profile)
             return
@@ -229,14 +258,14 @@ EffectCanvas {
             if (!ring)
                 continue
             const radius = scale*(.23+ring*profile.reach)
-            ctx.globalAlpha = Math.max(0,.80-ring*.53)
-            ctx.strokeStyle = i%2 ? profile.flesh : profile.spark
+            ctx.globalAlpha=visibility*Math.max(0,.36-ring*.32)
+            ctx.strokeStyle=litBlood(i%2 ? profile.flesh : profile.spark,depth)
             ctx.lineWidth = Math.max(1,scale*(.072-ring*.03))
             ctx.beginPath()
             ctx.ellipse(point.x-radius,point.y-radius*.64,radius*2,radius*1.28)
             ctx.stroke()
         }
-        ctx.globalAlpha = Math.min(.94,1.24-progress)
+        ctx.globalAlpha=visibility*Math.min(.83,1.14-progress)
         for (let i=0; i<profile.organs; ++i) {
             const angle = i*2.399+profile.twist*age*3.2
             const strength = .37+i%5*.15
@@ -253,14 +282,17 @@ EffectCanvas {
             ctx.moveTo(-body*.5,0)
             ctx.bezierCurveTo(-body*1.6,body*.62,-body*2.1,-body*1.2,-body*3.8,body*.55)
             ctx.stroke()
-            ctx.fillStyle = profile.flesh
+            ctx.fillStyle=litBlood(profile.flesh,depth)
             ctx.beginPath()
             ctx.moveTo(-body,body*.31)
             ctx.bezierCurveTo(-body*1.66,-body,body*.61,-body*1.33,body*.92,-body*.24)
             ctx.bezierCurveTo(body*1.62,body*.87,-body*.62,body*1.38,-body,body*.31)
             ctx.fill()
-            ctx.fillStyle = i%4 ? profile.spark : "#fff0d1"
-            ctx.fillRect(-body*.34,-body*.41,body*.64,body*.28)
+            ctx.strokeStyle=litBlood(i%4 ? profile.spark : "#9c5d52",depth)
+            ctx.globalAlpha*=.51
+            ctx.lineWidth=Math.max(1,body*.12)
+            ctx.beginPath();ctx.moveTo(-body*.39,-body*.30);ctx.quadraticCurveTo(.0,-body*.70,body*.36,-body*.35);ctx.stroke()
+            ctx.globalAlpha=visibility*Math.min(.83,1.14-progress)
             ctx.restore()
         }
     }
@@ -274,7 +306,7 @@ EffectCanvas {
         glow.addColorStop(0, "transparent")
         glow.addColorStop(.68, danger === "Overlord" ? "#36f85d1b" : "#4b1c092b")
         glow.addColorStop(1, "transparent")
-        ctx.globalAlpha = Rules.materialization(enemy)
+        ctx.globalAlpha = Rules.materialization(enemy)*(ultra ? .54 : 1)
         ctx.fillStyle = glow
         ctx.fillRect(x-radius,y-radius,radius*2,radius*2)
         if (danger === "Overlord") {

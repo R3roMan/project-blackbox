@@ -59,25 +59,25 @@ for (const id of Object.keys(weapons)) {
 }
 
 var actives = {
-    eventFold:{ id:"eventFold",title:"Event fold",category:"Active",rarity:"epic",cooldown:26,
+    eventFold:{ id:"eventFold",title:"Event fold",category:"Active",rarity:"epic",cooldown:23,
         description:"Open a stronger three-second gravity well at the demon under your aim or the nearest demon on this wallpaper." },
     riposte:{id:"riposte",title:"Riposte",category:"Active",rarity:"rare",cooldown:19,
         description:"With a melee weapon, parry the next hit within 1.1 seconds and counter a nearby attacker."},
     bladesweep:{id:"bladesweep",title:"Blade orbit",category:"Active",rarity:"epic",cooldown:24,
         description:"Sweep every nearby enemy on this wallpaper with your equipped melee weapon."},
-    salvo:{id:"salvo",title:"Breach rounds",category:"Active",rarity:"epic",cooldown:25,
+    salvo:{id:"salvo",title:"Breach rounds",category:"Active",rarity:"epic",cooldown:19,
         description:"The next three magazine shots deal 65% more damage to barriers."},
     lockfeed:{id:"lockfeed",title:"Lock feed",category:"Active",rarity:"rare",cooldown:22,
         description:"For four seconds the first connected round of each burst refunds one round."},
-    runefill:{id:"runefill",title:"Rune fill",category:"Active",rarity:"epic",cooldown:28,
+    runefill:{id:"runefill",title:"Rune fill",category:"Active",rarity:"epic",cooldown:20,
         description:"Add two attacks' worth of charge to your current staff spell."},
     guststep:{id:"guststep",title:"Gust step",category:"Active",rarity:"rare",cooldown:21,element:"wind",elementLevel:1,
         description:"Knock back threats on this wallpaper and speed up your turn for four seconds."},
-    emberharvest:{id:"emberharvest",title:"Ember harvest",category:"Active",rarity:"legendary",cooldown:30,
+    emberharvest:{id:"emberharvest",title:"Ember harvest",category:"Active",rarity:"legendary",cooldown:24,
         description:"Draw Burn from each burning target here to damage its neighbours with a flash."},
     axeHook:{id:"axeHook",title:"Axe hook",category:"Active",rarity:"rare",cooldown:23,locked:true,
         description:"Pull the enemy under your aim closer and interrupt its wind-up. Useful for melee range."},
-    runesurge:{id:"runesurge",title:"Rune surge",category:"Active",rarity:"legendary",cooldown:34,locked:true,
+    runesurge:{id:"runesurge",title:"Rune surge",category:"Active",rarity:"legendary",cooldown:24,locked:true,
         description:"Consume your staff's current charge to damage this wallpaper. Deal more damage with every charge spent."}
 }
 

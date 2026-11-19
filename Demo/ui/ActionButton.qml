@@ -5,6 +5,7 @@ Button {
     id: control
 
     property string hintText:""
+    property var hintStats:[]
     property string entryChapter:""
     property string entryId:""
     signal entryRequested(string chapter, string id)
@@ -104,6 +105,7 @@ Button {
             hovered:control.enabled && control.hovered && control.hintEnabled
             delay:control.hintDelay
             details:control.hintText
+            comparisons:control.hintStats
             chapter:control.entryChapter
             entryId:control.entryId
             onEntryRequested:function(chapter,id) { control.entryRequested(chapter,id) }

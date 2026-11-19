@@ -17,7 +17,7 @@ def tone(hz, t):
 
 
 def write(name, seconds, sample):
-    if SELECTED and name not in SELECTED:
+    if SELECTED and name not in SELECTED and not any(f"{group}-all" in SELECTED and name.startswith(f"{group}-") for group in ("ability","attack")):
         return
     values = array("h", (round(32767 * max(-1, min(1, sample(i / RATE)))) for i in range(round(seconds * RATE))))
     if sys.byteorder == "big":
@@ -141,6 +141,12 @@ GUNS = {
     "rimeRelay": ("pulse", 1350, .24, .69, (.11, .34, .67, .92)),
     "whiteoutCoil": ("beam-loop", 314, 1, .97, (.06, .28, .53, .76, .95)),
     "fearScythe": ("blade", 151, .49, 1.22, (.11, .37, .58, .71, .92)),
+    "wickPistol": ("ballistic", 139, .15, .76, (.14,.49,.84)),
+    "stormWicket": ("pulse", 810, .29, .96, (.09,.31,.53,.78)),
+    "zenithThroat": ("rail", 328, .48, 1.11, (.12,.34,.68,.92)),
+    "barometer": ("ballistic", 224, .12, .81, (.09,.37,.57,.96)),
+    "crepuscule": ("rail", 259, .38, 1.01, (.05,.39,.69,.85)),
+    "moonwake": ("beam-loop", 233, .87, .74, (.13,.41,.81)),
     "jesterScatter": ("pump", 112, .29, 1.34, (.18, .40, .52, .77, .91)),
 }
 
@@ -546,3 +552,182 @@ cue("blood-moon-arrival",1.75,89,.64,.045,.22)
 wet_impact("blood-bolt",.44,163,.48)
 cue("blood-drain",.79,172,.78,.025,.3)
 cue("stone-break",.98,67,2.12,.25,.04)
+
+# Field updates, menu feedback, and distinct notes over the takeover clock.
+def phrase(name, notes, duration, brass=False, downcast=False):
+    def sample(t):
+        total = 0
+        for start, pitch, length, level in notes:
+            age = t - start
+            if not 0 <= age < length:
+                continue
+            bend = age * age * (-.071 if downcast else .021)
+            vibrato = .0018 * tone(5.3, age) * min(1, age*5) if brass else 0
+            phase = pitch * (age + bend + vibrato)
+            body = tone(1, phase)
+            if brass:
+                body = .66*body + .28*tone(2, phase) + .19*tone(3, phase) + .105*tone(5, phase)
+            amp = min(1, age * (44 if brass else 170), (length-age)*13) * exp(-age*(.94 if brass else 3.2))
+            total += level * body * amp
+        return total * min(1, (duration-t)*120)
+    write(name, duration, sample)
+
+
+phrase("clear", [(0,196,.58,.25),(.07,392,.28,.28),(.26,523,.25,.28),(.42,659,.57,.35),(.43,784,.50,.17),(.53,1046,.47,.12)],1.16,brass=True)
+phrase("loss", [(0,392,.31,.48),(.31,349,.31,.46),(.62,311,.52,.46),(1.04,196,.87,.51),(1.11,146,.51,.18)],2.10,brass=True,downcast=True)
+phrase("buy", [(0,746,.15,.48),(.065,1219,.24,.43),(.09,1745,.21,.19),(.12,1489,.25,.23)],.42)
+phrase("new-game", [(0,87,.49,.58),(.075,131,.63,.32),(.17,220,.42,.29),(.27,349,.52,.35),(.44,523,.42,.26)],.94,brass=True)
+phrase("continue-game", [(0,262,.28,.34),(.085,392,.41,.31),(.20,523,.43,.34),(.32,698,.42,.25)],.82)
+phrase("coin-arrival", [(0,1270,.12,.28),(.034,1949,.16,.25),(.06,2657,.11,.16)],.24)
+phrase("gem-arrival", [(0,609,.19,.31),(.055,1218,.18,.35),(.11,1678,.24,.28),(.16,2436,.21,.20)],.44)
+phrase("takeover-warn", [(0,43,.85,.58),(.04,73,1.25,.40),(.22,138,.83,.31),(.56,164,1.15,.30),(1.07,92,.73,.24)],1.95,brass=True,downcast=True)
+phrase("takeover-tick", [(0,611,.16,.56),(0,118,.26,.37)],.35)
+phrase("takeover-final", [(0,844,.21,.62),(.038,147,.30,.39)],.38,brass=True)
+phrase("takeover-seal", [(0,70,.37,.52),(.13,145,.76,.36),(.30,435,.54,.37),(.44,660,.54,.34),(.65,971,.53,.21)],1.25)
+
+
+def paper(name, duration, rustles, pitch, volume):
+    rng = Random(134 + round(pitch))
+    previous = 0
+
+    def sample(t):
+        nonlocal previous
+        noise = rng.uniform(-1, 1)
+        previous = previous * .87 + noise * .13
+        texture = .52 * previous + .31 * (noise-previous) + .15 * tone(pitch*(1-t*.7), t)
+        envelope = sum(level*exp(-((t-at)/length)**2) for at,length,level in rustles)
+        return texture * envelope * volume * min(1, t*140, (duration-t)*160)
+
+    write(name,duration,sample)
+
+
+paper("book-flip", .41, ((.103,.049,.88),(.188,.040,.63),(.249,.025,.42)),178,1.08)
+paper("book-sweep", .56, ((.05,.023,.69),(.12,.027,.72),(.20,.031,.72),(.29,.044,.66),(.41,.035,.80)),142,1.02)
+paper("book-scroll", .15, ((.044,.033,.72),(.082,.011,.54)),231,.65)
+paper("book-open", .67, ((.13,.082,.69),(.28,.061,.80),(.52,.034,.68)),124,1.18)
+paper("book-close", .53, ((.12,.050,.53),(.26,.031,1.20),(.29,.053,.65)),85,1.12)
+
+
+def bubbling():
+    rng = Random(225870)
+    bubbles = [(rng.random()*5.8+.1, rng.uniform(.09,.28), rng.uniform(47,245), rng.uniform(.09,.38)) for _ in range(67)]
+    bubbles.sort()
+    next_bubble = 0
+    active = []
+
+    def sample(t):
+        nonlocal next_bubble
+        while next_bubble < len(bubbles) and bubbles[next_bubble][0] <= t:
+            active.append(bubbles[next_bubble])
+            next_bubble += 1
+        active[:] = [item for item in active if t-item[0]<item[1]]
+        value = .044 * tone(39,t) + .037 * tone(52, t+.003*tone(1.2,t))
+        for start,length,pitch,level in active:
+            age=t-start
+            value += level*min(1,age*107,(length-age)*93)*exp(-age*10)*(
+                .8*tone(pitch,age+2.85*age*age)+.25*tone(pitch*1.47,age)+.054*rng.uniform(-1,1))
+        return value*min(1,t*29,(6.3-t)*29)
+
+    write("abyss-bubble-loop",6.3,sample)
+
+
+bubbling()
+
+
+def make_active_sounds():
+    import json
+    import subprocess
+    from zlib import crc32
+
+    kinds = json.loads(subprocess.check_output(
+        ["node", str(Path(__file__).with_name("audio-catalog.cjs"))], text=True))
+    profiles = {
+        "freeze":(749,1.12,.04,.15), "burn":(177,.74,.56,-.13), "electric":(483,.46,.44,1.33),
+        "void":(71,1.08,.23,-.34), "poison":(101,.84,.35,.83), "blood":(127,.72,.33,-.42),
+        "heal":(511,.82,.03,.55), "guard":(293,.73,.07,.24), "explosive":(62,.61,.45,-.36),
+        "wind":(243,.62,.49,.29), "rune":(408,.79,.07,.46), "reload":(251,.48,.19,.16),
+        "critical":(665,.51,.18,.37), "stun":(312,.54,.35,-.18), "sticky":(187,.56,.28,-.21),
+        "blind":(321,.76,.27,-.46), "weaken":(211,.70,.17,-.46), "knockback":(103,.49,.46,-.28),
+        "cut":(633,.36,.48,.20), "coin":(927,.62,.035,.67), "summon":(389,.90,.09,.24),
+        "intercept":(543,.44,.37,-.38)
+    }
+    for id_, kind in kinds.items():
+        seed = crc32(id_.encode())
+        rng = Random(seed)
+        base, length, grit, bend = profiles.get(kind, profiles["rune"])
+        pitch = base * 2**(rng.uniform(-4, 4) / 12)
+        length *= rng.uniform(.89, 1.14)
+        offset = rng.uniform(.08, .22)
+        interval = rng.choice((1.189, 1.334, 1.498, 1.682))
+        speed = rng.uniform(11, 51)
+        if id_ == "boneShatter":
+            grit, length, pitch, speed = .58, .76, 167, 26
+        if id_ == "solarCoronal":
+            length, pitch, speed = .94, 344, 23
+
+        def sample(t):
+            wave = tone(pitch, t + bend*t*t + .0016*tone(speed,t))
+            wave += .27*tone(pitch*1.51,t+.0013*tone(7.7,t))
+            if t>offset:
+                age=t-offset
+                wave += .48*tone(pitch*interval, age+.012*tone(3.9,age))*exp(-age*2.8)
+            texture=rng.uniform(-1,1)*grit*exp(-t*(5 if kind in ("cut","electric") else 3.7))
+            shape=1 if kind in ("heal","guard","rune","coin") else .68+.32*tone(speed*.71,t)
+            fade=min(1,t*90,(length-t)*15)*(.43+.57*exp(-t*2.8))
+            return (wave*.48+texture)*shape*fade
+
+        write("ability-"+id_,length,sample)
+
+
+if not SELECTED or any(name.startswith("ability-") for name in SELECTED):
+    make_active_sounds()
+
+def make_attack_sounds():
+    import json
+    import subprocess
+    from zlib import crc32
+
+    kinds = json.loads(subprocess.check_output(
+        ["node", str(Path(__file__).with_name("audio-catalog.cjs")), "--enemies"], text=True))
+    profiles = {
+        "melee": (128, .39, .42, -.45, .19), "ranged": (218, .47, .32, .63, .21),
+        "alien": (430, .40, .10, .94, .11), "abyss": (75, .58, .30, .85, .21),
+        "angel": (317, .67, .12, -.44, .15), "boss": (67, .72, .58, -.44, .14),
+    }
+    for id_, kind in kinds.items():
+        pitch, length, grit, bend, bite = profiles[kind]
+        rng = Random(crc32(id_.encode()))
+        pitch *= rng.uniform(.66, 1.43)
+        length *= rng.uniform(.80, 1.22)
+        interval = rng.choice((1.259, 1.498, 1.682, 1.875))
+        flutter = rng.uniform(9, 30)
+        if id_ == "veilskate":
+            pitch, length, bend, grit = 610, .54, 1.32, .16
+
+        def sample(t):
+            sweep = t + bend*t*t
+            tremor = .0025*tone(flutter,t) if kind in ("alien","abyss","boss") else 0
+            voice = .54*tone(pitch,sweep+tremor)+.29*tone(pitch*interval,sweep*.92)
+            breath = rng.uniform(-1,1)*grit*(.54+.46*tone(flutter*.6,t))
+            hit = .28*exp(-abs(t-bite)*38)*tone(pitch*.64,t-bite)
+            return (voice+breath+hit)*min(1,t*96,(length-t)*18)*exp(-t*(2.4 if kind=="boss" else 3.2))
+
+        write("attack-"+id_,length,sample)
+
+
+if not SELECTED or any(name.startswith("attack-") for name in SELECTED):
+    make_attack_sounds()
+
+
+def last_breath():
+    noise = Random(930811)
+    def sample(t):
+        pulse = exp(-((t-.19)/.18)**2) + .58*exp(-((t-.57)/.23)**2) + .30*exp(-((t-1.36)/.31)**2)
+        breath = (.54 * tone(101, t-.168*t*t+.0045*tone(13,t))
+                  + .19 * tone(231, t-.14*t*t) + .25*noise.uniform(-1,1))
+        thud = .56*exp(-max(0,t-1.24)*18)*min(1,max(0,t-1.24)*90)*tone(52,t)
+        return min(1,t*35,(1.98-t)*11)*(breath*.66*pulse+thud)
+    write("player-death",1.98,sample)
+
+
+last_breath()

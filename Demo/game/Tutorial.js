@@ -12,7 +12,7 @@ var lessons=[
     {title:"Let the shield recover",text:"Watch the blue field-shield bar. It fills while the shield recharges. Release Space and wait for READY before raising it again.",goal:"Watch the shield bar return to READY.",kind:"recharge",front:"front"},
     {title:"Thin the crowd",text:"Shoot the small demon beside him. These practice targets will wait for you.",goal:"Defeat the stationary peon.",kind:"peon",front:"front"},
     {title:"A threat to the left",text:"Tap A or the left arrow, or move your mouse to the left edge. Find and shoot the peon. Return with D or the right edge.",goal:"Look left and defeat the peon.",kind:"peon",front:"left"},
-    {title:"Watch both sides",text:"Reach the right-hand laboratory. Hold Shift to aim down the sights, then shoot the final practice peon while scoped. Release Shift before turning.",goal:"Look right. Hold Shift and shoot the peon.",kind:"peon",front:"right",scope:true}
+    {title:"Watch both sides",text:"Reach the right-hand laboratory. Hold Shift and shoot the final peon. A scoped gun hit marks a demon for four seconds, so follow-up attacks on it bypass miss rolls. Release Shift before turning.",goal:"Look right. Hold Shift and shoot the peon.",kind:"peon",front:"right",scope:true}
 ]
 
 var moltDuration=4.2
@@ -146,7 +146,11 @@ function update(run,dt,sealing,firing,aim,viewReady) {
         if (lesson.kind==="peon") success=!run.enemies.some(function(e){return e.trainingPeon})
         if ((lesson.kind==="melee" || lesson.kind==="parry") && b) {
             b.attack=Math.max(0,2.2-t.age)
-            if (t.age>=2.2 && !t.struck) {t.struck=true;Rules.damagePlayer(run,7,"front",b.type,false,{sourceId:b.id})}
+            if (t.age>=2.2 && !t.struck) {
+                t.struck=true
+                Rules.announce(run,null,"attack:"+b.type)
+                Rules.damagePlayer(run,7,"front",b.type,false,{sourceId:b.id})
+            }
             success=delta(lesson.kind==="parry" ? "parries" : "shieldBlocks")>0
             if (lesson.kind==="parry" && t.struck && !success) {rewind(run);return}
         }
@@ -173,17 +177,23 @@ function update(run,dt,sealing,firing,aim,viewReady) {
     b.trainingHeight=Math.cos(t.age*1.2)*b.depth*.09
     b.attack-=dt
     if (phase===2 && b.special) {
-        b.special.age+=dt
-        if (b.special.age<.8) b.attackFlash=.28
-        else if (b.special.age<1.14) b.depth=1000-(b.special.age-.8)/.34*720
+        const charge=b.special
+        // Older practice checkpoints used age for this timer.
+        charge.time=(charge.time ?? charge.age ?? 0)+dt
+        charge.warning=.8
+        if (charge.time<charge.warning) b.attackFlash=0
+        else if (charge.time<1.14) {
+            b.depth=1000-(charge.time-charge.warning)/.34*720
+            b.attackFlash=.20
+        }
         else {
+            Rules.announce(run,null,"attack:"+b.type)
             Rules.damagePlayer(run,12,b.front,b.type,false,{sourceId:b.id})
             b.depth=1000;b.special=null;b.attack=3.2
         }
     } else if (b.attack<=0 && !b.warp) {
-        if (phase===2 && b.front===run.playerFront && Math.floor(t.age/3)%2===0) b.special={kind:"tutorialCharge",age:0}
-        else {Rules.launchBolts(run,b,{boltTime:phase===1 ? 1.3 : 1.08,accent:"#ffe17a",boltHealth:2});b.attack=phase===1 ? 3.8 : 2.8}
-        b.attackFlash=.33
+        if (phase===2 && b.front===run.playerFront && Math.floor(t.age/3)%2===0) b.special={kind:"tutorialCharge",time:0,warning:.8}
+        else {Rules.launchBolts(run,b,{boltTime:phase===1 ? 1.3 : 1.08,accent:"#ffe17a",boltHealth:2});b.attack=phase===1 ? 3.8 : 2.8;b.attackFlash=.33}
     }
     if (phase===2 && t.age>=t.nextPeon) {
         t.nextPeon+=10

@@ -45,6 +45,7 @@ ColumnLayout {
                 entryChapter:"weapons"
                 entryId:modelData.id
                 onEntryRequested:function(chapter,id) { picker.entryRequested(chapter,id) }
+                hintStats:Gear.weaponComparison(null,{id:picker.selectedId,level:0},{id:modelData.id,level:0})
                 hintText: modelData.title + "\n" + Gear.itemDetails(null,"weapon",{id:modelData.id,level:0})
                 onClicked: picker.weaponSelected(modelData.id)
 

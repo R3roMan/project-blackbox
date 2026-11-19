@@ -3,6 +3,16 @@ import QtQuick3D.Helpers
 
 // Exported from Dev/models/companion-studies.blend.
 ProceduralMesh {
+    property bool textured:false
+    // Lay the barbs across the curved shaft using the original loft's centre line.
+    uv0s: textured ? Array.from(positions, point => {
+        const length = point.x / 100
+        return Qt.vector2d(length, .5 - (point.z + 26 * length * length) / 28)
+    }) : []
+    tangents: textured ? Array.from(normals, normal => Qt.vector3d(1, 0, 0)
+        .minus(normal.times(normal.x)).normalized()) : []
+    binormals: textured ? Array.from(normals, (normal, index) =>
+        normal.crossProduct(tangents[index]).times(normal.y < 0 ? -1 : 1)) : []
     positions: [
         Qt.vector3d(0, 0, 2),
         Qt.vector3d(0, 0.4243, 1.414),

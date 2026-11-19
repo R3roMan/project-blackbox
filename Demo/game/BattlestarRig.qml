@@ -4,14 +4,15 @@ import QtQuick3D
 
 Node {
     id: vessel
+    property var surfaces:null
     required property int targetId
     required property bool live
     required property bool charging
     required property bool beaming
     property real clock: 0
 
-    PrincipledMaterial { id: hull; baseColor: "#171622"; metalness: .67; roughness: .39 }
-    PrincipledMaterial { id: armour; baseColor: "#302131"; metalness: .63; roughness: .35 }
+    LitSurface { surfaces:vessel.surfaces; finish:"steel"; id:hull; baseColor: "#171622"; metalness: .67; roughness: .39 }
+    LitSurface { surfaces:vessel.surfaces; finish:"steel"; id:armour; baseColor: "#302131"; metalness: .63; roughness: .35 }
     PrincipledMaterial { id: seam; baseColor: "#8d253d"; metalness: .43; roughness: .40 }
     PrincipledMaterial {
         id: hot

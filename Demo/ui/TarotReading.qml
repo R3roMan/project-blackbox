@@ -9,6 +9,7 @@ Item {
     id: table
     required property var ledger
     property bool motion: true
+    property bool unlimited:false
     readonly property var hand: ledger.reading
     readonly property var chosen: Tarot.card(hand?.chosen || "")
     signal buyRequested()
@@ -48,7 +49,7 @@ Item {
             objectName:"buyTarotReading"
             Layout.alignment:Qt.AlignHCenter
             visible:!table.hand
-            enabled:Meta.canBuy(table.ledger,Meta.reading)
+            enabled:Meta.canBuy(table.ledger,Meta.reading,table.unlimited)
             primary:true
             accent:"#e6b179"
             text:Meta.price(table.ledger,Meta.reading) ? "Draw five · ◆ "+Meta.price(table.ledger,Meta.reading) : "Draw five · Free"

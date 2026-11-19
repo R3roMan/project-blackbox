@@ -23,10 +23,38 @@ View3D {
     property var smokes: []
     property var bubbleBursts:[]
     property var abilityEvents:[]
+    property var gore:[]
     property real turnRatio: 1
     property real blindness: 0
     property int quality: 0
     property int detail:1
+    property int frameTarget:60
+    property real abyssDepth:0
+    property int lowSamples:0
+    property int goodSamples:0
+    property int dynamicCap:2160
+    readonly property bool ultra:detail===3
+    readonly property bool busy:hypnotised || voidIncursion || actors.length+bolts.length>18
+    readonly property bool cinematicEffects:ultra && !busy && (quality>0 || dynamicCap>=1440)
+    SurfaceSet {id:worldSurfaces;detailed:world.ultra}
+    Timer {
+        interval:1400;repeat:true
+        running:world.ultra && !world.quality && world.visible && world.elapsed>2
+        onTriggered:{
+            if (world.renderStats.fps<1) return
+            const target=Math.min(world.frameTarget,60)
+            const slow=world.renderStats.fps<target*.76
+            world.lowSamples=slow ? world.lowSamples+1 : 0
+            world.goodSamples=!slow && !world.busy && world.renderStats.fps>=target*.93 ? world.goodSamples+1 : 0
+            if (world.lowSamples>=3) {
+                world.dynamicCap=world.dynamicCap>1440 ? 1440 : 1080
+                world.lowSamples=0
+            } else if (world.goodSamples>=14) {
+                world.dynamicCap=world.dynamicCap<1440 ? 1440 : 2160
+                world.goodSamples=0
+            }
+        }
+    }
     property string transitionStyle:"cinematic"
     property real transitionStrength:1
     readonly property bool abyssTransition:(frontId === "down" || previousFront === "down") && frontId !== previousFront && turnRatio < 1
@@ -38,12 +66,10 @@ View3D {
     property color sunColor:"#ffc4a4"
     property real darkSky:0
     property real warmSky:0
-    property bool fog:false
-    readonly property int autoHeight: detail === 0 ? 900
-        : detail === 1 && (hypnotised || voidIncursion) ? 1080 : 1440
+    property real obscurity:0
+    readonly property int autoHeight:detail===0 ? 900 : ultra ? Math.min(dynamicCap,busy ? 1440 : 2160)
+        : detail===1 && busy ? 1080 : 1440
     readonly property real renderScale: Math.min(pixelRatio,(quality || autoHeight)/Math.max(1,height))
-    readonly property real turnEdge: Math.min(1, Math.min(turnRatio, 1 - turnRatio) / .24)
-    readonly property real wallBlend: abyssTransition || transitionStyle === "soft" ? 0 : turnEdge * turnEdge * (3 - 2 * turnEdge) * (1 - blindness)
     readonly property real cropV: 1 / Math.tan(28 * Math.PI / 180)
     property real elapsed: 0
     property real lungeDepth: 0
@@ -52,6 +78,7 @@ View3D {
     property point lensCentre: Qt.point(.5,.5)
     property bool motion: true
     property url artDirectory: ""
+    property var backgrounds:({})
     property string frontId: "front"
     property int revision: 0
     property int grabId: 0
@@ -68,12 +95,35 @@ View3D {
     explicitTextureHeight: Math.max(1, Math.round(height * renderScale))
     renderMode: View3D.Offscreen
     camera: magnification > 1.001 ? lens : eye
-    environment: SceneEnvironment {
+    environment: ExtendedSceneEnvironment {
         backgroundMode: SceneEnvironment.Transparent
-        antialiasingMode:world.detail > 0 && world.explicitTextureWidth <= (world.detail === 2 ? 3840 : 2688) ? SceneEnvironment.MSAA : SceneEnvironment.NoAA
+        antialiasingMode:world.detail > 0 && !world.ultra && world.explicitTextureWidth <= (world.detail>=2 ? 3840 : 2688)
+            ? SceneEnvironment.MSAA : SceneEnvironment.NoAA
+        fxaaEnabled:world.ultra
+        lightProbe:world.ultra ? worldSurfaces.lightProbe : null
+        probeExposure:.64-world.darkSky*.36
+        tonemapMode:world.ultra ? SceneEnvironment.TonemapModeAces : SceneEnvironment.TonemapModeLinear
+        glowEnabled:world.cinematicEffects
+        glowBlendMode:ExtendedSceneEnvironment.GlowBlendMode.Screen
+        glowLevel:ExtendedSceneEnvironment.GlowLevel.One | ExtendedSceneEnvironment.GlowLevel.Three
+        glowStrength:.48
+        glowIntensity:.59
+        glowBloom:.05
+        glowHDRMinimumValue:1.12
+        Fog {
+            id:atmosphericDepth
+            enabled:world.ultra && (world.obscurity>.18 || world.abyssDepth>.5)
+            depthEnabled:true
+            depthNear:world.obscurity>.18 ? 240 : 580
+            depthFar:world.obscurity>.18 ? 2400 : 3600
+            color:world.abyssDepth>.5 ? "#65201932" : "#72768291"
+            density:world.obscurity>.18 ? world.obscurity*.62 : .25
+        }
+        fog:atmosphericDepth
         antialiasingQuality:world.detail === 2 ? SceneEnvironment.High : SceneEnvironment.Medium
-        aoEnabled:world.detail === 2
-        aoStrength:56
+        aoEnabled:world.detail===2 || world.cinematicEffects
+        aoStrength:world.ultra ? 68 : 56
+        aoSampleRate:world.ultra ? 3 : 2
         aoDistance:72
         aoBias:1.4
     }
@@ -157,6 +207,21 @@ View3D {
         readonly property var location: Rules.front(world.frontId)
         eulerRotation: Qt.vector3d(location.pitch, location.yaw, 0)
         ActorRoster {
+            id:bloodRoster
+            entries:world.ultra && !world.hypnotised
+                ? world.gore.filter(function(event){return event.front===world.frontId && event.fatal && !event.crystal}).slice(-6)
+                : []
+        }
+        Repeater3D {
+            model:bloodRoster
+            delegate:BloodBurst3D {
+                required property int actorId
+                event:bloodRoster.records[actorId]
+                revision:world.revision
+                motion:world.motion
+            }
+        }
+        ActorRoster {
             id:casts
             entries:world.detail>0 && !world.hypnotised ? world.abilityEvents.filter(function(effect) {return effect.front===world.frontId}) : []
         }
@@ -201,12 +266,12 @@ View3D {
         eulerRotation: Qt.vector3d(-14-world.sunHeight*68,world.sunYaw,-6)
         color:world.sunColor
         ambientColor:world.darkSky>.6 ? "#655681" : "#70617e"
-        brightness: (world.detail===2 ? 2.1 : 1.8)+world.warmSky*.58-world.darkSky*.45
-        castsShadow:world.detail === 2
-        shadowMapQuality:Light.ShadowMapQualityMedium
-        shadowFactor:69
+        brightness:1.02*world.abyssDepth+(1-world.abyssDepth)*((world.detail>=2 ? 2.05 : 1.8)+world.warmSky*.58-world.darkSky*.45)
+        castsShadow:world.detail>=2
+        shadowMapQuality:world.cinematicEffects ? Light.ShadowMapQualityVeryHigh : Light.ShadowMapQualityHigh
+        shadowFactor:world.darkSky>.6 ? 56 : 78
         shadowMapFar:3800
-        softShadowQuality:Light.PCF4
+        softShadowQuality:world.cinematicEffects ? Light.PCF16 : Light.PCF4
     }
     DirectionalLight {
         eulerRotation: Qt.vector3d(38, 130, 0)
@@ -220,39 +285,12 @@ View3D {
     }
     Loader3D {
         parent:frontFrame
-        active:world.detail === 2
+        active:world.detail>=2
         sourceComponent:PointLight {
             position:Qt.vector3d(-280,240,-480)
             color:"#ff8059"
             brightness:1.65
             quadraticFade:.19
-        }
-    }
-
-    Repeater3D {
-        model: String(world.artDirectory).length ? Rules.fronts : []
-        delegate: Node {
-            id: wall
-            required property var modelData
-            eulerRotation: Qt.vector3d(modelData.pitch, modelData.yaw, 0)
-            Model {
-                visible: world.turnRatio > 0 && world.turnRatio < 1 && world.wallBlend > .01
-                opacity: world.wallBlend
-                source: "#Rectangle"
-                z: -4500
-                scale: Qt.vector3d(90.02, 90.02, 1)
-                materials: PrincipledMaterial {
-                    lighting: PrincipledMaterial.NoLighting
-                    cullMode: Material.NoCulling
-                    baseColorMap: Texture {
-                        source: Qt.resolvedUrl(String(world.artDirectory) + wall.modelData.art)
-                        scaleU: world.cropV * world.height / Math.max(1, world.width) / world.wallpaperZoom
-                        scaleV: world.cropV / world.wallpaperZoom
-                        positionU: (1 - scaleU) / 2
-                        positionV: (1 - scaleV) / 2
-                    }
-                }
-            }
         }
     }
 
@@ -275,6 +313,7 @@ View3D {
         }
         PetModel {
             helper: petAnchor.helper
+            detailed:world.detail>=2 && !!petAnchor.pet
             phase: world.elapsed
             strike: petAnchor.flash
             resting: { world.revision; return petAnchor.pet ? petAnchor.pet.resting > 0 : false }
@@ -349,9 +388,9 @@ View3D {
                     visible: { world.revision; return modelData.hp > 0 && !leviathan.enemy.warp && leviathan.enemy.hp > 0 }
                     objectName: String(modelData.id)
                     pickable: visible
-                    source: "#Cone"
+                    geometry: shotFang
                     position: Qt.vector3d(tip.lane,tip.elevation,-tip.depth)
-                    scale: Qt.vector3d(.48,.96,.38)
+                    scale: Qt.vector3d(1.7,1.5,1.2)
                     eulerRotation.z: 180+modelData.side*9
                     materials: PrincipledMaterial {
                         baseColor: "#efcda9"
@@ -465,7 +504,7 @@ View3D {
             visible: { world.revision; return !enemy.waitingBoss && (enemy.front === world.frontId
                 || world.turnRatio < 1 && enemy.front === world.previousFront) && (!world.hypnotised || enemy.type === "hallucination") }
             active: visible
-            opacity:{world.revision;return world.fog ? Conditions.fogVisibility(enemy.depth) : 1}
+            opacity:{world.revision;return 1-world.obscurity*(1-Conditions.fogVisibility(enemy.depth))}
             sourceComponent: enemy.type === "hasasasa" ? warship : demon
             Component {
                 id: demon
@@ -476,15 +515,34 @@ View3D {
                     blindness: world.blindness
                     viewedFront: world.frontId
                     grabId: world.grabId
+                    surfaces:world.ultra ? worldSurfaces : null
                 }
             }
             Component {
-                id: warship
-                ShipModel {
-                    enemy: actorNode.enemy
-                    revision: world.revision
-                    animate: world.motion
-                    visibility: 1 - world.blindness * .93
+                id:warship
+                Node {
+                    ShipModel {
+                        enemy:actorNode.enemy
+                        revision:world.revision
+                        animate:world.motion
+                        visibility:1-world.blindness*.93
+                        surfaces:world.ultra ? worldSurfaces : null
+                    }
+                    Loader3D {
+                        active:world.ultra
+                        parent:frontFrame
+                        position:{
+                            world.revision
+                            return Qt.vector3d(Rules.lanePosition(actorNode.enemy),Rules.elevation(actorNode.enemy),-actorNode.enemy.depth)
+                        }
+                        scale:Qt.vector3d(2.4,2.4,2.4)
+                        sourceComponent:BossPresence3D {
+                            enemy:actorNode.enemy
+                            revision:world.revision
+                            tint:"#8fd4ff"
+                            motion:world.motion
+                        }
+                    }
                 }
             }
         }
@@ -530,6 +588,7 @@ View3D {
     }
 
     AmethystGeometry { id:shotCrystal }
+    SickleHornGeometry { id:shotFang }
 
     Repeater3D {
         model: boltList
@@ -547,26 +606,38 @@ View3D {
             }
             Model {
                 visible:!projectile.bolt.bubble
-                geometry:projectile.bolt.crystal ? shotCrystal : null
-                source: projectile.bolt.crystal ? "" : projectile.bolt.shard || projectile.bolt.sniper || projectile.bolt.element === "freeze" && projectile.shipBolt ? "#Cube"
-                    : projectile.bolt.fang || projectile.shipBolt && projectile.bolt.element === "burn" ? "#Cone" : "#Sphere"
+                geometry:projectile.bolt.fang ? shotFang : projectile.bolt.crystal ? shotCrystal : null
+                source: projectile.bolt.fang || projectile.bolt.crystal ? "" : projectile.bolt.shard || projectile.bolt.sniper || projectile.bolt.element === "freeze" && projectile.shipBolt ? "#Cube"
+                    : projectile.shipBolt && projectile.bolt.element === "burn" ? "#Cone" : "#Sphere"
                 objectName: String(projectile.actorId)
                 pickable: { world.revision; return Rules.pickableBolt(projectile.bolt, world.frontId, world.meleeReturn) }
                 position: Qt.vector3d(projectile.point.lane, projectile.point.elevation, -projectile.point.depth)
                 eulerRotation.z: projectile.bolt.crystal ? (world.motion ? world.elapsed*-325 : 30)
-                    : projectile.bolt.shard || projectile.shipBolt || projectile.bolt.fang ? (world.motion ? world.elapsed * 650 : 25) : 0
+                    : projectile.bolt.fang ? (world.motion ? world.elapsed*185 : 155)
+                    : projectile.bolt.shard || projectile.shipBolt ? (world.motion ? world.elapsed * 650 : 25) : 0
                 scale: bolt.bubble ? Qt.vector3d(1.3,1.3,1.3) : bolt.returning ? Qt.vector3d(.24,.24,1.05)
-                    : bolt.fang ? Qt.vector3d(.53,1.05,.45) : bolt.core ? Qt.vector3d(.51, .51, .95) : bolt.slug ? Qt.vector3d(.45,.32,.58)
+                    : bolt.fang ? Qt.vector3d(1.85,1.55,1.45) : bolt.source==="veilskate" ? Qt.vector3d(.54,.54,.54)
+                    : bolt.core ? Qt.vector3d(.51, .51, .95) : bolt.slug ? Qt.vector3d(.45,.32,.58)
                     : bolt.crystal ? Qt.vector3d(.43,.58,.40) : bolt.shard ? Qt.vector3d(.35,.12,.64)
                     : bolt.voidShot ? Qt.vector3d(.48,.46,1.15) : bolt.sniper ? Qt.vector3d(.15,.15,1.63)
                     : projectile.shipBolt ? Qt.vector3d(.39,.39,.71)
                     : bolt.hp ? Qt.vector3d(.28, .28, .67) : Qt.vector3d(.17, .17, .64)
                 materials: PrincipledMaterial {
                     baseColor: bolt.voidShot ? "#211027" : bolt.color
-                    lighting: bolt.crystal ? PrincipledMaterial.FragmentLighting : PrincipledMaterial.NoLighting
-                    emissiveFactor:bolt.crystal ? Qt.vector3d(.66,.16,.86) : Qt.vector3d(0,0,0)
+                    lighting: bolt.crystal || bolt.fang ? PrincipledMaterial.FragmentLighting : PrincipledMaterial.NoLighting
+                    cullMode: bolt.fang ? Material.NoCulling : Material.BackFaceCulling
+                    emissiveFactor:bolt.crystal ? Qt.vector3d(.66,.16,.86) : bolt.fang ? Qt.vector3d(.34,.27,.18) : Qt.vector3d(0,0,0)
                 }
-                opacity: bolt.bubble ? .53 + Math.sin(world.elapsed*6+projectile.actorId)*.15 : 1
+                opacity: bolt.source==="veilskate" && !bolt.returning ? .68 : bolt.bubble ? .53 + Math.sin(world.elapsed*6+projectile.actorId)*.15 : 1
+            }
+            Loader3D {
+                active:projectile.bolt.source==="veilskate" && !projectile.bolt.returning
+                position:Qt.vector3d(projectile.point.lane,projectile.point.elevation,-projectile.point.depth)
+                sourceComponent:Model {
+                    source:"#Sphere"
+                    scale:Qt.vector3d(.30,.30,.30)
+                    materials:PrincipledMaterial {baseColor:"#ddffc6";lighting:PrincipledMaterial.NoLighting}
+                }
             }
             Loader3D {
                 active:!!projectile.bolt.bubble

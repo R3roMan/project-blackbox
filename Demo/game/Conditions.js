@@ -1,7 +1,7 @@
 .pragma library
 
 var entries = {
-    daytime:{id:"daytime",title:"Daytime",glyph:"☀",tint:"#ffe4ab",description:"Every wave starts in daylight. Look left from the Shrine to see the moving sun."},
+    daytime:{id:"daytime",title:"Daytime",glyph:"☀",tint:"#ffe4ab",description:"The first wave is daylight. Later waves cycle through sunset, night, sunrise and daylight again. Look left from the Shrine to see the sun."},
     clear:{id:"clear", title:"Clear skies",glyph:"☀",tint:"#ffcf8a",
         description:"The normal rules of each wallpaper apply."},
     sunrise:{id:"sunrise",title:"Sunrise",glyph:"◒",tint:"#ffc08f",
@@ -11,13 +11,17 @@ var entries = {
     night:{id:"night",title:"Night",glyph:"☾",tint:"#b8b2ff",
         description:"Enemies gain 5% health, damage, barrier strength, speed and attack cadence. You have Blindness I."},
     bloodMoon:{id:"bloodMoon",title:"Blood Moon Night",glyph:"●",tint:"#ff625e",
-        description:"A rare red night. Kills pay 25% more gold. Demons deal 15% more damage, move 20% faster and attack 10% faster. You have Blindness II. One Blandromedus always joins the roster."},
+        description:"About one in twenty night waves turns red. Kills pay 25% more gold. Demons deal 15% more damage, move 20% faster and attack 10% faster. You have Blindness II. One Blandromedus always joins the roster."},
+    cloudy:{id:"cloudy",title:"Cloudy",glyph:"☁",tint:"#b2c6d9",
+        description:"Low clouds drift slowly east and cast passing shadows. High winds carry them faster. Rain and thunderstorms always bring cloud cover."},
+    heatwave:{id:"heatwave",title:"Heatwave",glyph:"♨",tint:"#ffc77b",
+        description:"Heat builds under clear daytime or twilight skies. The lake glitters in the haze, laboratory fluid boils and scorched equipment gives off smoke."},
     rain:{id:"rain",title:"Rain",glyph:"☂",tint:"#93c9ff",
         description:"Burn goes out. Frost fully freezes vulnerable targets. Electric damage doubles and chains through enemies across all wallpapers."},
     thunder:{id:"thunder",title:"Thunderstorm",glyph:"ϟ",tint:"#c7b8ff",
         description:"One in five rainstorms becomes a thunderstorm. Lightning targets ordinary demons. Each strike has an equal chance to kill or charge its target. Charged demons move and attack 50% faster and deal Electric damage."},
     fog:{id:"fog",title:"Fog",glyph:"≋",tint:"#c1c8cf",
-        description:"Grey mist hides distant enemies. They become easier to see as they approach. Fog can linger across sunset, night and sunrise."},
+        description:"Grey mist hides distant enemies. They become easier to see as they approach. Fog can layer over any sky phase."},
     winter:{id:"winter",title:"Winter",glyph:"❄",tint:"#c3f6ff",
         description:"Every five seconds, you and all vulnerable demons receive Frost I. It slows and may freeze at the usual Frost I odds."},
     windy:{id:"windy",title:"High winds",glyph:"≋",tint:"#bde9dc",
@@ -28,8 +32,8 @@ var entries = {
         description:"A meteor approaches in Star Sky. Destroy it at range before it detonates near you."},
     inferno:{id:"inferno",title:"Inferno",glyph:"♨",tint:"#ff9576",
         description:"Fire spreads across all wallpapers, applying Burn I to you and to vulnerable enemies."},
-    incursion:{id:"incursion",title:"Void incursion",glyph:"◉",tint:"#dabbfa",
-        description:"Abyss creatures arrive on any wallpaper, whatever the time of day. Seal the rift from the Abyss to halt later ordinary Void spawns."}
+    incursion:{id:"incursion",title:"Abyssal Takeover",glyph:"◉",tint:"#dabbfa",
+        description:"Black liquid rises on every wallpaper. Go to the Abyss and hold F to seal the rift within 60 seconds. The wave waits for the seal even if all enemies die."}
 }
 
 function roll(wave, seed, salt) {
@@ -61,6 +65,39 @@ function isRain(weather) {
     return weather === "rain" || weather === "thunder"
 }
 
+// One additional layer is rolled per wave. Rain always carries cloud cover.
+function companionWeather(primary,wave,seed) {
+    if (primary==="windy" || primary==="fog" || primary==="winter")
+        return roll(wave,seed,0x532974bc)<.16 ? "cloudy" : ""
+    if (isRain(primary))
+        return roll(wave,seed,0x596253e1)<.09 ? "windy" : ""
+    return ""
+}
+
+function extraWeather(primary,stage) {
+    return stage && stage.weather===primary ? stage.extraWeather || "" : ""
+}
+
+function hasWeather(primary,stage,id) {
+    return primary===id || extraWeather(primary,stage)===id || id==="cloudy" && isRain(primary)
+}
+
+function weatherLabel(primary,stage) {
+    const names=[(entries[primary] || entries.clear).title]
+    if (isRain(primary)) names.push(entries.cloudy.title)
+    const extra=extraWeather(primary,stage)
+    if (entries[extra]) names.push(entries[extra].title)
+    return names.join(" + ")
+}
+
+function obscurity(weather,cloudy) {
+    if (weather==="fog") return 1
+    if (weather==="thunder") return .64
+    if (weather==="rain" || weather==="winter") return .47
+    if (weather==="heatwave" || cloudy) return .27
+    return 0
+}
+
 function rainVariant(wave,seed) {
     return roll(wave,seed,0x490843bd)<.20 ? "thunder" : "rain"
 }
@@ -69,11 +106,16 @@ function nightVariant(wave,seed) {
     return roll(wave,seed,0x760fea47)<.05 ? "bloodMoon" : "night"
 }
 
-function daypart(progress,night) {
-    if (progress<.28 || progress>=.91) return "daytime"
-    if (progress<.44) return "sunset"
-    if (progress<.75) return night || "night"
-    return "sunrise"
+var wavePhases=["daytime","sunset","night","sunrise"]
+
+function validSky(phase) {
+    return wavePhases.includes(phase) || phase==="bloodMoon"
+}
+
+function waveSky(wave,seed,override) {
+    if (validSky(override)) return override
+    const phase=wavePhases[(Math.max(1,wave)-1)%wavePhases.length]
+    return phase==="night" ? nightVariant(wave,seed) : phase
 }
 
 function ramp(value,low,high) {
@@ -81,19 +123,18 @@ function ramp(value,low,high) {
     return step*step*(3-2*step)
 }
 
-function sky(progress,night) {
-    const dusk=ramp(progress,.22,.46), dawn=ramp(progress,.72,.94)
-    const dark=dusk*(1-dawn)
-    const warm=(ramp(progress,.22,.38)*(1-ramp(progress,.38,.53))
-        + ramp(progress,.69,.82)*(1-ramp(progress,.82,.97)))
-    const rise=progress>=.72
-    const sun=rise ? ramp(progress,.75,.91) : 1-ramp(progress,.34,.48)
-    const red=night==="bloodMoon" ? ramp(progress,.40,.50)*(1-ramp(progress,.71,.82)) : 0
-    return {dark:dark,warm:warm,red:red,sun:sun,
-        sunX:rise ? .27+(progress-.72)*.47 : .40+progress*.36,
-        sunY:rise ? .46-ramp(progress,.75,1)*.22 : .24+ramp(progress,.02,.48)*.22,
-        moon:ramp(progress,.39,.46)*(1-ramp(progress,.74,.81)),
-        moonX:.54+(progress-.39)*.37,moonY:.33-Math.sin(Math.max(0,Math.min(1,(progress-.39)/.42))*Math.PI)*.064}
+var abyssSeconds=60
+
+function sky(phase,elapsed,front) {
+    if (front==="down")
+        return {dark:1,warm:0,red:0,sun:0,sunX:.45,sunY:.55,moon:0,moonX:.56,moonY:.32,abyss:true}
+    const drift=Math.max(0,Math.min(1,elapsed/240))
+    const dusk=phase==="sunset", dawn=phase==="sunrise", dark=isNight(phase)
+    return {dark:dark ? 1 : dusk ? .22 : dawn ? .12 : 0,warm:dusk ? .83 : dawn ? .66 : 0,
+        red:phase==="bloodMoon" ? 1 : 0,sun:dark ? 0 : 1,
+        sunX:(dusk ? .65 : dawn ? .31 : .42)+drift*.12,
+        sunY:(dusk ? .38 : dawn ? .405 : .20)+drift*(dusk ? .08 : -.073),
+        moon:dark ? 1 : 0,moonX:.55+drift*.12,moonY:.32-drift*.041,abyss:false}
 }
 
 function fogVisibility(depth) {

@@ -20,7 +20,7 @@ EffectCanvas {
         c.clearRect(0,0,width,height)
         const time=beat/16
         if (front==="up") {
-            const count=[52,94,156][detail] || 94
+            const count=[52,94,156,170][detail] || 94
             for (let i=0;i<count;i++) {
                 const x=width*((i*.61803399+.34)%1)
                 const y=height*((i*.41421356+.14)%1)
@@ -36,7 +36,7 @@ EffectCanvas {
                 }
             }
         } else if (front==="down") {
-            const count=[27,51,82][detail] || 51
+            const count=[27,51,82,100][detail] || 51
             for (let i=0;i<count;i++) {
                 const age=((i*.61803399+time*(.034+i%4*.013))%1)
                 const drift=Math.sin(time*.45+i)*.021

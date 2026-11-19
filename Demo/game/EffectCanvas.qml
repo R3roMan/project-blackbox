@@ -13,6 +13,12 @@ Item {
             redraw.start()
     }
 
+    function imageReady(url) {
+        if (surface.isImageLoaded(url)) return true
+        if (!surface.isImageLoading(url) && !surface.isImageError(url)) surface.loadImage(url)
+        return false
+    }
+
     function beginPaint() {
         const context=surface.getContext("2d")
         context.reset()
@@ -41,6 +47,7 @@ Item {
         smooth:true
         renderStrategy:Canvas.Threaded
         onAvailableChanged:if (available) effect.requestPaint()
+        onImageLoaded:effect.requestPaint()
         onPaint:effect.paint()
     }
 }

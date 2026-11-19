@@ -3,17 +3,20 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import "../native" as Native
+import "../Demo/ui" as Ui
 
 ScrollView {
     id:settings
     contentWidth:availableWidth;clip:true
     property string choosing:"front"
+    property int initialDetail:1
+    Component.onCompleted:initialDetail=Native.Desktop.config.detail
     ColumnLayout {
         width:settings.availableWidth;spacing:13
         Label {text:"BLACKBOX DESKTOP";font.pixelSize:23;font.bold:true}
         Label {Layout.fillWidth:true;text:"Changes apply immediately and are saved in Blackbox's own settings.";wrapMode:Text.WordWrap}
         Label {text:"Mode"}
-        ComboBox {Layout.fillWidth:true;model:["Idle","Play","Performance","XD"];currentIndex:["idle","play","performance","xd"].indexOf(Native.Desktop.config.mode);onActivated:Native.Desktop.setOption("mode",["idle","play","performance","xd"][currentIndex])}
+        ComboBox {Layout.fillWidth:true;model:["Idle","Play"];currentIndex:Native.Desktop.config.mode==="play" ? 1 : 0;onActivated:Native.Desktop.setOption("mode",currentIndex ? "play" : "idle")}
         CheckBox {text:"Only active on the desktop";checked:Native.Desktop.config.homeOnly;onClicked:Native.Desktop.setOption("homeOnly",checked)}
         CheckBox {text:"CPU heat replaces ammunition";checked:Native.Desktop.config.cpuAmmo;onClicked:Native.Desktop.setOption("cpuAmmo",checked)}
         Label {Layout.fillWidth:true;text:"Shots raise virtual heat. Real CPU use is its floor; after reaching 100%, let it cool. Turn off for ordinary magazines.";wrapMode:Text.WordWrap}
@@ -25,7 +28,20 @@ ScrollView {
         Label {text:"Frame limit"}
         SpinBox {from:20;to:240;editable:true;value:Native.Desktop.config.frameLimit;onValueModified:Native.Desktop.setOption("frameLimit",value)}
         Label {text:"3D quality"}
-        ComboBox {model:["Low","Standard","High"];currentIndex:Native.Desktop.config.detail;onActivated:Native.Desktop.setOption("detail",currentIndex)}
+        ComboBox {model:["Low","Standard","High","Ultra"];currentIndex:Native.Desktop.config.detail;onActivated:Native.Desktop.setOption("detail",currentIndex)}
+        Label {
+            visible:Native.Desktop.config.detail!==settings.initialDetail
+            Layout.fillWidth:true
+            wrapMode:Text.WordWrap
+            text:"Save the run and restart the preview or reload the wallpaper to fully apply this preset."
+        }
+        Label {text:"Combat HUD size"}
+        ComboBox {
+            model:["80%","100%","115%","130%"]
+            readonly property var scales:[.8,1,1.15,1.3]
+            currentIndex:Math.max(0,scales.indexOf(Native.Desktop.config.hudScale))
+            onActivated:Native.Desktop.setOption("hudScale",scales[currentIndex])
+        }
         Label {text:"Text size"}
         ComboBox {
             model:["100%","115%","130%","145%"]
@@ -34,7 +50,11 @@ ScrollView {
             onActivated:Native.Desktop.setOption("textScale",scales[currentIndex])
         }
         CheckBox {text:"Save at wave checkpoints";checked:Native.Desktop.config.autoSave;onClicked:Native.Desktop.setOption("autoSave",checked)}
-        CheckBox {text:"Sound";checked:Native.Desktop.config.sound;onClicked:Native.Desktop.setOption("sound",checked)}
+        Ui.AudioSettings {
+            levels:Native.Desktop.config
+            Layout.fillWidth:true
+            onLevelRequested:function(key,value){Native.Desktop.setOption(key,value)}
+        }
         CheckBox {text:"Animation";checked:Native.Desktop.config.motion;onClicked:Native.Desktop.setOption("motion",checked)}
         CheckBox {text:"Show wave timer";checked:Native.Desktop.config.showTimer;onClicked:Native.Desktop.setOption("showTimer",checked)}
         Label {text:"Backgrounds · your original files stay where they are";font.bold:true}

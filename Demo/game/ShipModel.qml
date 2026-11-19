@@ -4,6 +4,7 @@ import "Rules.js" as Rules
 
 Node {
     id: ship
+    property var surfaces:null
     required property var enemy
     required property int revision
     property bool animate: true
@@ -17,9 +18,9 @@ Node {
 
     opacity: visibility
     eulerRotation: Qt.vector3d(Rules.front(enemy.front).pitch, Rules.front(enemy.front).yaw, 0)
-    PrincipledMaterial { id: armor; baseColor: "#33364f"; metalness: .44; roughness: .52 }
-    PrincipledMaterial { id: panels; baseColor: "#6b7494"; metalness: .65; roughness: .45 }
-    PrincipledMaterial { id: ports; baseColor: "#1d2234"; roughness: .72 }
+    LitSurface { surfaces:ship.surfaces; finish:"steel"; id:armor; baseColor: "#33364f"; metalness: .44; roughness: .52 }
+    LitSurface { surfaces:ship.surfaces; finish:"steel"; id:panels; baseColor: "#6b7494"; metalness: .65; roughness: .45 }
+    LitSurface { surfaces:ship.surfaces; finish:"steel"; id:ports; baseColor: "#1d2234"; roughness: .72 }
     PrincipledMaterial { id: warning; baseColor: "#ffa959"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: hazard; baseColor: "#ff315a"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: field; baseColor: "#68c7ff"; lighting: PrincipledMaterial.NoLighting }

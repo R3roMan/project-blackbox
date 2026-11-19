@@ -40,7 +40,7 @@ PlasmoidItem {
         Label {Layout.fillWidth:true;text:Native.Desktop.visibilityReady ? (Native.Desktop.atHome ? "Desktop active" : "Paused while using another app") : "Enable Blackbox visibility in KWin Scripts";wrapMode:Text.WordWrap}
         Label {text:"Wave "+(Native.Desktop.state.wave || 0)+" · "+(Native.Desktop.state.hp || 200)+" / "+(Native.Desktop.state.maxHp || 200)+" HP"}
         Label {text:Native.Desktop.state.renderer || ""; visible:text.length>0}
-        ComboBox {Layout.fillWidth:true;model:["Idle","Play","Performance","XD"];currentIndex:["idle","play","performance","xd"].indexOf(Native.Desktop.config.mode);onActivated:Native.Desktop.setOption("mode",["idle","play","performance","xd"][currentIndex])}
+        ComboBox {Layout.fillWidth:true;model:["Idle","Play"];currentIndex:Native.Desktop.config.mode==="play" ? 1 : 0;onActivated:Native.Desktop.setOption("mode",currentIndex ? "play" : "idle")}
         RowLayout {
             Button {text:"New run";onClicked:Native.Desktop.command("new")}
             Button {text:Native.Desktop.state.phase==="ready" || Native.Desktop.state.phase==="between" ? "Begin wave" : "Resume";onClicked:Native.Desktop.command(Native.Desktop.state.phase==="ready" || Native.Desktop.state.phase==="between" ? "begin" : "resume")}

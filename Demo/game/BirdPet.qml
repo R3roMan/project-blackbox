@@ -9,6 +9,7 @@ Node {
     required property real strike
     required property bool animate
     required property bool resting
+    property bool detailed:false
     property real tuck:resting ? 1 : 0
     Behavior on tuck {enabled:bird.animate; NumberAnimation {duration:480;easing.type:Easing.OutCubic}}
     readonly property bool crow:helper.id==="crow"
@@ -19,11 +20,62 @@ Node {
     readonly property real flap:animate ? Math.sin(phase*(owl ? 7 : finch ? 18 : wendy ? 14 : 11))*(1-tuck) : 0
     readonly property bool attacking:strike>.04
 
-    PetFeatherGeometry {id: feather}
+    PetFeatherGeometry {id: feather; textured:bird.detailed}
     PetBeakGeometry {id: bill}
-    PrincipledMaterial {id: plumage; baseColor:bird.wendy ? "#d8b48b" : bird.helper.skin; roughness:.83; cullMode:Material.NoCulling}
-    PrincipledMaterial {id: coverts; baseColor:bird.wendy ? "#ad684d" : bird.raven ? "#4b665e" : Qt.lighter(bird.helper.skin,1.29); roughness:.72; cullMode:Material.NoCulling}
-    PrincipledMaterial {id: chest; baseColor:bird.wendy ? "#efe0b9" : bird.owl ? "#d5b582" : bird.raven ? "#c0d3cf" : bird.finch ? "#bfd097" : "#675668"; roughness:.78; cullMode:Material.NoCulling}
+    PetSurface {
+        id: plumage
+        textured:bird.detailed
+        pattern:bird.wendy ? "wendy" : bird.owl ? "owl" : bird.raven ? "archive" : bird.finch ? "finch" : "crow"
+        baseColor:bird.wendy ? "#d8b48b" : bird.helper.skin
+        roughness:.83
+        normalStrength:.72
+        cullMode:Material.NoCulling
+    }
+    PetSurface {
+        id: coverts
+        textured:bird.detailed
+        pattern:plumage.pattern
+        baseColor:bird.wendy ? "#ad684d" : bird.raven ? "#4b665e" : Qt.lighter(bird.helper.skin,1.29)
+        roughness:.72
+        normalStrength:.64
+        cullMode:Material.NoCulling
+    }
+    PetSurface {
+        id: chest
+        textured:bird.detailed
+        pattern:plumage.pattern
+        baseColor:bird.wendy ? "#efe0b9" : bird.owl ? "#d5b582" : bird.raven ? "#c0d3cf" : bird.finch ? "#bfd097" : "#675668"
+        roughness:.78
+        normalStrength:.48
+        cullMode:Material.NoCulling
+    }
+    PetSurface {
+        id: primaryFlight
+        textured:bird.detailed
+        pattern:bird.owl || bird.wendy ? "quill-barred" : "quill"
+        baseColor:plumage.baseColor
+        roughness:plumage.roughness
+        normalStrength:.65
+        cullMode:Material.NoCulling
+    }
+    PetSurface {
+        id: secondaryFlight
+        textured:bird.detailed
+        pattern:primaryFlight.pattern
+        baseColor:coverts.baseColor
+        roughness:coverts.roughness
+        normalStrength:.65
+        cullMode:Material.NoCulling
+    }
+    PetSurface {
+        id: flightTips
+        textured:bird.detailed && (bird.owl || bird.wendy || bird.raven)
+        pattern:primaryFlight.pattern
+        baseColor:chest.baseColor
+        roughness:chest.roughness
+        normalStrength:.65
+        cullMode:Material.NoCulling
+    }
     PrincipledMaterial {id: horn; baseColor:bird.wendy ? "#e5a54e" : bird.finch ? "#eebe69" : bird.owl ? "#a77748" : "#292534"; roughness:.54}
     PrincipledMaterial {id: comb; baseColor:"#d3434d"; roughness:.48}
     PrincipledMaterial {id: pupil; baseColor:"#130e18"; roughness:.34}
@@ -103,7 +155,7 @@ Node {
                     geometry:feather
                     x:socket.modelData*2; y:14; z:-7
                     eulerRotation.z:socket.modelData>0 ? 54 : 126
-                    scale:Qt.vector3d(bird.owl ? .17 : .12,.44,.55);materials:[coverts]
+                    scale:Qt.vector3d(bird.owl ? .17 : .12,.44,.55);materials:[secondaryFlight]
                 }
             }
         }
@@ -144,7 +196,7 @@ Node {
                     eulerRotation.z:bird.wendy ? 8-index*3 : -index*3.5
                     scale:Qt.vector3d((bird.owl ? .64 : bird.raven ? .62 : bird.finch ? .42 : bird.wendy ? .38 : .53)
                         -index*(bird.owl ? .040 : .032),.63,bird.owl ? .88 : bird.raven ? .58 : .70)
-                    materials:[index%3===2 ? coverts : plumage]
+                    materials:[index%3===2 ? secondaryFlight : primaryFlight]
                 }
             }
             Repeater3D {
@@ -155,7 +207,7 @@ Node {
                     x:7+index*6; y:5; z:-13+index*4.2
                     eulerRotation.y:31-index*5
                     scale:Qt.vector3d(bird.owl ? .24 : .19,.48,.56)
-                    materials:[bird.owl || bird.wendy || bird.raven ? chest : coverts]
+                    materials:[bird.owl || bird.wendy || bird.raven ? flightTips : secondaryFlight]
                 }
             }
         }
@@ -169,7 +221,7 @@ Node {
             x:fan*5; y:bird.wendy ? 5 : -12; z:-25
             eulerRotation:Qt.vector3d(0,(bird.wendy ? 76 : 87)+fan*9,bird.wendy ? 45+fan*6 : -6)
             scale:Qt.vector3d(bird.wendy ? .41 : bird.owl ? .27 : bird.finch ? .24 : bird.raven ? .61 : .44,.76,.78)
-            materials:[index%2 ? coverts : plumage]
+            materials:[index%2 ? secondaryFlight : primaryFlight]
         }
     }
     Repeater3D {

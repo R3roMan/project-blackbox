@@ -6,6 +6,7 @@ import "MeleeArt.js" as Art
 
 Node {
     id: rig
+    property var surfaces:null
     required property string weaponId
     required property color accent
     property real action: 0
@@ -28,12 +29,14 @@ Node {
         }
     }
 
-    PrincipledMaterial { id: wood; baseColor: "#805334"; roughness: .73 }
-    PrincipledMaterial { id: steel; baseColor: "#8b8e99"; roughness: .23; metalness: .76 }
-    PrincipledMaterial { id: edge; baseColor: "#e4effd"; roughness: .18; metalness: .49; emissiveFactor: Qt.vector3d(.11,.13,.17) }
+    LitSurface { surfaces:rig.surfaces; finish:"weave"; id:wood; baseColor: "#805334"; roughness: .73 }
+    LitSurface { surfaces:rig.surfaces; finish:"steel"; id:steel; baseColor:"#9298a9"; roughness:rig.surfaces?.detailed ? .17 : .23; metalness:.81
+        specularAmount:.86;clearcoatAmount:rig.surfaces?.detailed ? .55 : 0 }
+    LitSurface { surfaces:rig.surfaces; finish:"steel"; id:edge; baseColor:"#e4effd"; roughness:rig.surfaces?.detailed ? .11 : .18; metalness:.74;
+        specularAmount:.92;clearcoatAmount:rig.surfaces?.detailed ? .65 : 0; emissiveFactor: Qt.vector3d(.11,.13,.17) }
     PrincipledMaterial { id: dark; baseColor: "#222532"; roughness: .52; metalness: .42 }
-    PrincipledMaterial { id: wrap; baseColor: "#592439"; roughness: .92 }
-    PrincipledMaterial { id: brass; baseColor: "#b78154"; roughness: .37; metalness: .60 }
+    LitSurface { surfaces:rig.surfaces; finish:"weave"; id:wrap; baseColor: "#592439"; roughness: .92 }
+    LitSurface { surfaces:rig.surfaces; finish:"steel"; id:brass; baseColor: "#b78154"; roughness: .37; metalness: .60 }
     PrincipledMaterial { id: glow; baseColor: rig.primed ? Qt.lighter(rig.accent, 1.35) : rig.accent; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: shadow; baseColor: "#130921"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: red; baseColor: "#9c342e"; roughness: .39; metalness: .52 }

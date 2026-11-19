@@ -9,6 +9,7 @@ Item {
     required property Item world
     required property bool active
     required property bool motion
+    property bool ultra:false
     property real blindness: 0
     property real fog: 0
     readonly property bool sticky: { revision; return active && run.elements.sticky > 0 }
@@ -78,11 +79,45 @@ Item {
         Connections {
             target: field
             function onRevisionChanged() { if (particles.visible) particles.requestPaint() }
+            function onUltraChanged() { if (particles.visible) particles.requestPaint() }
         }
 
         function point(effect) {
             const local = field.world.projection(effect.lane, effect.elevation, effect.depth)
             return { pos:field.world.mapToItem(particles, local.x, local.y), scale:local.scale }
+        }
+
+        function lightningForks(ctx, nodes, phase, alpha, reach) {
+            if (reach < 8)
+                return
+            ctx.beginPath()
+            for (let i = 2; i < nodes.length - 2; i += 3) {
+                const joint = nodes[i]
+                const dx = nodes[i + 1].x - nodes[i - 1].x
+                const dy = nodes[i + 1].y - nodes[i - 1].y
+                const length = Math.max(1, Math.hypot(dx, dy))
+                const span = reach * (.55 + .45 * Math.abs(Math.sin(phase + i * 7.4)))
+                const side = Math.sin(phase + i * 3.2) < 0 ? -1 : 1
+                const vx = (dx * .58 - dy * side) / length * span
+                const vy = (dy * .58 + dx * side) / length * span
+                const bendX = joint.x + vx * .61 - vy * .17
+                const bendY = joint.y + vy * .61 + vx * .17
+                ctx.moveTo(joint.x, joint.y)
+                ctx.lineTo(joint.x + vx * .30 + vy * .13, joint.y + vy * .30 - vx * .13)
+                ctx.lineTo(bendX, bendY)
+                ctx.lineTo(joint.x + vx, joint.y + vy)
+                ctx.moveTo(bendX, bendY)
+                ctx.lineTo(bendX - vy * .31, bendY + vx * .31)
+                ctx.lineTo(bendX - vy * .39 + vx * .26, bendY + vx * .39 + vy * .26)
+            }
+            ctx.globalAlpha = alpha * .35
+            ctx.lineWidth = 5
+            ctx.strokeStyle = "#7f45ff"
+            ctx.stroke()
+            ctx.globalAlpha = alpha * .91
+            ctx.lineWidth = 1.2
+            ctx.strokeStyle = "#bde6ff"
+            ctx.stroke()
         }
 
         function conductor(ctx, link, clock) {
@@ -96,18 +131,28 @@ Item {
             const dy = to.y-from.y
             const length = Math.max(1,Math.hypot(dx,dy))
             const phase = Math.floor(clock*24) * 1.77
+            const nodes = field.ultra ? [] : null
             ctx.beginPath()
             for (let i = 0; i <= 12; ++i) {
                 const step = i/12
                 const bow = Math.sin(Math.PI*step) * (Math.min(31,length*.21) + Math.sin(i*6.3+phase+first.id)*6.5)
                 const x = from.x+dx*step-dy/length*bow
                 const y = from.y+dy*step+dx/length*bow
+                if (nodes)
+                    nodes.push(Qt.point(x,y))
                 if (i)
                     ctx.lineTo(x,y)
                 else
                     ctx.moveTo(x,y)
             }
-            ctx.globalAlpha = (1-field.blindness*.90) * (link.triangle ? .91 : .66)
+            const alpha = (1-field.blindness*.90) * (link.triangle ? .91 : .66)
+            if (nodes) {
+                ctx.globalAlpha = alpha * .31
+                ctx.strokeStyle = "#8047ff"
+                ctx.lineWidth = 15
+                ctx.stroke()
+            }
+            ctx.globalAlpha = alpha
             ctx.strokeStyle = "#7141d8"
             ctx.lineWidth = 6
             ctx.stroke()
@@ -117,6 +162,8 @@ Item {
             ctx.strokeStyle = "#fff4ff"
             ctx.lineWidth = 1.3
             ctx.stroke()
+            if (nodes)
+                lightningForks(ctx,nodes,phase+first.id,alpha,Math.min(56,length*.26))
         }
 
         function lightningBolt(ctx, bolt, clock) {
@@ -127,20 +174,197 @@ Item {
             const end = point({ lane:shot.lane+Math.sign(bolt.lane)*38,elevation:shot.elevation+15,depth:shot.depth+270 }).pos
             const span = Math.max(15,Math.hypot(head.x-end.x,head.y-end.y))
             const drift = Math.min(21,span*.46)
+            const nodes = field.ultra ? [head] : null
             ctx.beginPath()
             ctx.moveTo(head.x,head.y)
             for (let i = 1; i <= 7; ++i) {
                 const step = i/7
                 const noise = Math.sin(clock*31+i*4.7+bolt.id) * drift * Math.sin(step*Math.PI)
-                ctx.lineTo(head.x+(end.x-head.x)*step+noise,head.y+(end.y-head.y+span*.57)*step)
+                const x = head.x+(end.x-head.x)*step+noise
+                const y = head.y+(end.y-head.y+span*.57)*step
+                ctx.lineTo(x,y)
+                if (nodes)
+                    nodes.push(Qt.point(x,y))
             }
-            ctx.globalAlpha = .90*(1-field.blindness*.88)
+            const alpha = .90*(1-field.blindness*.88)
+            if (nodes) {
+                ctx.globalAlpha = alpha * .26
+                ctx.lineWidth = 16
+                ctx.strokeStyle = "#8c53ff"
+                ctx.stroke()
+            }
+            ctx.globalAlpha = alpha
             ctx.lineWidth = 6.5
             ctx.strokeStyle = "#9159ee"
             ctx.stroke()
             ctx.lineWidth = 1.9
             ctx.strokeStyle = "#fff1ff"
             ctx.stroke()
+            if (nodes)
+                lightningForks(ctx,nodes,Math.floor(clock*26)+bolt.id,alpha,Math.min(41,span*.52))
+        }
+
+        function detailedFire(ctx, centre, size, clock, rank, alpha) {
+            const base = centre.y + size*.46
+            const hot = ctx.createLinearGradient(0,base,0,base-size*1.21)
+            hot.addColorStop(0,"#cefb7e37")
+            hot.addColorStop(.24,"#faff9a2c")
+            hot.addColorStop(.49,"#e7f05b19")
+            hot.addColorStop(.77,"#9bdd4523")
+            hot.addColorStop(1,"#00ff3916")
+            const core = ctx.createLinearGradient(0,base-size*.07,0,base-size*.75)
+            core.addColorStop(0,"#d5ffb44f")
+            core.addColorStop(.25,"#fff9c9")
+            core.addColorStop(.66,"#a2ffc653")
+            core.addColorStop(1,"#00ffa538")
+            const corona = ctx.createRadialGradient(centre.x,base-size*.26,0,centre.x,base-size*.26,size*.78)
+            corona.addColorStop(0,"#befb751d")
+            corona.addColorStop(.48,"#64ff602b")
+            corona.addColorStop(1,"#00ff5728")
+            ctx.globalAlpha = alpha*.39
+            ctx.fillStyle = corona
+            ctx.fillRect(centre.x-size*.78,base-size*1.04,size*1.56,size*1.56)
+
+            ctx.globalAlpha = alpha*.92
+            for (let i = 0; i < 10; ++i) {
+                const phase = (clock*(.78+i%4*.13)+i*.227)%1
+                const pulse = Math.sin(phase*Math.PI)
+                const x = centre.x + (i/9-.5)*size*.83
+                const y = base-size*(.08+i%3*.037)
+                const lift = size*(.28 + pulse*(.49 + i%4*.066+rank*.037))
+                const breadth = size*(.041+i%4*.014+phase*.048)
+                const curl = Math.sin(clock*4.3+i*3.4)*size*.22
+                ctx.fillStyle = hot
+                ctx.beginPath()
+                ctx.moveTo(x-breadth,y)
+                ctx.bezierCurveTo(x-breadth*1.55,y-lift*.35,x+curl*.86,y-lift*.41,x+curl,y-lift)
+                ctx.bezierCurveTo(x+curl*1.77,y-lift*.57,x+breadth*.47,y-lift*.30,x+breadth,y)
+                ctx.quadraticCurveTo(x,y+size*.067,x-breadth,y)
+                ctx.fill()
+                ctx.fillStyle = core
+                ctx.beginPath()
+                ctx.moveTo(x-breadth*.55,y)
+                ctx.bezierCurveTo(x-breadth*.34,y-lift*.28,x+curl*.36,y-lift*.33,x+curl*.64,y-lift*.71)
+                ctx.bezierCurveTo(x+curl*.73,y-lift*.39,x+breadth*.42,y-lift*.19,x+breadth*.50,y)
+                ctx.quadraticCurveTo(x,y+size*.035,x-breadth*.55,y)
+                ctx.fill()
+            }
+            for (let i = 0; i < 19; ++i) {
+                const phase = (clock*(.56+i%5*.106)+i*.417)%1
+                const rise = phase*(1.52-phase*.53)
+                const drift = Math.sin(i*8.6+phase*5.5) * size * (.13+phase*.37)
+                const x = centre.x + (i*.618%1-.50)*size*.77 + drift
+                const y = base - rise*size*(1.20+i%5*.103)
+                const width = Math.max(1,size*(.010+i%3*.007))
+                ctx.globalAlpha = alpha*(1-phase)*(.45+i%4*.17)
+                ctx.strokeStyle = i % 3 ? "#ff9c4b" : "#ffedb2"
+                ctx.lineWidth = width
+                ctx.beginPath()
+                ctx.moveTo(x-drift*.10,y+width*(2.2+i%3))
+                ctx.lineTo(x,y)
+                ctx.stroke()
+            }
+        }
+
+        function detailedIce(ctx, centre, size, clock, frozen, alpha) {
+            const pieces = frozen ? 12 : 7
+            for (let i = 0; i < pieces; ++i) {
+                const angle = i*2.399 + clock*(frozen ? .17 : .57)
+                const angleX = Math.cos(angle)
+                const angleY = Math.sin(angle)
+                const pulse = .5 + .5*Math.sin(clock*3.1+i*4.6)
+                const spread = size*(.29 + i%4*.08 + pulse*.14)
+                const x = centre.x + angleX*spread
+                const y = centre.y + angleY*spread*.93
+                const shard = Math.max(2.5,size*(.056 + i%4*.025))
+                ctx.save()
+                ctx.translate(x,y)
+                ctx.rotate(angle + Math.PI/2)
+                ctx.globalAlpha = alpha*(.52+pulse*.42)
+                ctx.beginPath()
+                ctx.moveTo(0,-shard*1.12)
+                ctx.lineTo(shard*.48,-shard*.16)
+                ctx.lineTo(shard*.28,shard*.66)
+                ctx.lineTo(-shard*.16,shard*.93)
+                ctx.lineTo(-shard*.55,-shard*.19)
+                ctx.closePath()
+                const glass = ctx.createLinearGradient(-shard*.55,-shard*.70,shard*.41,shard*.49)
+                glass.addColorStop(0,"#edfaff")
+                glass.addColorStop(.43,"#aa91edfc")
+                glass.addColorStop(1,"#71408acb")
+                ctx.fillStyle = glass
+                ctx.fill()
+                ctx.strokeStyle = "#bbd9f5ff"
+                ctx.lineWidth = Math.max(.7,shard*.05)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(0,-shard*1.12)
+                ctx.lineTo(shard*.10,-shard*.10)
+                ctx.lineTo(-shard*.16,shard*.93)
+                ctx.lineTo(-shard*.55,-shard*.19)
+                ctx.closePath()
+                ctx.fillStyle = i%3 ? "#739bdaff" : "#97ade7f5"
+                ctx.fill()
+                ctx.beginPath()
+                ctx.moveTo(-shard*.43,-shard*.25)
+                ctx.lineTo(shard*.11,-shard*.09)
+                ctx.lineTo(shard*.30,shard*.28)
+                ctx.strokeStyle = pulse>.70 ? "#f6e3ff" : "#90c9f9ff"
+                ctx.stroke()
+                ctx.restore()
+            }
+            if (frozen) {
+                ctx.globalAlpha = alpha*.47
+                ctx.strokeStyle = "#b5e9fa"
+                ctx.lineWidth = Math.max(1,size*.009)
+                ctx.beginPath()
+                for (let i = 0; i < 7; ++i) {
+                    const ray = i*2.399
+                    const dx = Math.cos(ray)*size
+                    const dy = Math.sin(ray)*size
+                    ctx.moveTo(centre.x+dx*.08,centre.y+dy*.08)
+                    ctx.lineTo(centre.x+dx*.29-dy*.073,centre.y+dy*.29+dx*.073)
+                    ctx.lineTo(centre.x+dx*.36,centre.y+dy*.36)
+                    ctx.lineTo(centre.x+dx*.50-dy*.042,centre.y+dy*.50+dx*.042)
+                }
+                ctx.stroke()
+            }
+        }
+
+        function fireJet(ctx, source, age, life, clock) {
+            const targetX = width*.50 - source.x
+            const targetY = height*.58 - source.y
+            const scale = Math.min(width*.22,height*.35)
+            const angle = Math.atan2(targetY,targetX)
+            for (let i = 0; i < 13; ++i) {
+                const speed = .77+i%5*.074
+                const trail = field.motion ? Math.max(0, (age*1.52*speed-i*.032)%1) : i/13
+                if (trail <= 0)
+                    continue
+                const wave = Math.sin(i*6.2+trail*9+clock*2.8)
+                const drift = scale * trail * trail * wave
+                const x = source.x + targetX*trail + drift
+                const y = source.y + targetY*trail - scale*trail*(.10+i%5*.14)
+                const radius = 9+scale*trail*(.12+i%3*.045)
+                ctx.save()
+                ctx.translate(x,y)
+                ctx.rotate(angle + wave*.72)
+                const glow = ctx.createRadialGradient(0,0,0,0,0,radius*1.39)
+                glow.addColorStop(0,"#e3fff7ba")
+                glow.addColorStop(.29,"#f4fc8d34")
+                glow.addColorStop(.64,"#b0f35925")
+                glow.addColorStop(1,"#00eb301d")
+                ctx.globalAlpha = life*(1-trail*.56)
+                ctx.fillStyle = glow
+                ctx.beginPath()
+                ctx.moveTo(-radius*.89,0)
+                ctx.bezierCurveTo(-radius*.42,-radius*.93,radius*.50,-radius*.70,radius*1.51,wave*radius*.42)
+                ctx.bezierCurveTo(radius*.29,radius*.25,-radius*.43,radius*.94,-radius*.89,0)
+                ctx.fill()
+                ctx.fillStyle = i%3 ? "#ffaa52" : "#fff5b6"
+                ctx.fillRect(radius*1.18,radius*wave*.47,Math.max(1,radius*.13),Math.max(1,radius*.035))
+                ctx.restore()
+            }
         }
 
         function emberTrails(ctx, centre, size, time, strength) {
@@ -213,9 +437,13 @@ Item {
         onPaint: {
             const ctx = beginPaint()
             ctx.clearRect(0, 0, width, height)
-            if (!field.world || !field.active)
+            if (!field.world || !field.active || width <= 0 || height <= 0)
                 return
             const clock = field.motion ? field.run.time : .37
+            if (field.ultra) {
+                ctx.lineJoin = "round"
+                ctx.lineCap = "round"
+            }
             for (const link of field.run.links) {
                 if (link.front === field.frontId)
                     conductor(ctx,link,clock)
@@ -231,10 +459,17 @@ Item {
                 const projected = point({ lane:Rules.lanePosition(enemy), elevation:Rules.elevation(enemy), depth:enemy.depth })
                 const size = Math.min(230, 170 * projected.scale * Rules.enemySize(enemy))
                 ctx.globalAlpha = (1 - field.blindness * .94) * .81
-                if (enemy.elements.burn)
-                    emberTrails(ctx, projected.pos, size, clock + enemy.id * .25, enemy.elements.burn)
-                else if (enemy.elements.frost)
-                    iceFractures(ctx, projected.pos, size, clock + enemy.id * .17, enemy.elements.frozen > 0)
+                if (enemy.elements.burn) {
+                    if (field.ultra && size > 16)
+                        detailedFire(ctx,projected.pos,size,clock+enemy.id*.25,enemy.elements.burn,ctx.globalAlpha)
+                    else
+                        emberTrails(ctx, projected.pos, size, clock + enemy.id * .25, enemy.elements.burn)
+                } else if (enemy.elements.frost) {
+                    if (field.ultra && size > 16)
+                        detailedIce(ctx,projected.pos,size,clock+enemy.id*.17,enemy.elements.frozen>0,ctx.globalAlpha)
+                    else
+                        iceFractures(ctx, projected.pos, size, clock + enemy.id * .17, enemy.elements.frozen > 0)
+                }
                 if (enemy.elements.poison) {
                     ctx.fillStyle = "#b8f478"
                     for (let i = 0; i < 7; i += 1) {
@@ -275,6 +510,10 @@ Item {
                     continue
                 const from = point(flame).pos
                 const age = 1 - flame.remaining / flame.duration
+                if (field.ultra) {
+                    fireJet(ctx,from,age,Math.min(1,flame.remaining*3),clock)
+                    continue
+                }
                 for (let i = 0; i < 31; i += 1) {
                     const speed = .55 + (i % 7) * .086
                     const t = field.motion ? Math.max(0, (age * 1.9 * speed - i * .024) % 1) : i / 31
@@ -379,18 +618,23 @@ Item {
                 ctx.lineWidth = 2.2 * charge
                 ctx.strokeStyle = "#fff9ff"
                 ctx.stroke()
-                for (let i = 2; i < 8; i += 2) {
-                    const branch = nodes[i]
-                    const shift = Math.sin(i * 15.6 + pulse) * 19 * charge
-                    ctx.beginPath()
-                    ctx.moveTo(branch.x, branch.y)
-                    ctx.lineTo(branch.x + shift * .54, branch.y - shift)
-                    ctx.lineTo(branch.x + shift * 1.3, branch.y - shift * 1.2)
-                    ctx.strokeStyle = i % 4 ? "#f4c1ff" : "#af72ff"
-                    ctx.lineWidth = 1.4
-                    ctx.stroke()
+                if (field.ultra) {
+                    lightningForks(ctx,nodes,pulse+arc.hop,alpha,Math.min(62,distance*.28)*length*charge)
+                } else {
+                    for (let i = 2; i < 8; i += 2) {
+                        const branch = nodes[i]
+                        const shift = Math.sin(i * 15.6 + pulse) * 19 * charge
+                        ctx.beginPath()
+                        ctx.moveTo(branch.x, branch.y)
+                        ctx.lineTo(branch.x + shift * .54, branch.y - shift)
+                        ctx.lineTo(branch.x + shift * 1.3, branch.y - shift * 1.2)
+                        ctx.strokeStyle = i % 4 ? "#f4c1ff" : "#af72ff"
+                        ctx.lineWidth = 1.4
+                        ctx.stroke()
+                    }
                 }
                 if (length >= 1) {
+                    ctx.globalAlpha = alpha
                     const pulseRadius = Math.max(2, (6 + age * 28) * charge)
                     ctx.beginPath()
                     ctx.arc(to.x, to.y, pulseRadius, 0, Math.PI * 2)
@@ -408,16 +652,24 @@ Item {
 
             if (field.run.elements.frost) {
                 ctx.globalAlpha = .69
-                for (let i = 0; i < 12; i += 1) {
+                for (let i = 0; i < 12; ++i) {
                     const fraction = (i * .169 + clock * .34) % 1
                     const edge = i % 2 ? 0 : width
                     const x = edge + (i % 2 ? 1 : -1) * (12 + fraction * 72)
                     const y = (i * 89 + clock * (15 + i % 3 * 9)) % height
-                    iceFractures(ctx, Qt.point(x, y), 9 + i % 3 * 4, clock, false)
+                    if (!field.ultra)
+                        iceFractures(ctx, Qt.point(x, y), 9 + i % 3 * 4, clock, false)
+                    else if (i % 4 < 2)
+                        detailedIce(ctx,Qt.point(x,y),18+i%3*6,clock+i*.58,false,.73)
                 }
             }
 
             if (field.burning) {
+                if (field.ultra) {
+                    const size = Math.min(width*.21,height*.22)
+                    detailedFire(ctx,Qt.point(width*.06,height*1.025),size,clock+.32,field.run.elements.burn,.71)
+                    detailedFire(ctx,Qt.point(width*.94,height*1.045),size*1.12,clock+.71,field.run.elements.burn,.71)
+                }
                 ctx.globalAlpha = .75
                 for (let i = 0; i < 24; i += 1) {
                     const fraction = field.motion ? (field.run.time * (.55 + i % 3 * .11) + i * .37) % 1 : (i * .37) % 1

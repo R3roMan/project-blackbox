@@ -20,7 +20,7 @@ Item {
     property var tarotPet: null
     property var smokes: []
     property real blindness: 0
-    property bool fog:false
+    property real obscurity:0
     property real elapsed: 0
     property real lungeDepth: 0
     property real lungeLane: 0
@@ -33,6 +33,35 @@ Item {
     property int revision: 0
     property bool hypnotised: false
     property real meleeReturn: 0
+
+    component FangGlyph: Canvas {
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        onPaint: {
+            const ctx=getContext("2d")
+            ctx.reset()
+            ctx.scale(width,height)
+            const ivory=ctx.createLinearGradient(.12,.35,.84,.67)
+            ivory.addColorStop(0,"#966d58")
+            ivory.addColorStop(.34,"#dfc298")
+            ivory.addColorStop(.67,"#fff2cd")
+            ivory.addColorStop(1,"#cda780")
+            ctx.fillStyle=ivory
+            ctx.beginPath()
+            ctx.moveTo(.12,.14)
+            ctx.quadraticCurveTo(.30,-.02,.68,.10)
+            ctx.bezierCurveTo(.83,.32,.83,.70,.27,.97)
+            ctx.bezierCurveTo(.50,.59,.35,.35,.12,.23)
+            ctx.closePath()
+            ctx.fill()
+            ctx.strokeStyle="#aa8168"
+            ctx.lineWidth=.036
+            ctx.beginPath()
+            ctx.moveTo(.19,.21)
+            ctx.quadraticCurveTo(.42,.13,.70,.23)
+            ctx.stroke()
+        }
+    }
 
     function projection(lane, elevation, depth) {
         return Optics.project(width,height,lane-lungeLane,elevation,depth-lungeDepth,lensCentre,magnification)
@@ -123,7 +152,7 @@ Item {
             }
             Repeater {
                 model: leviathan.modelData.fangs
-                delegate: Rectangle {
+                delegate: FangGlyph {
                     required property var modelData
                     readonly property var tip: {
                         world.revision
@@ -134,13 +163,7 @@ Item {
                     x: tip.x-width*.5; y: tip.y-height*.5
                     width: Math.max(7,tip.scale*43)
                     height: width*1.58
-                    radius: width*.42
-                    rotation: 20+modelData.side*15
-                    gradient: Gradient {
-                        GradientStop { position:0; color:"#fff2d6" }
-                        GradientStop { position:1; color:"#b88772" }
-                    }
-                    border.color: "#e3b292"
+                    rotation: modelData.side*13
                 }
             }
         }
@@ -224,7 +247,8 @@ Item {
             }
             readonly property bool angry: { world.revision; return enemy.anger || false }
             readonly property var pose: Attacks.pose(enemy)
-            readonly property real strike: { world.revision; return Attacks.amount(enemy, Rules.charging(enemy), world.motion) }
+            readonly property real strike: { world.revision; return Attacks.amount(enemy, Rules.warningProgress(enemy), world.motion) }
+            readonly property real jawOpen: Math.max(Math.max(0,-strike)*1.55, Math.max(0,strike)*.53)*pose[3]
             readonly property bool crawler: creature.role === "void"
             readonly property bool flashing: { world.revision; return enemy.flash > 0 || Rules.charging(enemy) }
             readonly property bool stormLit: {world.revision;return !!enemy.stormCharged}
@@ -251,7 +275,7 @@ Item {
                     && (!world.hypnotised || enemy.type === "hallucination")
             }
             opacity: {world.revision;return (shade || creature.voidBoss ? 1 : 1-world.blindness*.94)
-                    *(world.fog ? Conditions.fogVisibility(enemy.depth) : 1)}
+                    *(1-world.obscurity*(1-Conditions.fogVisibility(enemy.depth)))}
             width: (creature.leviathan ? 342 : crawler ? 185 : enemy.type === "meteor" ? 181 : 300) * projected.scale * Rules.enemySize(enemy)
             height: (creature.leviathan ? 231 : crawler ? 142 : enemy.type === "endme" ? 274 : alien ? 146 : angel ? 231 : 183) * projected.scale * Rules.enemySize(enemy)
             rotation: (world.motion && enemy.type === "mastafangenbus" ? ageDegrees : 0) + strike * pose[1] * .56 + dodgeLean
@@ -341,7 +365,7 @@ Item {
                             Qt.darker(skin, 1.16), accent)
                     }
                 }
-                if (!deepRig && !creature.vampire && !crawler && !angel && !shade && !creature.battlestar && !creature.skeleton && !["meteor", "jon", "claptrap"].includes(enemy.type)) {
+                if (!deepRig && !creature.vampire && !crawler && !angel && !shade && !creature.battlestar && !creature.skeleton && !["meteor", "jon", "claptrap", "veilskate"].includes(enemy.type)) {
                     const points = [0.45, 0.48, 0.32, 0.26 - flap * 0.65, 0.03, 0.14 - flap,
                         0.08, 0.57 - flap * 0.65, 0.18, 0.47 - flap * 0.55, 0.23, 0.69 - flap * 0.3,
                         0.31, 0.55, 0.37, 0.75, 0.46, 0.61]
@@ -394,7 +418,7 @@ Item {
                         oval(ctx,.48+side*(teacher ? .055 : .11),.23,teacher ? .032 : .07,.06,"#f2d77e","")
                         oval(ctx,.49+side*(teacher ? .055 : .11),.25,.014,.030,"#16121c","")
                     }
-                    oval(ctx,.36,.36,.29,enemy.sprayLeft>0 || enemy.trainingMolt>0 && enemy.trainingMolt<1 ? .20 : .043,"#24121e","")
+                    oval(ctx,.36,.36,.29,enemy.sprayLeft>0 || enemy.trainingMolt>0 && enemy.trainingMolt<1 ? .20 : .043+Math.max(0,-strike)*.17,"#24121e","")
                     if (enemy.sprayLeft>0 || enemy.trainingMolt>0 && enemy.trainingMolt<1) {
                         for(let i=0;i<14;i++) {const t=(clock*1.2+i/14)%1;oval(ctx,.48+Math.sin(clock*3+i*.3)*t*.24,.49+t*.4,.02+t*.015,.025,teacher ? "#8dba32" : "#e4ca32","")}
                     }
@@ -418,6 +442,16 @@ Item {
                     }
                     for (let i = 0; i < 4; i += 1)
                         oval(ctx,.37+i*.025,.61+i*.049,.26-i*.05,.042, "#d6be9d", "#645052")
+                } else if (enemy.type==="veilskate") {
+                    for (const side of [-1,1]) {
+                        polygon(ctx,[.5,.20,.5+side*.44,.42,.5+side*.40,.68,.5+side*.20,.62,.5+side*.09,.78,.5,.68],
+                            skin,"#566266")
+                        polygon(ctx,[.5+side*.14,.34,.5+side*.30,.43,.5+side*.24,.49,.5+side*.10,.46],"#80816b","")
+                        polygon(ctx,[.5+side*.25,.51,.5+side*.43,.43,.5+side*.39,.60,.5+side*.29,.63],"#252e3b","")
+                        polygon(ctx,[.5+side*.06,.56,.5+side*.20,.53,.5+side*.18,.64,.5+side*.09,.70],"#67736b","")
+                    }
+                    oval(ctx,.417,.28,.166,.34,"#262e36","#728077")
+                    oval(ctx,.46,.55,.08,.10,flashing ? "#beff99" : "#77a475","")
                 } else if (creature.battlestar) {
                     for (const side of [-1, 1]) {
                         polygon(ctx, [.50,.50,.50+side*.28,.08,.50+side*.47,.24,.50+side*.44,.78,.50+side*.22,.68], "#141322", "#7c3343")
@@ -679,7 +713,7 @@ Item {
                     if (creature.origin==="Hellborne" && !["gigafinterus","nindumipus"].includes(enemy.type)) {
                         for (const sign of [-1,1]) {
                             ctx.save();ctx.translate(.5+sign*.224,.54);ctx.scale(sign,1)
-                            ctx.rotate(.21-Math.max(0,strike)*.22)
+                            ctx.rotate(.21-Math.max(0,-strike)*.91+Math.max(0,strike)*.35)
                             oval(ctx,-.046,-.064,.115,.20,Qt.lighter(skin,1.10),Qt.darker(skin,1.36))
                             oval(ctx,.022,.051,.086,.16,skin,Qt.darker(skin,1.40))
                             oval(ctx,.034,.155,.084,.073,Qt.lighter(skin,1.14),"")
@@ -692,29 +726,44 @@ Item {
                         }
                     }
                     oval(ctx,.347,.289,.306,.186,eye,"")
+                    if (creature.origin==="Hellborne") {
+                        for (const sign of [-1,1]) {
+                            ctx.strokeStyle="#a43b4b"
+                            ctx.lineWidth=.008
+                            ctx.beginPath()
+                            ctx.moveTo(.5+sign*.14,.358)
+                            ctx.lineTo(.5+sign*.096,.377)
+                            ctx.lineTo(.5+sign*.056,.365)
+                            ctx.moveTo(.5+sign*.11,.43)
+                            ctx.lineTo(.5+sign*.091,.40)
+                            ctx.lineTo(.5+sign*.073,.39)
+                            ctx.stroke()
+                        }
+                    }
                     oval(ctx,.464,.308,.073,.145,"#20151f","")
                     if (enemy.type === "gigafinterus") {
-                        oval(ctx, .31, .46, .38, .25, "#24141f", accent)
+                        oval(ctx, .31, .46, .38, .18+jawOpen*.30, "#24141f", accent)
                         for (let i = 0; i < 5; i += 1) {
                             const tooth = .34 + i * .068
                             polygon(ctx, [tooth,.489,tooth+.048,.487,tooth+.025,.571], "#ffe6bd", "")
                         }
                     } else if (enemy.type === "zadrrimus") {
-                        oval(ctx, .32, .442, .36, .34, "#211021", "#ef7eba")
+                        const jawDrop = jawOpen*.19
+                        oval(ctx, .32, .442, .36, .25+jawDrop, "#211021", "#ef7eba")
                         for (let i = 0; i < 5; i += 1) {
                             const tooth = .35 + i * .061
                             polygon(ctx, [tooth, .492, tooth + .051, .495, tooth + .021, .599], "#ffe4bf", "")
-                            polygon(ctx, [tooth, .713, tooth + .048, .713, tooth + .027, .636], "#ffe4bf", "")
+                            polygon(ctx, [tooth, .65+jawDrop, tooth + .048, .65+jawDrop, tooth + .027, .59+jawDrop], "#ffe4bf", "")
                         }
                     } else if (enemy.type === "rerogorubus") {
                         oval(ctx, .354, .435, .292, .18, "#211628", accent)
-                        const tongue = .18 + .09 * Math.abs(flap)
+                        const tongue = .14 + .09 * Math.abs(flap) + Math.max(0,strike)*.27 - Math.max(0,-strike)*.07
                         oval(ctx, .454 + flap * .42, .53, .102, tongue + .12, "#e96e8e", "#ffaeaf")
                         ctx.fillStyle = "#f8debe"
                         ctx.fillRect(.38, .477, .052, .043)
                         ctx.fillRect(.57, .477, .052, .043)
                     } else {
-                        const gape = Math.max(0,strike)*pose[3]
+                        const gape = jawOpen
                         if (Livery.bellyMaws.includes(enemy.type)) {
                             const cx=.50,cy=.679,rx=.19,ry=.147+gape*.13
                             oval(ctx,cx-rx-.015,cy-ry-.013,(rx+.015)*2,(ry+.013)*2,Qt.darker(skin,1.47),"#a95257")
@@ -816,7 +865,7 @@ Item {
             revision: world.revision
             time: world.motion ? world.elapsed : 0
             visible: { world.revision; return !world.hypnotised && !record.waitingBoss && record.type === "hasasasa" && record.front === world.frontId }
-            opacity: 1 - world.blindness * .94
+            opacity: (1-world.blindness*.94)*(1-world.obscurity*(1-Conditions.fogVisibility(enemy.depth)))
             readonly property var point: {
                 world.revision
                 return visible ? world.actorProjection(enemy)
@@ -925,14 +974,27 @@ Item {
             width: bolt.hp ? Math.max(14, 2 * Rules.boltRadius(bolt) * projected.scale) : (bolt.returning ? 46 : 15) * projected.scale
             z: 2000 - depth
             opacity: (1 - world.blindness * .94) * (bolt.bubble ? .61 : 1)
-            height: bolt.crystal ? width*1.35 : bolt.slug ? width * .74 : bolt.sniper ? width * .23 : bolt.shard ? width * .43 : width
+            height: bolt.fang ? width*1.4 : bolt.crystal ? width*1.35 : bolt.slug ? width * .74 : bolt.sniper ? width * .23 : bolt.shard ? width * .43 : width
             radius: bolt.crystal || bolt.shard || bolt.sniper || bolt.source === "hasasasa" && bolt.element === "freeze" ? 1 : height / 2
-            rotation: bolt.crystal ? 35+(world.motion ? world.elapsed*210 : 0) : radius === 1 ? (world.motion ? world.elapsed * 650 : 25) : 0
+            rotation: bolt.fang ? (world.motion ? world.elapsed*185 : 25) : bolt.crystal ? 35+(world.motion ? world.elapsed*210 : 0) : radius === 1 ? (world.motion ? world.elapsed * 650 : 25) : 0
             x: projected.x - width / 2
             y: projected.y - height / 2
-            color: bolt.voidShot ? "#26071f" : bolt.color
+            color: bolt.fang ? "transparent" : bolt.voidShot ? "#26071f" : bolt.color
             border.color: bolt.crystal ? "#f3c8ff" : bolt.voidShot ? "#ec4c85" : bolt.sniper ? "#ffad8b" : "#eefdf3"
-            border.width: bolt.voidShot ? 2 : 1
+            border.width: bolt.fang ? 0 : bolt.voidShot ? 2 : 1
+            Loader {
+                anchors.fill: parent
+                active: !!bolt.fang
+                sourceComponent: Component { FangGlyph {} }
+            }
+            Rectangle {
+                anchors.centerIn: parent
+                visible: bolt.source==="veilskate" && !bolt.returning
+                width: parent.width*.46
+                height: width
+                radius: width/2
+                color: "#e4ffd3"
+            }
         }
     }
 

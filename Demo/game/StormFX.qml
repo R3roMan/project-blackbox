@@ -8,12 +8,14 @@ EffectCanvas {
     required property real clock
     required property bool motion
     property bool castVisible: true
+    property bool ultra:false
     textureLimit:1800
     frameRate:30
     visible:castVisible && !!field && (strikes.length>0 || charges.length>0)
     onClockChanged:if (visible) requestPaint()
     onStrikesChanged:if (visible) requestPaint()
     onChargesChanged:if (visible) requestPaint()
+    onUltraChanged:if (visible) requestPaint()
 
     function projected(marker) {return field.projection(marker.lane,marker.elevation,marker.depth)}
 
@@ -27,7 +29,6 @@ EffectCanvas {
             c.lineTo(x,y)
             joints.push([x,y])
         }
-        c.stroke()
         return joints
     }
 
@@ -42,16 +43,36 @@ EffectCanvas {
             c.fillStyle="#68757cad"
             c.fillRect(0,0,width,height)
             c.lineJoin="round"
-            c.strokeStyle="#887ade";c.lineWidth=16
-            bolt(c,source,spot,strike.seed,width*.051)
-            c.strokeStyle="#dbc5ff";c.lineWidth=7
             const joints=bolt(c,source,spot,strike.seed,width*.051)
+            c.strokeStyle=ultra ? "#887e5aff" : "#887ade";c.lineWidth=ultra ? 24 : 16
+            c.stroke()
+            c.strokeStyle="#dbc5ff";c.lineWidth=7
+            c.stroke()
             c.strokeStyle="#fff5ff";c.lineWidth=3
-            bolt(c,source,spot,strike.seed,width*.051)
+            c.stroke()
             for (let i=2;i<joints.length-3;i+=3) {
                 const point={x:joints[i][0],y:joints[i][1]}
                 c.lineWidth=1.8
-                bolt(c,point,{x:point.x+(i%2 ? -.13 : .13)*width,y:point.y+height*.14},strike.seed+i,width*.014)
+                const branch=bolt(c,point,{x:point.x+(i%2 ? -.13 : .13)*width,y:point.y+height*.14},strike.seed+i,width*.014)
+                c.strokeStyle="#fff5ff"
+                c.stroke()
+                if (ultra) {
+                    const fork={x:branch[5][0],y:branch[5][1]}
+                    bolt(c,fork,{x:fork.x+(i%2 ? -.064 : .064)*width,y:fork.y-height*.034},strike.seed+i*7,width*.010)
+                    c.lineWidth=.9
+                    c.strokeStyle="#afdfff"
+                    c.stroke()
+                }
+            }
+            if (ultra) {
+                const radius=height*(.035+age*.105)
+                const glow=c.createRadialGradient(spot.x,spot.y,0,spot.x,spot.y,radius)
+                glow.addColorStop(0,"#fffaff")
+                glow.addColorStop(.27,"#d8b7edff")
+                glow.addColorStop(.57,"#7b786ef0")
+                glow.addColorStop(1,"transparent")
+                c.fillStyle=glow
+                c.fillRect(spot.x-radius,spot.y-radius,radius*2,radius*2)
             }
         }
         for (const charge of charges) {

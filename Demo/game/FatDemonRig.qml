@@ -3,6 +3,7 @@ import QtQuick3D
 
 Node {
     id:rig
+    property var surfaces:null
     objectName:"fatDemonRig"
     visible:teacher || enemy.type==="papapoganus"
     required property var enemy
@@ -10,12 +11,13 @@ Node {
     property bool live:true
     readonly property bool teacher:enemy.type === "oblogabgalus"
     property real molt:0
+    property real windup:0
     readonly property real clock:{revision;return enemy.age}
     readonly property bool spraying:{revision;return enemy.sprayLeft>0 || molt>0 && molt<1}
     readonly property bool angry:{revision;return enemy.anger || enemy.hurtFace>0}
     scale:Qt.vector3d(1-molt*.35,1-molt*.28,1-molt*.30)
-    PrincipledMaterial {id:flesh; baseColor:rig.teacher ? (rig.angry ? "#cf992e" : "#c3b257") : (rig.angry ? "#86746d" : "#777579"); roughness:.93}
-    PrincipledMaterial {id:fold; baseColor:rig.teacher ? "#7b6537" : "#36323c"; roughness:1}
+    LitSurface { surfaces:rig.surfaces; finish:"hide"; id:flesh; baseColor:rig.teacher ? (rig.angry ? "#cf992e" : "#c3b257") : (rig.angry ? "#86746d" : "#777579"); roughness:.93}
+    LitSurface { surfaces:rig.surfaces; finish:"hide"; id:fold; baseColor:rig.teacher ? "#7b6537" : "#36323c"; roughness:1}
     PrincipledMaterial {id:eye; baseColor:"#e9ce69"; roughness:.34}
     PrincipledMaterial {id:black; baseColor:"#140d17"; lighting:PrincipledMaterial.NoLighting}
     PrincipledMaterial {id:wet; baseColor:rig.teacher ? "#8eb62a" : "#ebce29"; roughness:.12; metalness:.1}
@@ -49,7 +51,7 @@ Node {
                 Model {source:"#Cube";y:8;z:5;eulerRotation.z:modelData*(rig.angry ? 24 : -14);scale:Qt.vector3d(.26,.034,.05);materials:[fold]}
             }
         }
-        Model {source:"#Sphere";y:-20;z:7;scale:Qt.vector3d(.52,rig.spraying ? .37 : .065,.05);materials:[black]}
+        Model {source:"#Sphere";y:-20-rig.windup*4;z:7;scale:Qt.vector3d(.52,rig.spraying ? .37 : .065+rig.windup*.29,.05);materials:[black]}
     }
     Repeater3D {
         model:rig.spraying ? 19 : 0

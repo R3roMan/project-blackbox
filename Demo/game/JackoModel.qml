@@ -10,10 +10,32 @@ Node {
     required property real charged
     required property real fold
     property bool motion: true
+    property bool detailed:false
     readonly property real agitation: Math.max(strike*2.2,charged)
-    PrincipledMaterial { id: rind; baseColor:"#b44a20";roughness:.67 }
-    PrincipledMaterial { id: edge; baseColor:"#d97622";roughness:.61 }
-    PrincipledMaterial {id:stem;baseColor:"#536539";roughness:.78}
+    PetSurface {
+        id:rind
+        textured:jacko.detailed
+        pattern:"rind"
+        baseColor:"#b44a20"
+        roughness:.67
+        normalStrength:.71
+    }
+    PetSurface {
+        id:edge
+        textured:jacko.detailed
+        pattern:"rind"
+        baseColor:"#d97622"
+        roughness:.61
+        normalStrength:.71
+    }
+    PetSurface {
+        id:stem
+        textured:jacko.detailed
+        pattern:"stalk"
+        baseColor:"#536539"
+        roughness:.78
+        normalStrength:.58
+    }
     PrincipledMaterial {
         id: dark
         baseColor:"#261426"
@@ -89,6 +111,22 @@ Node {
         opacity:1-.86*jacko.fold
         materials:[lit]
     }
+    ProceduralMesh {
+        id:wisp
+        positions:[
+            Qt.vector3d(-6,0,-4),Qt.vector3d(6,0,-4),Qt.vector3d(6,0,4),Qt.vector3d(-6,0,4),
+            Qt.vector3d(-11,11,-5),Qt.vector3d(6,11,-5),Qt.vector3d(6,11,5),Qt.vector3d(-11,11,5),
+            Qt.vector3d(-9,23,-3),Qt.vector3d(3,23,-3),Qt.vector3d(3,23,3),Qt.vector3d(-9,23,3),
+            Qt.vector3d(1,32,-2),Qt.vector3d(7,32,-2),Qt.vector3d(7,32,2),Qt.vector3d(1,32,2),
+            Qt.vector3d(5,41,0)
+        ]
+        indexes:[
+            0,4,1,1,4,5,1,5,2,2,5,6,2,6,3,3,6,7,3,7,0,0,7,4,
+            4,8,5,5,8,9,5,9,6,6,9,10,6,10,7,7,10,11,7,11,4,4,11,8,
+            8,12,9,9,12,13,9,13,10,10,13,14,10,14,11,11,14,15,11,15,8,8,15,12,
+            12,16,13,13,16,14,14,16,15,15,16,12
+        ]
+    }
     Repeater3D {
         model:8
         Model {
@@ -97,11 +135,11 @@ Node {
             readonly property real angle:index*2.3999+rise*2.35
             readonly property real spray:jacko.agitation*12
             visible:jacko.fold<.98
-            source:"#Cone"
-            position:Qt.vector3d(Math.cos(angle)*(8+rise*(16+spray)),29+rise*(40+spray),Math.sin(angle)*14)
-            eulerRotation:Qt.vector3d(Math.sin(angle)*25,0,Math.cos(angle)*38)
-            scale:Qt.vector3d(.06+rise*.09,.23+rise*.13,.06+rise*.09)
-            opacity:(1-rise)*(.83-.74*jacko.fold)
+            geometry:wisp
+            position:Qt.vector3d(Math.cos(angle)*(7+rise*(14+spray)),22+rise*(32+spray),Math.sin(angle)*12)
+            eulerRotation:Qt.vector3d(Math.sin(angle)*24,index*137.5+rise*105,Math.cos(angle)*30)
+            scale:Qt.vector3d(.48+rise*.23,.48+rise*.29,.55+rise*.23)
+            opacity:(1-rise)*(.86-.76*jacko.fold)
             materials:[index%3===0 || jacko.agitation>.22 ? lit : flame]
         }
     }

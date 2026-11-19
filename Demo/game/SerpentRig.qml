@@ -3,6 +3,7 @@ import QtQuick3D
 
 Node {
     id: rig
+    property var surfaces:null
     required property int targetId
     required property bool live
     required property real phase
@@ -11,9 +12,9 @@ Node {
     readonly property real bend: Math.sin(phase*3.8)*9
     readonly property real bite: Math.max(0,strike)
 
-    PrincipledMaterial { id: scales; baseColor: "#263b31"; roughness: .67; metalness: .22 }
-    PrincipledMaterial { id: ridge; baseColor: "#597059"; roughness: .76 }
-    PrincipledMaterial { id: hood; baseColor: "#17281e"; roughness: .56 }
+    LitSurface { surfaces:rig.surfaces; finish:"hide"; id:scales; baseColor: "#263b31"; roughness: .67; metalness: .22 }
+    LitSurface { surfaces:rig.surfaces; finish:"hide"; id:ridge; baseColor: "#597059"; roughness: .76 }
+    LitSurface { surfaces:rig.surfaces; finish:"hide"; id:hood; baseColor: "#17281e"; roughness: .56 }
     PrincipledMaterial { id: fangs; baseColor: "#d6d3ac"; roughness: .42 }
     PrincipledMaterial {
         id: eyes

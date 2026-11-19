@@ -40,25 +40,25 @@ var weapons = {
 }
 
 var actives = {
-    riftWeld:{ title:"Rift weld",rarity:"epic",cooldown:33,
+    riftWeld:{ title:"Rift weld",rarity:"epic",cooldown:22,
         description:"While looking into the Abyss, advance the rift seal by 27% and knock back nearby Void creatures." },
     blackWake:{ title:"Black wake",rarity:"rare",cooldown:23,element:"blind",elementLevel:2,
         description:"Release a wave of ink that damages and blinds up to four foes in this view." },
-    undertow:{ title:"Undertow",rarity:"legendary",cooldown:34,knockback:3,
+    undertow:{ title:"Undertow",rarity:"legendary",cooldown:24,knockback:3,
         description:"Force every materialised enemy on your wallpaper back with Knockback III and interrupt wind-ups." },
-    breakLamp:{ title:"Snuff the lure",rarity:"rare",cooldown:28,
+    breakLamp:{ title:"Snuff the lure",rarity:"rare",cooldown:18,
         description:"Extinguish every active Lantis lamp on this wallpaper for eight seconds." },
-    quietWater:{ title:"Quiet water",rarity:"epic",cooldown:30,
+    quietWater:{ title:"Quiet water",rarity:"epic",cooldown:21,
         description:"Clear Blindness and delay attacks and wind-ups on your current wallpaper." },
-    brineFlare:{ title:"Brine flare",rarity:"epic",cooldown:27,element:"burn",elementLevel:2,
+    brineFlare:{ title:"Brine flare",rarity:"epic",cooldown:22,element:"burn",elementLevel:2,
         description:"Launch a flare that damages every Void foe on your wallpaper and sets vulnerable targets on fire." },
-    iceBloom:{ title:"Ice bloom",rarity:"epic",cooldown:27,element:"freeze",elementLevel:1,
+    iceBloom:{ title:"Ice bloom",rarity:"epic",cooldown:23,element:"freeze",elementLevel:1,
         description:"Rapidly freeze up to three nearby enemies for two seconds. Targets with Frost immunity resist it." },
     thawCoil:{ title:"Thaw coil",rarity:"rare",cooldown:21,
         description:"Clear your current Frost dose and shorten your weapon's recovery." },
-    boneShatter:{title:"Bone shatter",rarity:"epic",cooldown:30,
+    boneShatter:{title:"Bone shatter",rarity:"epic",cooldown:24,
         description:"For eight seconds, add 24 percentage points to critical chance and 0.52 to the critical multiplier."},
-    colourSpill:{title:"Colour spill",rarity:"rare",cooldown:26,
+    colourSpill:{title:"Colour spill",rarity:"rare",cooldown:21,
         description:"Damage the nearest three demons on this wallpaper and deal a different elemental status to each."}
 }
 

@@ -17,7 +17,7 @@ Item {
             id: tag
             required property var modelData
             readonly property var enemy: Rules.byId(labels.actors, modelData.id) || modelData
-            readonly property bool marked: { labels.revision; return !!enemy.marked }
+            readonly property bool marked: { labels.revision; return Rules.isMarked(enemy) }
             readonly property bool fatalMark: { labels.revision; return enemy.criticalMark > 0 }
             readonly property real winding: { labels.revision; return Rules.warningProgress(enemy) }
             readonly property var point: {

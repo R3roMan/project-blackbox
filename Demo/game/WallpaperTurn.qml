@@ -1,8 +1,11 @@
 import QtQuick
 import "Rules.js" as Rules
+import "Scenery.js" as Scenery
+import "../../V0.1/kde/contents/ui/ViewTurn.js" as ViewTurn
+import "../../V0.1/kde/contents/ui" as Gallery
 
 Item {
-    id: backdrop
+    id:backdrop
     required property url artDirectory
     required property string frontId
     required property string previousFront
@@ -10,57 +13,93 @@ Item {
     required property real progress
     required property bool lab
     property var sources:({})
-    function defaultFor(front) {return Qt.resolvedUrl(String(artDirectory)+Rules.front(front).art)}
-    function fileFor(front) {return sources[front] || defaultFor(front)}
-    property bool slide: true
-    property string framing: "fill"
-    property int quality: 0
-    property real zoom: 1
+    property string phase:"daytime"
+    property string weather:"clear"
+    property string lightingWeather:weather
+    property bool cloudy:false
+    property bool windy:false
+    property real clock:0
+    property real solarTime:clock
+    property bool motion:true
+    property bool swarm:false
+    property var labAppearance:({})
+    property int detail:1
+    property string framing:"fill"
+    property int quality:0
+    property real zoom:1
     property string transitionStyle:"cinematic"
-    readonly property bool abyssTransition:(frontId === "down" || previousFront === "down") && frontId !== previousFront
-
-    readonly property bool moving: progress < 1 && !lab
-    readonly property bool sliding:moving && slide && !abyssTransition && transitionStyle === "cinematic"
-    readonly property int horizontal: direction === "left" ? -1 : direction === "right" ? 1 : 0
-    readonly property int vertical: direction === "up" ? -1 : direction === "down" ? 1 : 0
-    readonly property real pixelRatio: Math.max(1, Screen.devicePixelRatio)
-    readonly property real sampleScale: Math.min(pixelRatio, quality > 0 ? quality / Math.max(1, height) : 8192 / Math.max(1, width))
-    readonly property int pixelsWide: Math.max(1, Math.round(width * sampleScale * zoom))
-    readonly property int pixelsHigh: Math.max(1, Math.round(height * sampleScale * zoom))
-
-    component Wallpaper: Image {
-        property url requestedSource
-        property url fallbackSource
-        property string failedSource:""
-        source:failedSource===String(requestedSource) ? fallbackSource : requestedSource
-        onRequestedSourceChanged:failedSource=""
-        onStatusChanged:if(status===Image.Error && String(source)===String(requestedSource))failedSource=String(requestedSource)
-        width: backdrop.width
-        height: backdrop.height
-        scale: backdrop.zoom
-        smooth: true
-        mipmap: true
-        sourceSize: Qt.size(backdrop.pixelsWide, backdrop.pixelsHigh)
-        fillMode: backdrop.framing === "stretch" ? Image.Stretch
-            : backdrop.framing === "fit" ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+    property real transitionStrength:1
+    readonly property string activeFront:lab ? "right" : frontId
+    readonly property bool moving:progress<1 && !lab && previousFront!==frontId
+    readonly property bool abyssTransition:moving && (activeFront==="down" || previousFront==="down")
+    readonly property bool descending:abyssTransition && transitionStyle==="cinematic"
+    readonly property bool rotating:moving && !abyssTransition && transitionStyle==="cinematic"
+    readonly property real sampleScale:Math.min(Math.max(1,Screen.devicePixelRatio),quality>0
+        ? quality/Math.max(1,height) : 8192/Math.max(1,width))
+    function defaultFor(front) {return Scenery.asset(front) || Qt.resolvedUrl(String(artDirectory)+Rules.front(front).art)}
+    clip:true
+    Repeater {
+        id:panels
+        model:["front","left","right","up","down"]
+        delegate:Item {
+            id:panel
+            required property string modelData
+            property alias surface:wall
+            readonly property bool incoming:modelData===backdrop.activeFront
+            visible:incoming || backdrop.progress<1 && !backdrop.lab && modelData===backdrop.previousFront
+            width:backdrop.width;height:backdrop.height
+            clip:true
+            // During a dissolve the departing view stays opaque beneath the arrival.
+            z:incoming ? 1 : 0
+            opacity:backdrop.moving && !backdrop.rotating && incoming ? backdrop.progress : 1
+            readonly property var descent:backdrop.descending ? ViewTurn.descent(height,backdrop.progress,incoming,
+                backdrop.previousFront==="down",backdrop.transitionStrength) : ({scale:1,y:0})
+            transform:Matrix4x4 {
+                matrix:backdrop.rotating ? ViewTurn.panel(panel.width,panel.height,backdrop.direction,
+                    backdrop.progress,panel.incoming,backdrop.transitionStrength) : ViewTurn.identity()
+            }
+            Image {
+                id:wall
+                objectName:panel.incoming ? "activeWallpaper" : ""
+                width:parent.width;height:parent.height
+                anchors.centerIn:parent
+                anchors.verticalCenterOffset:panel.descent.y
+                readonly property url fallback:backdrop.defaultFor(panel.modelData)
+                readonly property url requested:backdrop.sources[panel.modelData] || fallback
+                property bool failed:false
+                onRequestedChanged:failed=false
+                onStatusChanged:if(status===Image.Error && String(source)!==String(fallback))failed=true
+                source:panel.visible ? (failed ? fallback : requested) : ""
+                smooth:true;mipmap:true
+                scale:backdrop.zoom*panel.descent.scale
+                sourceSize:Qt.size(Math.max(1,Math.round(width*backdrop.sampleScale*backdrop.zoom)),
+                    Math.max(1,Math.round(height*backdrop.sampleScale*backdrop.zoom)))
+                fillMode:backdrop.framing==="stretch" ? Image.Stretch : backdrop.framing==="fit" ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+                Loader {
+                    anchors.centerIn:parent
+                    width:wall.paintedWidth;height:wall.paintedHeight
+                    active:panel.visible && wall.status===Image.Ready
+                    sourceComponent:RoomAtmosphere {
+                        front:panel.modelData;phase:backdrop.phase;weather:backdrop.weather
+                        lightingWeather:backdrop.lightingWeather
+                        custom:String(wall.source)!==String(wall.fallback)
+                        cloudy:backdrop.cloudy;windy:backdrop.windy;clock:backdrop.clock;solarTime:backdrop.solarTime;motion:backdrop.motion
+                        detail:backdrop.detail;swarm:backdrop.swarm;labAppearance:backdrop.labAppearance
+                    }
+                }
+            }
+        }
     }
-    Wallpaper {
-        visible:backdrop.moving
-        opacity:backdrop.sliding ? 1 : 1-backdrop.progress
-        scale:backdrop.zoom*(backdrop.moving && backdrop.abyssTransition ? 1+backdrop.progress*.30 : 1)
-        x: backdrop.sliding ? -backdrop.horizontal * backdrop.progress * width : 0
-        y: backdrop.sliding ? -backdrop.vertical * backdrop.progress * height : 0
-        requestedSource: backdrop.fileFor(backdrop.previousFront)
-        fallbackSource:backdrop.defaultFor(backdrop.previousFront)
+    Gallery.TurnJoin {
+        anchors.fill:parent;z:2
+        active:backdrop.rotating
+        direction:backdrop.direction;progress:backdrop.progress
+        lightingKey:backdrop.phase+"/"+backdrop.lightingWeather
+        outgoing:active ? panels.itemAt(panels.model.indexOf(backdrop.previousFront))?.surface || null : null
     }
-    Wallpaper {
-        objectName: "activeWallpaper"
-        visible:true
-        opacity:backdrop.moving && !backdrop.sliding ? backdrop.progress : 1
-        scale:backdrop.zoom*(backdrop.moving && backdrop.abyssTransition ? 1+(1-backdrop.progress)*.30 : 1)
-        x: backdrop.horizontal * (backdrop.sliding ? 1 - backdrop.progress : 0) * width
-        y: backdrop.vertical * (backdrop.sliding ? 1 - backdrop.progress : 0) * height
-        requestedSource: backdrop.fileFor(backdrop.lab ? "right" : backdrop.frontId)
-        fallbackSource:backdrop.defaultFor(backdrop.lab ? "right" : backdrop.frontId)
+    Gallery.DescentShade {
+        anchors.fill:parent;z:2
+        progress:backdrop.descending ? backdrop.progress : 0
+        strength:backdrop.transitionStrength
     }
 }

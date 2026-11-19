@@ -10,6 +10,7 @@ Popup {
     required property string chapter
     required property string entryId
     property string metadata:""
+    property var comparisons:[]
     property color metadataTint:"#e4bbc7"
     property int delay:300
     signal entryRequested(string chapter, string id)
@@ -120,16 +121,21 @@ Popup {
             contentWidth:availableWidth
             clip:true
             ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
-            Text {
+            Column {
                 id:readout
                 width:Math.max(0,body.availableWidth-8)
-                text:card.details.split("\n").slice(1).join("\n")
-                textFormat:Text.PlainText
-                wrapMode:Text.WordWrap
-                font.family:"Inter"
-                font.pixelSize:UiMetrics.text(13)
-                lineHeight:1.2
-                color:"#ebd9df"
+                spacing:7
+                Text {
+                    width:parent.width
+                    text:card.details.split("\n").slice(1).join("\n")
+                    textFormat:Text.PlainText
+                    wrapMode:Text.WordWrap
+                    font.family:"Inter"
+                    font.pixelSize:UiMetrics.text(13)
+                    lineHeight:1.2
+                    color:"#ebd9df"
+                }
+                StatComparison {width:parent.width;rows:card.comparisons}
             }
         }
     }

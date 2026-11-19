@@ -50,7 +50,7 @@ def beak(ring, a):
     return (width * cos(a), -14 * t * t + height * sin(a), t * 47)
 
 
-def qml_mesh(obj, path):
+def qml_mesh(obj, path, texture_layout=""):
     mesh = obj.data
     mesh.calc_loop_triangles()
 
@@ -67,7 +67,7 @@ def qml_mesh(obj, path):
     path.write_text(
         "import QtQuick\nimport QtQuick3D.Helpers\n\n"
         "// Exported from Dev/models/companion-studies.blend.\n"
-        "ProceduralMesh {\n    positions: [\n" + vertices
+        "ProceduralMesh {\n" + texture_layout + "    positions: [\n" + vertices
         + "\n    ]\n    normals: [\n" + normals
         + "\n    ]\n    indexes: [\n        " + ",\n        ".join(rows) + "\n    ]\n}\n"
     )
@@ -75,7 +75,17 @@ def qml_mesh(obj, path):
 
 plume = loft("Primary feather", [(0, 2, .6), (.15, 8, 2.9), (.40, 12, 3.7), (.68, 10, 2.2), (.9, 6, 1.1), (1, .28, .12)], 8, feather)
 bill = loft("Hooked bill", [(0, 10, 7), (.23, 13, 10), (.46, 11, 8), (.68, 7, 5), (.88, 4, 2.5), (1, .12, .15)], 9, beak)
-qml_mesh(plume, project / "Demo/game/PetFeatherGeometry.qml")
+qml_mesh(plume, project / "Demo/game/PetFeatherGeometry.qml", """    property bool textured:false
+    // Lay the barbs across the curved shaft using the original loft's centre line.
+    uv0s: textured ? Array.from(positions, point => {
+        const length = point.x / 100
+        return Qt.vector2d(length, .5 - (point.z + 26 * length * length) / 28)
+    }) : []
+    tangents: textured ? Array.from(normals, normal => Qt.vector3d(1, 0, 0)
+        .minus(normal.times(normal.x)).normalized()) : []
+    binormals: textured ? Array.from(normals, (normal, index) =>
+        normal.crossProduct(tangents[index]).times(normal.y < 0 ? -1 : 1)) : []
+""")
 qml_mesh(bill, project / "Demo/game/PetBeakGeometry.qml")
 bill.location.x = 140
 bpy.ops.wm.save_as_mainfile(filepath=str(project / "Dev/models/companion-studies.blend"))

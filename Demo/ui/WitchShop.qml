@@ -9,9 +9,14 @@ FocusScope {
     objectName: "witchShop"
     focus:true
     required property var ledger
+    property bool inspecting:false
+    property var sandbox:null
+    readonly property var shown:inspecting ? sandbox : ledger
+    signal practicePurchase()
     property bool vaultOpened: false
     property bool motion: true
     signal backRequested()
+    signal refundRequested(string id)
     signal purchaseRequested(string id)
     signal cardRequested(string id)
     property int shelf: 0
@@ -19,8 +24,29 @@ FocusScope {
     property var preview: null
     readonly property var speaking: shelf===3 ? Meta.reading : preview || selection
     readonly property bool tight: width < 925 || height < 645
+    readonly property real panelScale: tight ? 1 : Math.max(1,Math.min(2,width/1450,height/820))
     readonly property var stock: shelf===0 ? Meta.vows : shelf===1 ? Meta.parcels : []
-    readonly property bool eligible: !!selection && Meta.canBuy(ledger,selection)
+    readonly property bool eligible: !!selection && Meta.canBuy(shown,selection,inspecting)
+
+    function buy(id) {
+        if (!inspecting) {purchaseRequested(id);return}
+        const data=Meta.read(JSON.stringify(sandbox))
+        if (Meta.buy(data,id,null,true)) {
+            sandbox=data
+            practicePurchase()
+        }
+    }
+
+    function refund(item) {
+        if (!item?.cap || !Meta.level(shown,item.id)) return
+        selection=item
+        if (!inspecting) {refundRequested(item.id);return}
+        const data=Meta.read(JSON.stringify(sandbox))
+        if (Meta.refund(data,item.id)) {
+            sandbox=data
+            practicePurchase()
+        }
+    }
 
     function switchShelf(index) {
         shelf=index
@@ -51,7 +77,9 @@ FocusScope {
         objectName:"leaveWitchShop"
         anchors.top:parent.top
         anchors.left:parent.left
-        anchors.margins:shop.tight ? 12 : 26
+        anchors.margins:shop.tight ? 12 : 26*shop.panelScale
+        scale:shop.panelScale
+        transformOrigin:Item.TopLeft
         text:"← Shrine"
         onClicked:shop.backRequested()
     }
@@ -62,8 +90,10 @@ FocusScope {
         width: Math.max(140,Math.min(440,ledgerPanel.x-34))
         anchors.bottom: parent.bottom
         anchors.left:parent.left
-        anchors.leftMargin:shop.tight ? 12 : 28
-        anchors.bottomMargin:shop.tight ? 12 : 24
+        anchors.leftMargin:shop.tight ? 12 : 28*shop.panelScale
+        anchors.bottomMargin:shop.tight ? 12 : 24*shop.panelScale
+        scale:shop.panelScale
+        transformOrigin:Item.BottomLeft
         implicitHeight:voice.implicitHeight+24
         color:"#ef211525"
         radius:12
@@ -100,11 +130,13 @@ FocusScope {
 
     Rectangle {
         id: ledgerPanel
-        width: shop.tight ? Math.min(parent.width-175,parent.width*.70) : Math.min(800,parent.width*.55)
+        width: shop.tight ? Math.min(parent.width-175,parent.width*.70) : Math.min(800,parent.width*.55/shop.panelScale)
+        height: shop.tight ? parent.height-22 : Math.min(780,parent.height/shop.panelScale-46)
+        scale:shop.panelScale
+        transformOrigin:Item.Right
         anchors.right:parent.right
-        anchors.top:parent.top
-        anchors.bottom:parent.bottom
-        anchors.margins:shop.tight ? 11 : 23
+        anchors.rightMargin:shop.tight ? 11 : 23*shop.panelScale
+        anchors.verticalCenter:parent.verticalCenter
         radius:12
         color:"#f11c1224"
         border.color:"#8e697a"
@@ -127,7 +159,7 @@ FocusScope {
                 }
                 Text {
                     objectName:"gemsBalance"
-                    text:"◆ "+shop.ledger.gems+"\nDark gems"
+                    text:"◆ "+(shop.inspecting ? "∞" : shop.shown.gems)+"\nDark gems"
                     color:"#e4b5fc"
                     font.family:"Inter"
                     font.bold:true
@@ -139,7 +171,7 @@ FocusScope {
                 Layout.fillWidth:true
                 spacing:5
                 Repeater {
-                    model:["Permanent","Next run","Sealed shelf","Tarot"]
+                    model:["Permanent","Temporary","Sealed shelf","Tarot"]
                     ActionButton {
                         required property int index
                         required property string modelData
@@ -149,6 +181,17 @@ FocusScope {
                         accent:"#c396df"
                         onClicked:shop.switchShelf(index)
                     }
+                }
+            }
+            ActionButton {
+                objectName:"witchDebug"
+                text:shop.inspecting ? "Debug vault · On" : "Debug vault"
+                primary:shop.inspecting
+                accent:"#c396df"
+                hintText:"Inspect maximum ranks and try purchases with unlimited practice gems."
+                onClicked:{
+                    if (!shop.inspecting) shop.sandbox=Meta.practiceLedger()
+                    shop.inspecting=!shop.inspecting
                 }
             }
             ListView {
@@ -167,8 +210,8 @@ FocusScope {
                     width:ListView.view.width-9
                     implicitHeight:Math.max(shop.tight ? 39 : 54,UiMetrics.text(25)+10)
                     objectName:"witchItem-"+modelData.id
-                    readonly property bool queued:!!shop.ledger.pending[modelData.id]
-                    readonly property int rank:Meta.level(shop.ledger,modelData.id)
+                    readonly property bool queued:!!shop.shown.pending[modelData.id]
+                    readonly property int rank:Meta.level(shop.shown,modelData.id)
                     primary:shop.selection?.id===modelData.id
                     accent:modelData.rarity==="legendary" ? "#f8d382" : "#c399e5"
                     text:modelData.title
@@ -179,6 +222,11 @@ FocusScope {
                     }
                     onActiveFocusChanged:if (activeFocus) shop.preview=modelData
                     onClicked:shop.selection=modelData
+                    TapHandler {
+                        acceptedButtons:Qt.RightButton
+                        enabled:listing.modelData.cap>0 && listing.rank>0
+                        onTapped:shop.refund(listing.modelData)
+                    }
                     contentItem: RowLayout {
                         Text {text:listing.modelData.glyph;color:listing.primary ? "#38204a" : listing.accent;font.pixelSize:UiMetrics.text(18);Layout.leftMargin:4}
                         Text {
@@ -191,12 +239,12 @@ FocusScope {
                             elide:Text.ElideRight
                         }
                         SaleSticker {
-                            sale:Meta.discount(shop.ledger,listing.modelData)
-                            visible:sale>0 && Meta.inStock(shop.ledger,listing.modelData)
+                            sale:Meta.discount(shop.shown,listing.modelData)
+                            visible:sale>0 && Meta.inStock(shop.shown,listing.modelData)
                         }
                         Text {
                             text:listing.modelData.cap ? listing.rank+" / "+listing.modelData.cap
-                                : listing.queued ? "Reserved" : "◆ "+Meta.price(shop.ledger,listing.modelData)
+                                : listing.queued ? "Reserved" : "◆ "+Meta.price(shop.shown,listing.modelData)
                             font.family:"IBM Plex Mono"
                             font.pixelSize:UiMetrics.text(12)
                             color:listing.primary ? "#4f325c" : "#d3adc9"
@@ -209,10 +257,15 @@ FocusScope {
                 visible:shop.shelf===3
                 Layout.fillWidth:true
                 Layout.fillHeight:true
-                ledger:shop.ledger
+                ledger:shop.shown
+                unlimited:shop.inspecting
                 motion:shop.motion
-                onBuyRequested:shop.purchaseRequested(Meta.reading.id)
-                onTurnRequested:function(id) {shop.cardRequested(id)}
+                onBuyRequested:shop.buy(Meta.reading.id)
+                onTurnRequested:function(id) {
+                    if (!shop.inspecting) {shop.cardRequested(id);return}
+                    const data=Meta.read(JSON.stringify(shop.sandbox))
+                    if (Meta.turnCard(data,id)) shop.sandbox=data
+                }
             }
             Item {
                 visible:shop.shelf===2
@@ -226,7 +279,7 @@ FocusScope {
                     Text {
                         objectName:"sealedWitchShelf"
                         width:parent.width
-                        text:shop.vaultOpened ? "Coming soon" : "Sealed by the hundredth Overlord"
+                        text:(shop.vaultOpened || shop.inspecting) ? "Coming soon" : "Sealed by the hundredth Overlord"
                         wrapMode:Text.WordWrap
                         horizontalAlignment:Text.AlignHCenter
                         font.family:"Inter"
@@ -236,7 +289,7 @@ FocusScope {
                     }
                     Text {
                         width:parent.width
-                        text:shop.vaultOpened ? "The deeper bargains are still being prepared." : "Defeat the Wave 100 boss in a regular run."
+                        text:(shop.vaultOpened || shop.inspecting) ? "The deeper bargains are still being prepared." : "Defeat the Wave 100 boss in a regular run."
                         wrapMode:Text.WordWrap
                         horizontalAlignment:Text.AlignHCenter
                         font.family:"Inter"
@@ -264,14 +317,26 @@ FocusScope {
                         font.pixelSize:UiMetrics.text(13)
                         color:"#f3deee"
                     }
+                    ActionButton {
+                        objectName:"refundWitchRank"
+                        visible:!!shop.selection?.cap && Meta.level(shop.shown,shop.selection.id)>0
+                        text: {
+                            const id=shop.selection?.id || ""
+                            const legacy=Meta.level(shop.shown,id)>0 && Meta.level(shop.shown,id)<=shop.shown.legacyReceipts[id]
+                            return "Refund one rank · ◆ "+Meta.refundValue(shop.shown,id)+(legacy ? " (legacy estimate)" : "")
+                        }
+                        hintText:"Right-click an owned permanent upgrade to refund its last rank."
+                        onClicked:shop.refund(shop.selection)
+                    }
                     RowLayout {
                         Layout.fillWidth:true
                         Text {
                             Layout.fillWidth:true
                             text:!shop.selection ? "" : shop.selection.cap
-                                ? (Meta.level(shop.ledger,shop.selection.id)>=shop.selection.cap ? "Fully inscribed" : "Applies to new regular runs")
-                                : shop.ledger.pending[shop.selection.id] ? "Reserved for your next run"
-                                : shop.selection.rarity && (shop.ledger.pending.epic || shop.ledger.pending.legendary)
+                                ? (Meta.level(shop.shown,shop.selection.id)>=shop.selection.cap ? "Fully inscribed" : "Right-click an owned upgrade to refund one rank")
+                                : shop.shown.pending[shop.selection.id] ? "Temporary · reserved for your next run"
+                                : shop.selection.wave && Meta.startWave(shop.shown)>1 ? "A passage is already reserved"
+                                : shop.selection.rarity && (shop.shown.pending.epic || shop.shown.pending.legendary)
                                     ? "A starting weapon is already reserved" : "One use on your next regular run"
                             wrapMode:Text.WordWrap
                             color:"#d1b5cc"
@@ -286,12 +351,12 @@ FocusScope {
                             text: {
                                 const item=shop.selection
                                 if (!item) return ""
-                                if (item.cap && Meta.level(shop.ledger,item.id)>=item.cap) return "Max rank"
-                                if (!item.cap && shop.ledger.pending[item.id]) return "Reserved"
-                                const price=Meta.price(shop.ledger,item)
+                                if (item.cap && Meta.level(shop.shown,item.id)>=item.cap) return "Max rank"
+                                if (!item.cap && shop.shown.pending[item.id]) return "Reserved"
+                                const price=Meta.price(shop.shown,item)
                                 return price ? "Buy · ◆ "+price : "Claim free"
                             }
-                            onClicked:shop.purchaseRequested(shop.selection.id)
+                            onClicked:shop.buy(shop.selection.id)
                         }
                     }
                 }

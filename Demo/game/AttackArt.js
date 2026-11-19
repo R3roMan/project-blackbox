@@ -22,16 +22,16 @@ function pose(enemy) {
     return poses[Encounters.attackStyles[enemy.type]] || poses.chomp
 }
 
-function amount(enemy, warning, animate) {
+function amount(enemy, windup, animate) {
     const flash = Math.max(0, Math.min(1, (enemy.attackFlash || 0) / (enemy.type==="lucifoverus" ? .22 : .33)))
     if (!animate)
-        return flash > 0 || warning ? .8 : 0
+        return flash > 0 ? .85 : windup > 0 ? -.70 : 0
     if (flash)
         return Math.sin(Math.PI * Math.pow(1 - flash, .45)) * .69 + flash * .57
     if (enemy.roar)
         return Math.min(1, enemy.roar * 1.5)
-    if (warning)
-        return -Math.min(.62, Math.max(.12, .62 - enemy.attack * .23))
+    if (windup > 0)
+        return -(.20 + .76 * Math.sin(Math.min(1,windup) * Math.PI / 2))
     if (enemy.fuse > 0 && enemy.fuse < 3)
         return Math.sin(enemy.age * 18) * (3 - enemy.fuse) * .17
     return 0

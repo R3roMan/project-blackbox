@@ -5,7 +5,6 @@ import QtCore
 import "../native" as Native
 import "../Demo/game" as Game
 import "../Demo/ui" as Ui
-import "../V0.1/kde/contents/ui" as Template
 import "../Demo/game/Rules.js" as Rules
 import "../Demo/game/Loadout.js" as Gear
 import "../Demo/game/Progress.js" as Progress
@@ -28,6 +27,22 @@ Item {
     Ui.ProfileVault {
         id:careerVault
         location:String(StandardPaths.writableLocation(StandardPaths.ConfigLocation))+"/project-blackbox-demo.ini"
+    }
+    Settings {
+        id:checkpointStorage
+        location:careerVault.location
+        category:"Codex"
+    }
+    function dropCheckpoint(id,seed) {
+        checkpointStorage.sync()
+        if (SaveData.closesCheckpoint(String(checkpointStorage.value("savedRun","")),id,seed)) {
+            checkpointStorage.setValue("savedRun","")
+            checkpointStorage.setValue("previousRun","")
+        } else if (SaveData.closesCheckpoint(String(checkpointStorage.value("previousRun","")),id,seed)) {
+            checkpointStorage.setValue("previousRun","")
+        }
+        checkpointStorage.sync()
+        if (SaveData.closesCheckpoint(Native.Desktop.parkedRun(),id,seed)) Native.Desktop.parkRun("")
     }
     function writeCheckpoint(data,automatic) {
         if (data.length && Native.Desktop.saveRun(data)) {
@@ -59,6 +74,12 @@ Item {
         bookEntry=id || ""
         bookOpen=true
     }
+    Binding {target:Ui.SoundMix;property:"master";value:host.options.audioMaster;when:host.claimed}
+    Binding {target:Ui.SoundMix;property:"music";value:host.options.audioMusic;when:host.claimed}
+    Binding {target:Ui.SoundMix;property:"effects";value:host.options.audioEffects;when:host.claimed}
+    Binding {target:Ui.SoundMix;property:"ambience";value:host.options.audioAmbience;when:host.claimed}
+    Binding {target:Ui.SoundMix;property:"interfaceGain";value:host.options.audioInterface;when:host.claimed}
+    Binding { target:Ui.UiMetrics; property:"hudScale"; value:host.options.hudScale || 1; when:host.claimed }
     Binding { target:Ui.UiMetrics; property:"textScale"; value:host.options.textScale || 1; when:host.claimed }
     property var stored:JSON.parse(Native.Desktop.progress())
     property var records:stored.profile || stored
@@ -81,17 +102,19 @@ Item {
             canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(home && mode==="play" && battle.item)battle.item.keyTargetFocus()
-    Component.onCompleted: {claimVisible();report()}
+    property int initialDetail:1
+    Component.onCompleted: {initialDetail=options.detail;claimVisible();report()}
     Component.onDestruction: {if(claimed && battle.item)Native.Desktop.parkRun(SaveData.encodeRun(battle.item.run));Native.Desktop.release(ownershipToken)}
-    Image {anchors.fill:parent;source:host.backgrounds.front || Qt.resolvedUrl("../V0.1/kde/contents/images/shrine.png");fillMode:Image.PreserveAspectCrop}
+    Image {anchors.fill:parent;source:host.backgrounds.front || Qt.resolvedUrl("../Demo/assets/landscape/shrine-day.webp");fillMode:Image.PreserveAspectCrop}
     Loader {
         anchors.fill:parent;active:host.claimed && ["idle","performance"].includes(host.mode);visible:active
-        sourceComponent:Template.Scene {
+        sourceComponent:Game.AmbientGallery {
             mode:host.mode==="performance" ? "performance" : "wallpaper"
             preview:false
             exposed:host.home
             enabled:host.home
             ambientFps:Math.min(24,host.options.frameLimit)
+            sceneryDetail:host.options.detail
             motionAllowed:host.options.motion
             editsJson: {
                 const map={front:"shrine",left:"media",right:"lab",up:"sky",down:"abyss"},edits={}
@@ -122,20 +145,24 @@ Item {
             onCodexRequested:function(chapter,id) { host.openBook(chapter,id) }
             software:GraphicsInfo.api===GraphicsInfo.Software
             autoSave:host.options.autoSave
-            sound:host.options.sound
+            sound:host.options.audioMaster>0
             motion:host.options.motion
             frameLimit:host.options.frameLimit
+            initialDetail:host.initialDetail
+            graphicsRestartText:"Save the run and restart the preview or reload the wallpaper to fully apply this preset."
             graphicsDetail:host.options.gpuEffects && Native.Desktop.gpu>.8 ? 0 : host.options.detail
             wallpaperQuality:host.mode==="performance" ? 1080 : 0
             showTimer:host.options.showTimer
             unlockedGear:Progress.unlocked(host.availableRecords,host.options.achievementOverride)
             knownEnemies:host.discovered.enemies
+            onCheckpointClosed:function(id,seed) {host.dropCheckpoint(id,seed)}
             onSaveRequested:function(data,automatic) { host.writeCheckpoint(data,automatic) }
             onAutoSaveRequested:function(value) { Native.Desktop.setOption("autoSave",value) }
+            onHudScaleRequested:function(value) { Native.Desktop.setOption("hudScale",value) }
             onTextScaleRequested:function(value) { Native.Desktop.setOption("textScale",value) }
             onTimerRequested:function(value){Native.Desktop.setOption("showTimer",value)}
             onFrameLimitRequested:function(value){Native.Desktop.setOption("frameLimit",value)}
-            onSoundRequested:Native.Desktop.setOption("sound",!sound)
+            onAudioLevelRequested:function(key,value) {Native.Desktop.setOption(key,value)}
             onMotionRequested:Native.Desktop.setOption("motion",!motion)
             onDetailRequested:function(value){Native.Desktop.setOption("detail",value)}
             onExitRequested:Native.Desktop.setOption("mode","idle")
@@ -168,7 +195,7 @@ Item {
             if(name==="new") {Native.Desktop.setOption("mode","play");game.resetRun()}
             else if(name==="continue") {
                 const unlocks=Progress.unlocked(host.availableRecords,host.options.achievementOverride)
-                const saved=SaveData.savedChoice(Native.Desktop.savedRun(),Native.Desktop.previousRun(),unlocks)
+                const saved=SaveData.savedChoice(Native.Desktop.savedRun(),Native.Desktop.previousRun(),unlocks,careerVault.state)
                 if (saved) {
                     Native.Desktop.setOption("mode","play")
                     game.restoreRun(SaveData.decodeRun(saved.data,unlocks))
@@ -198,6 +225,7 @@ Item {
         anchors.bottomMargin:host.areaBottom
         active:host.bookOpen;z:40
         sourceComponent:Ui.ReferencePage {
+            sound:(host.options.audioMaster>0) && host.home
             artDirectory:Qt.resolvedUrl("../V0.1/kde/contents/images/")
             firstTab:host.bookTab;firstEntry:host.bookEntry;overlay:host.mode==="play";motion:host.options.motion;known:host.discovered;unlocks:Progress.unlocked(host.availableRecords,host.options.achievementOverride);career:host.availableRecords
             achievementsUnlocked:host.options.achievementOverride
@@ -208,7 +236,8 @@ Item {
             onCloseRequested:host.bookOpen=false
         }
     }
-    Loader {active:host.options.sound;sourceComponent:Game.Music {enabledSound:host.options.sound;activeWindow:host.home;track:host.bookOpen || host.vaultOpen ? "book" : host.mode==="play" && battle.item ? battle.item.musicTrack : "home";quiet:host.bookOpen || host.vaultOpen ? false : battle.item ? battle.item.paused : false;variation:!host.bookOpen && !host.vaultOpen && battle.item ? battle.item.musicVariation : ""}}
+    Loader {id:menuSound;active:(host.options.audioMaster>0);sourceComponent:Game.CuePlayer {allowed:host.home;capacity:9}}
+    Loader {active:(host.options.audioMaster>0);sourceComponent:Game.Music {enabledSound:(host.options.audioMaster>0);activeWindow:host.home;track:host.vaultOpen ? "witch" : host.bookOpen ? "book" : host.mode==="play" && battle.item ? battle.item.musicTrack : "home";quiet:host.bookOpen || host.vaultOpen ? false : battle.item ? battle.item.paused : false;variation:!host.bookOpen && !host.vaultOpen && battle.item ? battle.item.musicVariation : ""}}
     Loader {
         anchors.fill:parent
         anchors.leftMargin:host.areaLeft
@@ -221,8 +250,10 @@ Item {
             ledger:careerVault.state
             motion:host.options.motion
             vaultOpened:host.records.wave100Boss>0
-            onPurchaseRequested:function(id) {careerVault.purchase(id)}
-            onCardRequested:function(id) {careerVault.turnCard(id)}
+            onPurchaseRequested:function(id) {if (careerVault.purchase(id) && menuSound.item) menuSound.item.play("buy",.72)}
+            onRefundRequested:function(id) {if (careerVault.refund(id) && menuSound.item) menuSound.item.play("buy",.72)}
+            onPracticePurchase:if (menuSound.item) menuSound.item.play("buy",.72)
+            onCardRequested:function(id) {if (careerVault.turnCard(id) && menuSound.item) menuSound.item.play("book-flip",.66)}
             onBackRequested:host.vaultOpen=false
         }
     }

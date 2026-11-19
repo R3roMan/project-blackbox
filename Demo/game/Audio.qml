@@ -1,6 +1,6 @@
 import QtQuick
-import QtQml.Models
 import QtMultimedia
+import "../ui" as Ui
 
 Item {
     id: audio
@@ -11,12 +11,16 @@ Item {
     property bool inBattle: false
     property bool bossWarning: false
     property bool soulDrain:false
+    property bool flooded:false
     property string weather: "clear"
+    property bool windy: weather==="windy"
     visible: false
     property bool alternate: false
 
     readonly property var cues: ({
-        warning:"alarm", damage:"hurt", wave:"alarm", clear:"clear", seal:"seal", roar:"roar",
+        playerDeath:"player-death",veilBolt:"attack-veilskate",warning:"alarm", damage:"hurt", wave:"alarm", clear:"clear", seal:"seal", roar:"roar",
+        takeoverWarn:"takeover-warn",takeoverTick:"takeover-tick",takeoverFinal:"takeover-final",takeoverSeal:"takeover-seal",
+        coinArrival:"coin-arrival",gemArrival:"gem-arrival",continueGame:"continue-game",newGame:"new-game",
         arrive:"arrive", shift:"shift", turn:"turn", shieldBlock:"shield-block", shieldBreak:"shield-break", shieldRefill:"shield-refill",
         pet:"pet", brood:"brood", boss:"boss", throwGrenade:"throw", detonation:"detonation", frost:"frost",
         breath:"breath", burn:"burn", distortion:"distortion", gift:"gift", curse:"curse", buy:"buy", empty:"empty",
@@ -63,28 +67,43 @@ Item {
         harvesterCry:"harvester-cry",soulRelease:"soul-release",crufiWeep:"crufi-weep",crufiScream:"crufi-scream",
         hurtHellborne:"hurt-hellborne",hurtSpace:"hurt-space",hurtVoid:"hurt-void",tutorialGood:"tutorial-good",tutorialRewind:"tutorial-rewind",tutorialMolt:"tutorial-molt",spray:"spray",cough:"cough","summon-oblogabgalus":"summon-oblogabgalus"
     })
-    readonly property var voices: Array.from(new Set(Object.values(cues)))
+    CuePlayer {id:oneShots;allowed:audio.allowed;defaultBus:"effects";capacity:44}
+
+    function warmWeapon() {
+        if (!weaponId || !allowed) return
+        if (!sustainWeapon) {
+            oneShots.warm("fire-"+weaponId,.78,"a")
+            oneShots.warm("fire-"+weaponId,.78,"b")
+        }
+        oneShots.warm("reload-"+weaponId,.63)
+    }
 
     function play(cue) {
-        if (!allowed)
-            return
-        if (cue === "fire") {
-            alternate = !alternate
-            const voice = alternate ? fireOne : fireTwo
-            if (voice.status === SoundEffect.Ready)
-                voice.play()
-            return
+        if (!allowed) return
+        if (cue==="fire") {
+            alternate=!alternate
+            oneShots.play("fire-"+weaponId,.78,alternate ? "a" : "b")
+        } else if (cue==="reload") {
+            oneShots.play("reload-"+weaponId,.63)
+        } else if (cue.startsWith("ability:")) {
+            oneShots.play("ability-"+cue.slice(8),.64)
+        } else if (cue.startsWith("attack:")) {
+            oneShots.play("attack-"+cue.slice(7),.68)
+        } else {
+            const file=cues[cue]
+            if (!file) return
+            oneShots.play(file,file.startsWith("distant-") ? .24
+                : ["arrive","pet","gore-hit","coin-arrival"].includes(file) ? .24
+                : file.startsWith("summon-") || file.startsWith("death-") || ["clear","loss","takeover-warn","player-death"].includes(file) ? .76 : .53,
+                "",file.startsWith("distant-") || ["rain-arrival","night-arrival","wind-arrival"].includes(file)
+                    ? "ambience" : ["buy","new-game","continue-game","flask-release","refresh","coin-arrival","gem-arrival"].includes(file)
+                    ? "interface" : "effects")
         }
-        if (cue === "reload") {
-            if (reload.status === SoundEffect.Ready)
-                reload.play()
-            return
-        }
-        const index = voices.indexOf(cues[cue])
-        const voice = index >= 0 ? effects.objectAt(index) : null
-        if (voice && voice.status === SoundEffect.Ready)
-            voice.play()
     }
+
+    onWeaponIdChanged:warmWeapon()
+    onSustainWeaponChanged:warmWeapon()
+    Component.onCompleted:warmWeapon()
 
     function syncLoop(voice, active) {
         if (allowed && active && voice.status === SoundEffect.Ready) {
@@ -100,8 +119,8 @@ Item {
         syncLoop(rain,inBattle && (weather === "rain" || weather === "thunder"))
         syncLoop(fireWeather,inBattle && weather === "inferno")
         syncLoop(winter,inBattle && weather === "winter")
-        syncLoop(incursion,inBattle && weather === "incursion")
-        syncLoop(wind,inBattle && weather === "windy")
+        syncLoop(incursion,inBattle && flooded)
+        syncLoop(wind,inBattle && windy)
         syncLoop(glitch,inBattle && weather === "glitch")
         syncLoop(siren,bossWarning)
         syncLoop(souls,soulDrain)
@@ -113,118 +132,85 @@ Item {
             play("beamStart")
     }
     onWeatherChanged: syncWeather()
+    onWindyChanged: syncWeather()
     onInBattleChanged: syncWeather()
     onBossWarningChanged: syncWeather()
     onSoulDrainChanged:syncWeather()
+    onFloodedChanged:syncWeather()
     onAllowedChanged: {
         syncLoop(stream,continuous)
         syncWeather()
-        if (!allowed) {
-            fireOne.stop()
-            fireTwo.stop()
-            reload.stop()
-            for (let i = 0; i < effects.count; i += 1) {
-                const voice = effects.objectAt(i) as SoundEffect
-                if (voice)
-                    voice.stop()
-            }
-        }
+        if (allowed) warmWeapon()
     }
 
     SoundEffect {
         id:souls
         source:Qt.resolvedUrl("../audio/harvester-loop.wav")
         loops:SoundEffect.Infinite
-        volume:.37
+        volume: .37*Ui.SoundMix.gain("ambience")
         onStatusChanged:audio.syncLoop(souls,audio.soulDrain)
     }
     SoundEffect {
         id: wind
         source: Qt.resolvedUrl("../audio/wind-loop.wav")
         loops: SoundEffect.Infinite
-        volume: .37
-        onStatusChanged: audio.syncLoop(wind,audio.inBattle && audio.weather === "windy")
+        volume: .37*Ui.SoundMix.gain("ambience")
+        onStatusChanged: audio.syncLoop(wind,audio.inBattle && audio.windy)
     }
     SoundEffect {
         id: glitch
         source: Qt.resolvedUrl("../audio/glitch-loop.wav")
         loops: SoundEffect.Infinite
-        volume: .28
+        volume: .28*Ui.SoundMix.gain("ambience")
         onStatusChanged: audio.syncLoop(glitch,audio.inBattle && audio.weather === "glitch")
     }
     SoundEffect {
-        id: fireOne
-        source: Qt.resolvedUrl("../audio/fire-" + audio.weaponId + ".wav")
-        volume: .69
-    }
-    SoundEffect {
         id: stream
-        source: audio.sustainWeapon ? fireOne.source : ""
+        source:audio.sustainWeapon ? Qt.resolvedUrl("../audio/fire-"+audio.weaponId+".wav") : ""
         loops: SoundEffect.Infinite
-        volume: audio.weaponId === "chainsaw" ? .48 : .36
+        volume: (audio.weaponId === "chainsaw" ? .57 : .49)*Ui.SoundMix.gain("effects")
         onStatusChanged: audio.syncLoop(stream,audio.continuous)
     }
     SoundEffect {
         id: rain
         source: Qt.resolvedUrl("../audio/rain-loop.wav")
         loops: SoundEffect.Infinite
-        volume: .25
-        onStatusChanged: audio.syncLoop(rain,audio.inBattle && audio.weather === "rain")
+        volume: .25*Ui.SoundMix.gain("ambience")
+        onStatusChanged: audio.syncLoop(rain,audio.inBattle && (audio.weather==="rain" || audio.weather==="thunder"))
     }
     SoundEffect {
         id: fireWeather
         source: Qt.resolvedUrl("../audio/inferno-loop.wav")
         loops: SoundEffect.Infinite
-        volume: .45
+        volume: .45*Ui.SoundMix.gain("ambience")
         onStatusChanged: audio.syncLoop(fireWeather,audio.inBattle && audio.weather === "inferno")
     }
     SoundEffect {
         id: winter
         source: Qt.resolvedUrl("../audio/winter-loop.wav")
         loops: SoundEffect.Infinite
-        volume: .29
+        volume: .29*Ui.SoundMix.gain("ambience")
         onStatusChanged: audio.syncLoop(winter,audio.inBattle && audio.weather === "winter")
     }
     SoundEffect {
         id: incursion
-        source: Qt.resolvedUrl("../audio/void-loop.wav")
+        source:Qt.resolvedUrl("../audio/abyss-bubble-loop.wav")
         loops: SoundEffect.Infinite
-        volume: .37
-        onStatusChanged: audio.syncLoop(incursion,audio.inBattle && audio.weather === "incursion")
+        volume: .37*Ui.SoundMix.gain("ambience")
+        onStatusChanged: audio.syncLoop(incursion,audio.inBattle && audio.flooded)
     }
     SoundEffect {
         id: siren
         source: Qt.resolvedUrl("../audio/boss-siren-loop.wav")
         loops: SoundEffect.Infinite
-        volume: .27
+        volume: .27*Ui.SoundMix.gain("ambience")
         onStatusChanged: audio.syncLoop(siren,audio.bossWarning)
     }
     SoundEffect {
         id: battle
         source: Qt.resolvedUrl("../audio/combat-loop.wav")
         loops: SoundEffect.Infinite
-        volume: .22
+        volume: .22*Ui.SoundMix.gain("ambience")
         onStatusChanged: audio.syncLoop(battle,audio.inBattle)
-    }
-    SoundEffect {
-        id: fireTwo
-        source: fireOne.source
-        volume: .69
-    }
-    SoundEffect {
-        id: reload
-        source: Qt.resolvedUrl("../audio/reload-" + audio.weaponId + ".wav")
-        volume: .55
-    }
-    Instantiator {
-        id: effects
-        model: audio.voices
-        delegate: SoundEffect {
-            required property string modelData
-            source: Qt.resolvedUrl("../audio/" + modelData + ".wav")
-            volume: modelData.startsWith("distant-") ? .24
-                : modelData === "arrive" || modelData === "pet" || modelData === "gore-hit" ? .19
-                : modelData.startsWith("summon-") || modelData.startsWith("death-") ? .57 : .44
-        }
     }
 }

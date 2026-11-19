@@ -12,10 +12,13 @@ GridLayout {
     property bool showTimer:false
     property bool autoSave:true
     signal autoSaveChangedByUser(bool enabled)
+    signal hudScaleChangedByUser(real scale)
     signal textScaleChangedByUser(real scale)
     signal frameLimitChangedByUser(int value)
     signal timerChangedByUser(bool value)
     property int detail:1
+    property int initialDetail:detail
+    property string restartText:"Save your run, then restart Blackbox to fully apply this preset."
     property string transitionStyle:"cinematic"
     property real transitionStrength:1
     signal fitChangedByUser(string value)
@@ -69,9 +72,18 @@ GridLayout {
         font.pixelSize:Ui.UiMetrics.text(13)
         objectName:"graphicsDetail"
         Layout.fillWidth:true
-        model:["Low","Standard","High · shadows and light"]
+        model:["Low","Standard","High · shadows and light","Ultra · textured materials and reflections"]
         currentIndex:settings.detail
         onActivated:settings.detailChangedByUser(currentIndex)
+    }
+    SettingLabel {
+        objectName:"graphicsRestartNotice"
+        Layout.columnSpan:2
+        Layout.fillWidth:true
+        visible:settings.detail!==settings.initialDetail
+        color:"#ffd295"
+        wrapMode:Text.WordWrap
+        text:settings.restartText
     }
     SettingLabel {text:"Screen transitions"}
     ComboBox {
@@ -94,6 +106,15 @@ GridLayout {
     SettingLabel {text:"Wave timer · period key"}
     CheckBox {objectName:"showWaveTimer";checked:settings.showTimer;onClicked:settings.timerChangedByUser(checked)}
 
+    SettingLabel { text:"Combat HUD size" }
+    ComboBox {
+        objectName:"combatHudSize"
+        Layout.fillWidth:true
+        model:["80%","100%","115%","130%"]
+        readonly property var scales:[.8,1,1.15,1.3]
+        currentIndex:Math.max(0,scales.indexOf(Ui.UiMetrics.hudScale))
+        onActivated:settings.hudScaleChangedByUser(scales[currentIndex])
+    }
     SettingLabel { text:"Text size" }
     ComboBox {
         font.pixelSize:Ui.UiMetrics.text(13)

@@ -4,16 +4,17 @@ import QtQuick3D
 
 Node {
     id: rig
+    property var surfaces:null
     required property int targetId
     required property bool live
     required property real beam
     property real clock: 0
 
-    PrincipledMaterial { id: bone; baseColor: "#aaa091"; metalness: .12; roughness: .86 }
+    LitSurface { surfaces:rig.surfaces; finish:"hide"; id:bone; baseColor: "#aaa091"; metalness: .12; roughness: .86 }
     PrincipledMaterial { id: tooth; baseColor: "#e3d3b5"; roughness: .67 }
     PrincipledMaterial { id: hollow; baseColor: "#29212a"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: gem; baseColor: rig.beam > .5 ? "#fff4bc" : "#ffdb52"; lighting: PrincipledMaterial.NoLighting }
-    PrincipledMaterial { id: filigree; baseColor: "#aa793e"; metalness: .66; roughness: .47 }
+    LitSurface { surfaces:rig.surfaces; finish:"steel"; id:filigree; baseColor: "#aa793e"; metalness: .66; roughness: .47 }
 
     Model {
         source: "#Sphere"

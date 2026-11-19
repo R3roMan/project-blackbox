@@ -25,10 +25,25 @@ QtObject {
         return true
     }
 
+    function importLedger(ledger) {
+        reload()
+        if (!Meta.decode(ledger)) return false
+        // A backup can restore the balance at export time. Completed attempts stay closed.
+        ledger.closed=Object.assign({},ledger.closed,state.closed)
+        for (const id of Object.keys(state.settled)) ledger.closed[id]=true
+        return replace(ledger)
+    }
+
     function purchase(id) {
         reload()
         const ledger=Meta.read(JSON.stringify(state))
         return Meta.buy(ledger,id) && replace(ledger)
+    }
+
+    function refund(id) {
+        reload()
+        const ledger=Meta.read(JSON.stringify(state))
+        return Meta.refund(ledger,id) && replace(ledger)
     }
 
     function turnCard(id) {
@@ -44,16 +59,19 @@ QtObject {
         return terms && replace(ledger) ? terms : null
     }
 
-    function alreadySettled(id) {
-        reload()
-        return !!state.settled[id]
-    }
-
-    function settle(report) {
+    function deposit(id,claims) {
         reload()
         const ledger=Meta.read(JSON.stringify(state))
-        if (!Meta.settle(ledger,report)) return false
-        return replace(ledger)
+        return Meta.depositField(ledger,id,claims) && replace(ledger)
+    }
+
+    function settle(report,legacyId) {
+        reload()
+        const ledger=Meta.read(JSON.stringify(state))
+        const awarded=Meta.settle(ledger,report)
+        if (Meta.validId(report.id)) ledger.closed[report.id]=true
+        if (Meta.validId(legacyId)) ledger.closed[legacyId]=true
+        return replace(ledger) && awarded
     }
 
     function archive(report) {

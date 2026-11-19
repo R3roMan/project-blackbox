@@ -39,8 +39,8 @@ View3D {
         clipNear:1
         clipFar:1000
     }
-    DirectionalLight { eulerRotation:Qt.vector3d(-24,-33,0); brightness:2.4; color:"#ffcfb4"; ambientColor:"#817297" }
-    DirectionalLight { eulerRotation:Qt.vector3d(14,136,0); brightness:1.9; color:"#a1c7ff" }
+    DirectionalLight { eulerRotation:Qt.vector3d(-24,-33,0); brightness:1.35; color:"#fff5e9"; ambientColor:"#554f52" }
+    DirectionalLight { eulerRotation:Qt.vector3d(14,136,0); brightness:.58; color:"#d6e1eb" }
     Node {
         readonly property real proportion: (portrait.spec.ship ? .31 : 1/portrait.spec.size)*portrait.modelScale
         scale: Qt.vector3d(proportion,proportion,proportion)

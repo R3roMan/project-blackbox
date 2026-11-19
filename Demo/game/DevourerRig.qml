@@ -3,6 +3,7 @@ import QtQuick3D
 
 Node {
     id: rig
+    property var surfaces:null
     required property int targetId
     required property bool live
     required property real clock
@@ -10,9 +11,9 @@ Node {
     required property real healing
     required property bool hurt
 
-    PrincipledMaterial { id: hide; baseColor: rig.hurt ? "#7d4c51" : "#513c40"; roughness: .86 }
-    PrincipledMaterial { id: fur; baseColor: "#2a262a"; roughness: 1 }
-    PrincipledMaterial { id: hair; baseColor: "#413238"; roughness: 1 }
+    LitSurface { surfaces:rig.surfaces; finish:"hide"; id:hide; baseColor: rig.hurt ? "#7d4c51" : "#513c40"; roughness: .86 }
+    LitSurface { surfaces:rig.surfaces; finish:"weave"; id:fur; baseColor: "#2a262a"; roughness: 1 }
+    LitSurface { surfaces:rig.surfaces; finish:"weave"; id:hair; baseColor: "#413238"; roughness: 1 }
     PrincipledMaterial { id: gums; baseColor: "#621d34"; roughness: .47 }
     PrincipledMaterial { id: pit; baseColor: "#210912"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: tooth; baseColor: "#e0bd88"; roughness: .53 }

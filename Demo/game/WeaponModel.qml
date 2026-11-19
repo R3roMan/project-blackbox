@@ -51,13 +51,22 @@ View3D {
             ? Qt.point(point.x, point.y) : fallback
     }
 
-    explicitTextureWidth: Math.max(1, Math.round(Math.min(960, width * Screen.devicePixelRatio)))
+    BeveledReceiver {id:receiver}
+    SurfaceSet {
+        id:surfaces
+        detailed:view.detail===3
+        organic:false
+    }
+    explicitTextureWidth: Math.max(1, Math.round(Math.min(view.detail===3 ? 1920 : 960, width * Screen.devicePixelRatio)))
     explicitTextureHeight: Math.max(1, Math.round(explicitTextureWidth * height / Math.max(1, width)))
     camera: staff ? staffEye : handWeapon ? handEye : eye
     environment: SceneEnvironment {
-        backgroundMode: SceneEnvironment.Transparent
-        antialiasingMode:view.detail > 0 ? SceneEnvironment.MSAA : SceneEnvironment.NoAA
-        antialiasingQuality:view.detail === 2 ? SceneEnvironment.High : SceneEnvironment.Medium
+        backgroundMode:SceneEnvironment.Transparent
+        antialiasingMode:view.detail>0 ? SceneEnvironment.MSAA : SceneEnvironment.NoAA
+        antialiasingQuality:view.detail===3 ? SceneEnvironment.High : SceneEnvironment.Medium
+        lightProbe:surfaces.detailed ? surfaces.lightProbe : null
+        probeExposure:.62-view.darkSky*.27
+        tonemapMode:surfaces.detailed ? SceneEnvironment.TonemapModeAces : SceneEnvironment.TonemapModeLinear
     }
     PerspectiveCamera {
         id: eye
@@ -89,11 +98,18 @@ View3D {
         ambientColor:view.darkSky>.56 ? "#786585" : "#7885a7"
     }
     DirectionalLight { eulerRotation: Qt.vector3d(13, 118, 12); color: "#a4b9ff"; brightness: 1.43 }
-    PrincipledMaterial { id: enamel; baseColor: view.art.shell; roughness: .53; metalness: .61 }
-    PrincipledMaterial { id: rim; baseColor: Qt.lighter(view.art.shell, 1.58); roughness: .42; metalness: .60 }
-    PrincipledMaterial { id: dark; baseColor: "#222633"; roughness: .72; metalness: .31 }
+    PointLight {
+        visible:view.detail===3 && view.shotLife>.001
+        position:(view.handWeapon ? bladeTip : view.staff ? runeTip : view.twins ? twinTip : tip).scenePosition
+        color:view.weapon.color
+        brightness:Math.pow(view.intensity,2)*6
+        quadraticFade:.44
+    }
+    LitSurface { surfaces:surfaces; finish:"steel"; id: enamel; baseColor: view.art.shell; roughness: .53; metalness: .61 }
+    LitSurface { surfaces:surfaces; finish:"steel"; id: rim; baseColor: Qt.lighter(view.art.shell, 1.58); roughness: .42; metalness: .60 }
+    LitSurface { surfaces:surfaces; finish:"steel"; id: dark; baseColor: "#222633"; roughness: .72; metalness: .31 }
     PrincipledMaterial { id: cavity; baseColor: "#13151c"; lighting: PrincipledMaterial.NoLighting }
-    PrincipledMaterial { id: grip; baseColor: "#30313f"; roughness: .90 }
+    LitSurface { surfaces:surfaces; finish:"weave"; id: grip; baseColor: "#30313f"; roughness: .90 }
     PrincipledMaterial { id: signal; baseColor: view.weapon.color; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: hot; baseColor: "#fff1c5"; lighting: PrincipledMaterial.NoLighting }
 
@@ -116,6 +132,7 @@ View3D {
             active: view.handWeapon
             z: -view.bladeFrame.centre
             sourceComponent: MeleeRig {
+                surfaces:surfaces
                 objectName: "heldMeleeRig"
                 weaponId: view.pattern
                 accent: view.weapon.color
@@ -135,6 +152,7 @@ View3D {
         Loader3D {
             active: view.staff
             sourceComponent: StaffRig {
+                surfaces:surfaces
                 kind: view.weapon.staff ? view.weapon.staff.kind : ""
                 style:view.weapon.staff ? view.weapon.staff.style || "" : ""
                 tint: view.weapon.color
@@ -164,7 +182,12 @@ View3D {
                 y: 5 + recoil * 6 - view.pose.shellTravel * .47
                 z: recoil * 19 - view.stab * 74
                 eulerRotation: Qt.vector3d(-10 - recoil * 13-view.aimOffset.y*8.5,-side*2-view.aimOffset.x*12,view.pose.roll*side)
-                Model { source:"#Cube"; scale:Qt.vector3d(view.art.width*.0076,.27,view.art.length*.0098); materials:[enamel] }
+                Model {
+                    source:view.detail===3 ? "" : "#Cube"
+                    geometry:view.detail===3 ? receiver : null
+                    scale:Qt.vector3d(view.art.width*.0076,.27,view.art.length*.0098)
+                    materials:[enamel]
+                }
                 Model { source:"#Cube"; y:14; z:-11; scale:Qt.vector3d(.35,.12,.82); materials:[rim] }
                 Model {
                     source:"#Cylinder"
@@ -252,15 +275,18 @@ View3D {
             materials: [rim]
         }
         Model {
-            source: view.art.form === "cylinder" || view.art.form === "dish" ? "#Cylinder" : "#Cube"
-            eulerRotation.x: source.toString().endsWith("#Cylinder") ? 90 : 0
-            scale: source.toString().endsWith("#Cylinder")
+            readonly property bool cylindrical:view.art.form==="cylinder" || view.art.form==="dish"
+            source:cylindrical ? "#Cylinder" : view.detail===3 ? "" : "#Cube"
+            geometry:view.detail===3 && !cylindrical ? receiver : null
+            eulerRotation.x:cylindrical ? 90 : 0
+            scale:cylindrical
                 ? Qt.vector3d(view.art.width / 100, view.art.length / 100, view.art.height / 100)
                 : Qt.vector3d(view.art.width * .0089, view.art.height * .0081, view.art.length / 100)
             materials: [enamel]
         }
         Model {
-            source: "#Cube"
+            source:view.detail===3 ? "" : "#Cube"
+            geometry:view.detail===3 ? receiver : null
             y: view.art.height * .39
             z: 7 + view.pose.partTravel * (view.art.form === "slide" ? 1 : 0)
             scale: Qt.vector3d(view.art.width * .0066, .087, view.art.length * .009)
@@ -272,6 +298,18 @@ View3D {
             z: view.art.length * .19
             scale: Qt.vector3d(.19, .08, .14)
             materials: [dark]
+        }
+        Repeater3D {
+            model:view.detail===3 ? 6 : 0
+            delegate:Model {
+                required property int index
+                source:"#Cylinder"
+                x:(index<3 ? -1 : 1)*view.art.width*.225
+                y:view.art.height*.405+6
+                z:(index%3-1)*view.art.length*.34+7
+                scale:Qt.vector3d(.044,.016,.044)
+                materials:[rim]
+            }
         }
         Model {
             source: "#Cube"

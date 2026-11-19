@@ -3,6 +3,13 @@ import QtQuick3D.Helpers
 
 // Geometry from Dev/models/scallopedWing.obj. Shared by both sides of the creature.
 ProceduralMesh {
+    property bool textured:false
+    uv0s: textured ? Array.from(positions, point =>
+        Qt.vector2d(point.x / 124, (point.y + 25) / 93)) : []
+    tangents: textured ? Array.from(normals, normal => Qt.vector3d(1, 0, 0)
+        .minus(normal.times(normal.x)).normalized()) : []
+    binormals: textured ? Array.from(normals, (normal, index) =>
+        tangents[index].crossProduct(normal)) : []
     positions: [
         Qt.vector3d(54,37,7), Qt.vector3d(0,0,0), Qt.vector3d(23,35,-4),
         Qt.vector3d(59,54,4), Qt.vector3d(124,68,-12), Qt.vector3d(113,50,-15),

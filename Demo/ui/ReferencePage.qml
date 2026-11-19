@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../game" as Game
 import "../game/Rules.js" as Rules
 import "../game/Loadout.js" as Gear
 import "../game/Pets.js" as Pets
@@ -17,6 +18,17 @@ FocusScope {
     required property var known
     required property var unlocks
     property string firstEntry: ""
+    property bool sound:false
+    property real lastPaper:0
+    Game.CuePlayer {id:paper;allowed:page.sound;capacity:6}
+
+    function soundScroll() {
+        const now=Date.now()
+        if (now-lastPaper<125) return
+        lastPaper=now
+        paper.play("book-scroll",.52)
+    }
+
     property var career: ({})
     property var liveRun:null
     property int liveRevision:0
@@ -71,7 +83,7 @@ FocusScope {
     readonly property var entry: displayed[Math.max(0,Math.min(pageIndex,displayed.length-1))] || null
     readonly property bool seen: visibleEntry(entry)
     readonly property bool controller: tab === "controls" && entry?.id === "controller"
-    readonly property color tierColor: entry && tab === "enemies" ? Encounters.tierColors[Encounters.tier(entry.id)]
+    readonly property color tierColor: entry && tab === "enemies" && Rules.enemyTypes[entry.id] ? Encounters.tierColors[Encounters.tier(entry.id)]
         : entry && entry.rarity ? Gear.rarities[entry.rarity]?.color || "#af7957" : "#984b41"
     readonly property string heading: !entry ? "An empty chapter" : seen ? entry.title : "Unknown"
     readonly property string description: {
@@ -80,7 +92,7 @@ FocusScope {
             : !seen ? "Its name has yet to reach these pages. Meet it in the field."
             : Book.entryText(entry,tab,liveRun,nextTerms)
     }
-    readonly property string caption: !seen || !entry ? "" : tab === "enemies"
+    readonly property string caption: !seen || !entry ? "" : tab === "enemies" && Rules.enemyTypes[entry.id]
         ? entry.origin+" · "+Encounters.tier(entry.id)+" · "+(Encounters.firstWave(entry.id) === 0
             ? "Tutorial" : Encounters.firstWave(entry.id) === -1 ? "Blood Moon" : "Wave "+Encounters.firstWave(entry.id))
         : tab === "weapons" ? Gear.weaponClass(entry)+" · "+Gear.rarities[entry.rarity].label
@@ -99,6 +111,7 @@ FocusScope {
     function closeBook() {
         if (closing) return
         closing = true
+        paper.play("book-close",.65)
         if (!motion) {
             closeRequested()
             return
@@ -139,6 +152,7 @@ FocusScope {
         skipPages.stop()
         flip = 0
         rememberPage()
+        paper.play(chapter!==tab ? "book-sweep" : "book-flip",.70)
         if (!showEntry(chapter,id))
             back()
     }
@@ -161,6 +175,7 @@ FocusScope {
         weaponClass = previous.weaponClass
         enemySort = previous.enemySort
         weaponSort = previous.weaponSort
+        paper.play(previous.chapter!==tab ? "book-sweep" : "book-flip",.70)
         showEntry(previous.chapter,previous.id)
     }
 
@@ -168,6 +183,7 @@ FocusScope {
         if (closing || turnPages.running || !displayed.length) return
         pendingPage = Math.max(0,Math.min(displayed.length-1,index))
         if (pendingPage === pageIndex) return
+        paper.play("book-flip",.70)
         flipDirection = pendingPage > pageIndex ? 1 : -1
         skipPages.stop()
         if (motion)
@@ -185,6 +201,7 @@ FocusScope {
     Shortcut { sequence:"Left"; enabled:page.activeFocus && !leafPicker.popup.visible; onActivated:page.turnTo(page.pageIndex-1) }
     Shortcut { sequence:"Right"; enabled:page.activeFocus && !leafPicker.popup.visible; onActivated:page.turnTo(page.pageIndex+1) }
     Component.onCompleted: {
+        paper.play("book-open",.65)
         if (firstEntry.length)
             showEntry(firstTab,firstEntry)
         if (motion)
@@ -462,6 +479,10 @@ FocusScope {
                                 contentWidth:availableWidth
                                 clip:true
                                 ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
+                                WheelHandler {
+                                    blocking:false
+                                    onWheel:if (descriptionScroll.contentHeight>descriptionScroll.availableHeight) page.soundScroll()
+                                }
                                 Text {
                                     objectName:"bookDescription"
                                     width:Math.max(0,descriptionScroll.availableWidth-11)
@@ -487,7 +508,7 @@ FocusScope {
                                 text:!page.entry ? "" : page.tab==="enemies" ? "Slain "+(page.career["enemyKills_"+page.entry.id]||0)
                                     +" · Deaths "+(page.career["enemyDeaths_"+page.entry.id]||0)
                                     : page.tab==="weapons" ? "Kills with this weapon "+(page.career["weaponKills_"+page.entry.id]||0)
-                                    : Math.min(page.entry.target,page.career[page.entry.metric]||0)+" / "+page.entry.target
+                                    : Math.min(page.entry.target,Math.max(page.career[page.entry.metric]||0,page.career[page.entry.legacyMetric]||0))+" / "+page.entry.target
                                         +(page.achievementsUnlocked || Progress.complete(page.career,page.entry) ? " · Unlocked" : "")
                             }
                         }

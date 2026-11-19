@@ -26,6 +26,7 @@ class Track:
 
 
 TRACKS = [
+    Track("witch",92,45,(0,5,-2,7,0,1,5,7),(),(),16,.14),
     Track("book",72,43,(0,5,10,3,8,2,7,0),(),(),16,.10),
     Track("oblogabgalus",116,33,(0,3,-1,5),(0,4,8,11,14),(4,12),12,.55),
     Track("home", 71, 33, (0, -1, 5, -2), (0, 11), (12,), 14, .18),
@@ -176,7 +177,48 @@ def gallery_score(track, quiet):
     return mix*(.76 if quiet else 1)
 
 
+def witch_score(track, quiet):
+    """Muted horn, brushes and a walking bass around a chromatic minor turnaround."""
+    beat=60/track.bpm/(.78 if quiet else 1)
+    mix=np.zeros((round(beat*4*track.bars*RATE),2),dtype=np.float32)
+    rng=np.random.default_rng(504)
+    call=[(.21,0,.48),(.87,3,.29),(1.17,5,.54),(2.44,6,.32),(3.03,7,.69)]
+    response=[(.08,10,.41),(.68,7,.48),(1.67,6,.33),(2.25,5,.40),(3.29,3,.46)]
+    for bar in range(track.bars):
+        time=bar*beat*4
+        root=track.root+track.progression[bar//2]
+        voicing=(3,7,10,14) if bar%4<2 else (4,8,10,15)
+        for tick in (.06,1.69,2.89):
+            for degree in voicing:
+                add(mix,time+beat*tick,jazz_voice(root+12+degree,beat*.79),.042,-.37+degree*.033)
+        for tick,note in zip((0,1,2,3),(0,7,10,11 if bar%2 else 7)):
+            add(mix,time+beat*tick,jazz_voice(root-12+note,beat*.87,True),.198,-.08)
+        melody=call if bar%4==0 else response if bar%4 in (1,3) else call[2:]
+        for tick,degree,duration in melody:
+            span=duration*beat
+            t=timeline(span)
+            hz=frequency(root+24+degree)
+            scoop=.014*(1-np.exp(-t*23))
+            warble=.0012*np.sin(TAU*5.3*t)*np.clip(t/(span*.55),0,1)
+            angle=TAU*hz*(t+scoop*.31+warble)
+            breath=np.convolve(rng.normal(0,1,len(t)),np.ones(9)/9,mode="same")
+            horn=(np.sin(angle)+.27*np.sin(angle*2)+.19*np.sin(angle*3)+.074*breath)
+            horn=np.tanh(horn*1.46)*env(t,.055,span*.27,span)*(1-.31*t/span)
+            add(mix,time+tick*beat,horn,.143,.34)
+        for tick in (.63,1.04,2.63,3.03,3.66):
+            span=.18 if int(tick)%2 else .13
+            t=timeline(span)
+            brush=np.convolve(rng.normal(0,1,len(t)),np.ones(13)/13,mode="same")
+            add(mix,time+beat*tick,brush*env(t,.017,.093,span)*np.exp(-t*6),.105,-.46+tick*.21)
+    tail=round(.14*RATE)
+    mix[:tail]*=np.linspace(0,1,tail)[:,None]
+    mix[-tail:]*=np.linspace(1,0,tail)[:,None]
+    return mix*(.75 if quiet else 1)
+
+
 def arrange(track, quiet=False, variation=""):
+    if track.name=="witch":
+        return witch_score(track,quiet)
     if track.name == "book":
         return gallery_score(track,quiet)
     pressure = variation == "pressure"
@@ -260,7 +302,7 @@ if __name__ == "__main__":
             encode(item.name, arrange(item))
             if item.name != "home":
                 encode(item.name + "-pause", arrange(item, quiet=True))
-        if item.name not in ("home","shop","book"):
+        if item.name not in ("home","shop","book","witch"):
             encode(item.name + "-pressure", arrange(item, variation="pressure"))
             if item.name not in ("frontier", "fracture", "embers"):
                 encode(item.name + "-climax", arrange(item, variation="climax"))

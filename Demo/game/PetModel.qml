@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick3D
 
@@ -9,6 +10,7 @@ Node {
     required property real strike
     property bool animate: true
     property bool resting: false
+    property bool detailed: false
     property real chargeProgress:0
     property real chargedFlash:0
     property real fold:resting ? 1 : 0
@@ -23,12 +25,57 @@ Node {
 
     readonly property bool mechanical: ["wasp", "kite", "ray", "beetle"].includes(helper.form)
     readonly property real flap: animate ? Math.sin(phase * (mechanical ? 24 : 11))*(1-fold) : 0
+    readonly property string bodyPattern: {
+        if (helper.id === "firefly")
+            return "shell"
+        if (helper.id === "wyvern")
+            return "wyvern"
+        return ({
+            wasp: "wasp", kite: "drone", ray: "circuit", beetle: "shell",
+            bat: "fur", moth: "down", drake: "scales", fox: "fur",
+            brain: "cortex", fairy: "cloth", chibi: "cloth", minishade: "ink"
+        })[helper.form] || ""
+    }
 
-    PrincipledMaterial { id: body; baseColor: pet.helper.skin; roughness: .56; metalness: pet.mechanical ? .54 : .07 }
-    PrincipledMaterial { id: wing; baseColor: Qt.lighter(pet.helper.skin, 1.39); roughness: .69; metalness: pet.mechanical ? .25 : .04 }
+    PetSurface {
+        id: body
+        textured: pet.detailed
+        pattern: pet.bodyPattern
+        baseColor: textured ? Qt.lighter(pet.helper.skin, pattern === "ink" ? 1.65
+            : pet.helper.form === "beetle" ? 1.41 : pet.mechanical ? 1.22 : 1.08)
+            : pet.helper.skin
+        roughness: !textured ? .56 : pet.brain || pattern === "ink" ? .43 : pattern === "fur" || pattern === "down" ? .85 : .60
+        metalness: !pet.mechanical ? .07 : textured && pattern === "shell" ? .31 : .54
+        normalStrength: pattern === "cortex" ? .94 : pattern === "fur" || pattern === "down" ? .34 : .63
+        clearcoatAmount: textured && (pattern === "wasp" || pattern === "shell" || pattern === "ink") ? .38 : 0
+        clearcoatRoughnessAmount: .33
+    }
+    PetSurface {
+        id: wing
+        textured: pet.detailed
+        pattern: pet.spriteGirl ? "veil" : pet.bodyPattern
+        baseColor: Qt.lighter(pet.helper.skin, textured && pet.mechanical ? 1.57 : 1.39)
+        roughness: .69
+        metalness: pet.mechanical ? .25 : .04
+        normalStrength: pet.brain ? .95 : pattern === "fur" || pattern === "down" ? .32 : .58
+    }
     PrincipledMaterial { id: dark; baseColor: "#171928"; roughness: .73 }
-    PrincipledMaterial { id: face; baseColor: "#e4b4a3"; roughness: .84 }
-    PrincipledMaterial { id: hair; baseColor: pet.fairy ? "#435747" : "#c95291"; roughness: .65 }
+    PetSurface {
+        id: face
+        textured: pet.detailed && pet.spriteGirl
+        pattern: "skin"
+        baseColor: "#e4b4a3"
+        roughness: .84
+        normalStrength: .20
+    }
+    PetSurface {
+        id: hair
+        textured: pet.detailed && pet.spriteGirl
+        pattern: "hair"
+        baseColor: pet.fairy ? "#435747" : "#c95291"
+        roughness: .65
+        normalStrength: .68
+    }
     PrincipledMaterial {
         id: glow
         baseColor: pet.angry || pet.chargedFlash>0 ? "#fff290" : pet.helper.accent
@@ -39,6 +86,7 @@ Node {
         active:pet.bird
         sourceComponent:BirdPet {
             helper:pet.helper; phase:pet.phase; strike:pet.strike; animate:pet.animate; resting:pet.resting
+            detailed:pet.detailed
         }
     }
     Loader3D {
@@ -49,6 +97,7 @@ Node {
             charged:pet.chargedFlash
             fold:pet.fold
             motion:pet.animate
+            detailed:pet.detailed
         }
     }
     Loader3D {
@@ -60,6 +109,8 @@ Node {
                 strike:pet.strike
                 flap:pet.flap
                 fold:pet.fold
+                detailed:pet.detailed
+                bodyPattern:pet.bodyPattern
             }
             Model {
                 visible: !pet.brain && !pet.miniShadow

@@ -11,6 +11,8 @@ ColumnLayout {
     required property bool unlockAll
     property bool bloodMoon:false
     property string weatherLayer:""
+    property bool unlimitedMoney:false
+    signal moneyRequested(bool enabled)
     signal practiceWeatherRequested(bool enabled)
     signal weatherLayerRequested(string layer)
     signal unlocksRequested(bool enabled)
@@ -88,10 +90,17 @@ ColumnLayout {
             palette.windowText:"#f1ccd2"
             onToggled:setup.practiceWeatherRequested(checked)
         }
+        CheckBox {
+            objectName:"debugMoney"
+            text:"Infinite gold"
+            checked:setup.unlimitedMoney
+            palette.windowText:"#e4d5e0"
+            onToggled:setup.moneyRequested(checked)
+        }
         ComboBox {
             objectName:"debugWeatherLayer"
-            property var options:["","clear","fog","thunder","rain","winter","inferno","incursion","meteor","windy","glitch"]
-            model:["Random weather","Clear","Fog","Thunderstorm","Rain","Winter","Inferno","Void incursion","Meteor shower","High winds","Glitch"]
+            property var options:["","clear","fog","thunder","rain","winter","inferno","incursion","meteor","windy","glitch","cloudy","heatwave","windyCloudy"]
+            model:["Random weather","Clear","Fog","Thunderstorm","Rain","Winter","Inferno","Abyssal Takeover","Meteor shower","High winds","Glitch","Cloudy","Heatwave","High winds + Cloudy"]
             currentIndex:Math.max(0,options.indexOf(setup.weatherLayer))
             Accessible.name:"Debug weather overlay"
             onActivated:setup.weatherLayerRequested(options[currentIndex])

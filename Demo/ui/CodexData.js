@@ -6,6 +6,7 @@
 .import "../game/Conditions.js" as Conditions
 .import "../game/Pets.js" as Pets
 .import "../game/Meta.js" as Meta
+.import "../game/Tarot.js" as Tarot
 
 var chapters = [
     { id:"enemies", title:"Demons" }, { id:"weapons", title:"Weapons" },
@@ -19,7 +20,7 @@ var manual = [
         rows:[["A / D · ← / →","Turn to the adjacent front. Move back through the Shrine to cross sides."],
             ["W / S · ↑ / ↓","Look up to Star Sky or down to the Abyss from the Shrine."],
             ["Mouse edges","Cross an edge once to turn. Move away from it before turning again."],
-            ["Hold Shift","Scope in at the aim point and lock the current view."],
+            ["Hold Shift","Aim a gun or lean forward with a staff or melee weapon. A scoped gun hit marks a demon for four seconds. Attacks on that demon bypass the 5% miss roll, wind and blindness."],
             ["F11","Toggle full screen."]],
         description:"Threat markers show where a demon is approaching. A boss receives a separate marker before it enters." },
     { id:"fight", title:"Fire and defend", category:"Combat",
@@ -143,8 +144,10 @@ function entryText(entry, chapter, live, terms) {
         if (!live && group==="weapon") details=details.replace(/^Damage /m,"Base damage ")
         if (!live && group==="active") details=details.replace(/^Ability damage:/m,"Base ability damage ·")
         const kits = group ? kitLinks(entry,group) : ""
-        const boosts=Meta.benefits({covenant:terms})
-        const next=live ? "" : group==="weapon" ? (entry.damage*boosts.weapon).toFixed(2)+" per hit"
+        const opening={covenant:terms,skyPhase:"daytime",weatherEffect:"clear",playerFront:"front",health:Gear.startingHealth}
+        const boosts=Meta.benefits(opening)
+        const next=live ? "" : group==="weapon" ? (Gear.weaponStats(item).damage*boosts.weapon
+            *Gear.affinity(opening,entry)*Tarot.weaponFactor(opening,Gear.startingHealth)).toFixed(2)+" per hit at the Shrine in clear daylight"
             : group==="active" ? Gear.abilityDamageDescription(null,item,boosts.active) : ""
         return linkText(details,chapter,entry.id)+(next ? "<br><br><b>Next run damage</b><br>"+escape(next) : "")
             +(kits ? "<br><br><b>Kit pages</b><br>"+kits : "")

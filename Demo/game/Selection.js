@@ -21,30 +21,84 @@ function canRefresh(phase) {
     return phase === "ready" || phase === "bossReward" || phase === "shop" || phase === "reward"
 }
 
-function freeRefreshes(run) {
-    return Math.max(0, 1 + (Gear.passiveRank(run, "rewire") > 0 ? 1 : 0) - run.refreshUsed)
+function canFreeze(run) {
+    const covenant=run.covenant
+    return (run.phase==="shop" || run.phase==="reward") && !!(covenant && covenant.ranks.freezeStock)
 }
 
-function rerollRewards(run, random) {
-    const previous = run.offers.map(function(card) { return card.id })
-    const chosen = []
-    for (const card of run.offers) {
-        const group = Gear.groupOf(card)
-        const catalog = Gear.catalogs[group]
-        const pool = catalog ? Object.values(catalog).filter(function(candidate) {
-            return candidate.rarity === card.rarity && !previous.includes(candidate.id)
-                && !chosen.some(function(offer) { return offer.id === candidate.id }) && Gear.canOffer(run, candidate)
-        }) : []
-        chosen.push(pool.length ? Gear.describeOffer(run,Gear.pickRarityItem(run,pool,random())) : card)
+function freezable(run,phase,card) {
+    if (!card || card.sold || card.paid) return false
+    if (phase==="reward") {
+        const group=Gear.groupOf(card)
+        return card.id==="dressing" || card.id==="reserve" || group && Gear.canOffer(run,Gear.catalogs[group][card.id])
     }
-    return chosen
+    if (card.action==="gear") return Gear.canOffer(run,Gear.catalogs[card.group][card.gearId])
+    const slot=run.slots[card.group]?.[card.index]
+    switch (card.action) {
+    case "supply": case "mystery": case "scramble": return true
+    case "upgrade": {
+        const item=Gear.ownedItem(run,card.group,card.gearId)
+        return !!item && Gear.findSlot(run,card.group,card.gearId)>=0 && item.level===card.level-1
+    }
+    case "unlock": return run.slots[card.group].length===card.index
+    case "inventory":return run.inventory.length===card.index
+    case "pet":return !!run.pet && run.pet.level<3
+    case "shield-upgrade":return run.shield.level<3
+    case "barrier-core":return run.barrierCell.level<3
+    case "repeat-upgrade":return run.repeatRank<3
+    case "shop-stat":return run.shopStats[card.stat]<3
+    case "shop-quality":return run.shopQuality+1===card.level
+    case "power":return !!slot && slot.power!==card.powerId
+    case "power-upgrade":return !!slot && slot.power===card.powerId && slot.powerLevel===card.level-1
+    }
+    return false
+}
+
+function isFrozen(run,card) {
+    const frozen=run.frozenOffer
+    return !!(frozen && card && frozen.phase===run.phase && frozen.card.id===card.id)
+}
+
+function frozenFor(run,phase) {
+    const frozen=run.frozenOffer
+    if (!frozen || frozen.phase!==phase) return null
+    if (!freezable(run,phase,frozen.card)) {
+        run.frozenOffer=null
+        return null
+    }
+    return frozen.card
+}
+
+function leaveFrozen(run,claimed) {
+    if (isFrozen(run,claimed) || run.frozenOffer && run.frozenOffer.phase===run.phase && run.frozenOffer.wave<run.wave)
+        run.frozenOffer=null
+}
+
+function rewardPool(run) {
+    return Object.values(Gear.weapons).concat(Object.values(Gear.activeAbilities),Object.values(Gear.passives))
+        .filter(function(card){return Gear.canOffer(run,card)})
+}
+
+function rerollRewards(run,random) {
+    let available=rewardPool(run).filter(function(card) {
+        return !run.offers.some(function(prior){return card.id===prior.id})
+    })
+    return run.offers.map(function(prior) {
+        if (isFrozen(run,prior)) return prior
+        const tier=prior.rarity || "common"
+        const eligible=available.filter(function(candidate){return candidate.rarity===tier})
+        const chosen=eligible.length ? Gear.pickRarityItem(run,eligible,random()) : null
+        if (!chosen) return prior
+        available=available.filter(function(card){return card.id!==chosen.id})
+        return Gear.describeOffer(run,chosen)
+    })
 }
 
 function rerollShop(run, random) {
-    const sold = run.shopStock.filter(function(card) { return card.sold || card.paid })
-    if (sold.length === run.shopStock.length)
-        return null
-    const fresh = Gear.makeShop(run, random, sold.map(function(card) { return card.id }), run.shopStock.length - sold.length)
-    let index = 0
-    return run.shopStock.map(function(card) { return card.sold || card.paid ? card : fresh[index++] || card })
+    const fixed=function(card){return card.sold || card.paid || isFrozen(run,card)}
+    const kept=run.shopStock.filter(fixed)
+    if (kept.length===run.shopStock.length) return null
+    const fresh=Gear.makeShop(run,random,kept.map(function(card){return card.id}),run.shopStock.length-kept.length)
+    let index=0
+    return run.shopStock.map(function(card){return fixed(card) ? card : fresh[index++] || card})
 }

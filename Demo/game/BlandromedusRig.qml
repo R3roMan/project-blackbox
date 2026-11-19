@@ -4,6 +4,7 @@ import QtQuick3D
 
 Node {
     id: vampire
+    property var surfaces:null
     objectName: "blandromedusRig"
     required property int targetId
     required property real clock
@@ -13,10 +14,10 @@ Node {
     readonly property real eyeSwing:Math.sin(clock*3.3)*7+strike*14
     readonly property real wingBeat:Math.sin(clock*4.2)*21-strike*14
 
-    PrincipledMaterial { id:bone; baseColor:"#eee1ce"; roughness:.67 }
+    LitSurface { surfaces:vampire.surfaces; finish:"hide"; id:bone; baseColor:"#eee1ce"; roughness:.67 }
     PrincipledMaterial { id:rib; baseColor:"#ba9e91"; roughness:.76 }
-    PrincipledMaterial { id:cloak; baseColor:"#31153e"; roughness:.79; cullMode:Material.NoCulling }
-    PrincipledMaterial { id:membrane; baseColor:"#632c94"; roughness:.49; cullMode:Material.NoCulling }
+    LitSurface { surfaces:vampire.surfaces; finish:"weave"; id:cloak; baseColor:"#31153e"; roughness:.79; cullMode:Material.NoCulling }
+    LitSurface { surfaces:vampire.surfaces; finish:"hide"; id:membrane; baseColor:"#632c94"; roughness:.49; cullMode:Material.NoCulling }
     PrincipledMaterial { id:blood; baseColor:"#96152e"; roughness:.25 }
     PrincipledMaterial { id:cavity; baseColor:"#260e24"; roughness:.82 }
     PrincipledMaterial { id:eye; baseColor:"#ffe5d0"; roughness:.17 }

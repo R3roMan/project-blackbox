@@ -9,14 +9,13 @@ Rectangle {
     objectName:"runPostcard"
     required property var report
     property bool reviewing: false
-    property bool canContinue: false
+    property bool reviewExit:true
     property bool archived: false
     signal restartRequested()
     signal archiveRequested()
-    signal continueRequested()
     signal exitRequested()
     readonly property bool compact: width<680 || height<505
-    readonly property color stamp:Meta.colors[report?.grades?.overall] || "#d4abb0"
+    readonly property color stamp:Meta.colors[Meta.familyOf(report?.grades?.overall || "")] || "#d4abb0"
     radius:12
     gradient:Gradient {
         GradientStop {position:0;color:"#30232d"}
@@ -68,7 +67,7 @@ Rectangle {
                         Text {
                             readonly property string grade:card.report?.grades[parent.modelData] || "—"
                             text:grade
-                            color:Meta.colors[grade] || "#d7c6d0"
+                            color:Meta.colors[Meta.familyOf(grade)] || "#d7c6d0"
                             font.family:"Archivo Black"
                             font.pixelSize:UiMetrics.text(18)
                         }
@@ -140,7 +139,7 @@ Rectangle {
                             ["Unblocked hits",s.contacts],["Demons killed",s.kills],["Bosses defeated",s.bosses],["Abyss seals",s.seals],
                             ["Shield blocks",s.blocks],["Perfect parries",s.parries],["Projectiles intercepted",s.intercepts],["Shop purchases",s.purchases],
                             ["Gold earned",s.earned],["Gold spent in shops",s.spent],["Gold left",s.wallet],["Hitless waves",s.flawless],
-                            ["Items owned",s.items],["Gear and slot upgrades",s.upgrades],["Light-loadout bonus","+"+s.restraint],["Wave score",s.waveScore===undefined ? "—" : s.waveScore+" / 100"]]
+                            ["Items owned",s.items],["Gear and slot upgrades",s.upgrades],["Light-loadout bonus","+"+s.restraint],["Wave score",s.waveScore===undefined ? "—" : s.waveScore+" / 100"]].concat(s.waveGems===undefined ? [] : [["Wave clear gems",s.waveGems],["Combat gems",s.combatGems],["Field gems banked",s.fieldGems || 0]])
                     }
                     RowLayout {
                         required property var modelData
@@ -174,15 +173,7 @@ Rectangle {
                 text:card.archived ? "Attempt saved" : "Save attempt"
                 onClicked:card.archiveRequested()
             }
-            ActionButton {
-                objectName:"continueAttempt"
-                visible:!card.reviewing
-                enabled:card.canContinue
-                text:"Continue"
-                hintText:"Resume the wave checkpoint in practice mode. Your graded attempt stays final."
-                onClicked:card.continueRequested()
-            }
-            ActionButton {objectName:"exitPostcard";text:card.reviewing ? "Back" : "Exit";onClicked:card.exitRequested()}
+            ActionButton {objectName:"exitPostcard";visible:!card.reviewing || card.reviewExit;text:card.reviewing ? "Back" : "Exit";onClicked:card.exitRequested()}
         }
     }
 }

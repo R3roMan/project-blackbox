@@ -32,7 +32,8 @@ var curses = {
     dizzy:"Reversed turns for six seconds"
 }
 var megaGifts = ["coins", "refresh", "guest", "infinite", "bomb", "overclock"]
-var killGold = 10
+var killGold = 12
+var killGoldMultiplier = { Normal:1, Ascended:1.7, Nightmare:2.8, Overlord:12 }
 
 function front(id) {
     return Mission.front(id)
@@ -65,17 +66,18 @@ function directionToward(view, targetView) {
 function create(seed, unlocks) {
     const run = {
         seed:seed >>> 0, rng:seed >>> 0, phase:"ready", time:0, wave:0, waveTime:0,
-        difficulty:"normal", startAt:1, debug:false, debugBuild:"standard", debugUnlockAll:false,debugWeather:"",debugLayer:"",
+        difficulty:"normal", startAt:1, debug:false, debugBuild:"standard", debugUnlockAll:false,debugMoney:false,debugWeather:"",debugLayer:"",
         nextStage:null,stage:null,desktop:null,training:null,abilityEvents:[],passiveFxReady:{},salvoTime:0,salvoBonus:0,runeReady:0,sprayTime:0,vampireReady:0,
         careerUnlocks:unlocks || [], playerFront:"front", viewReady:true, weatherEffect:"clear", nextFirePulse:0,
-        skyProgress:0,skyPhase:"daytime",skyClearing:false,bloodMoonSeen:false,stormAt:0,stormBursts:[],
-        attemptId:"",covenant:null,omenCounts:{},tarotPet:null,rehearsal:false,finishReason:"",
+        skyPhase:"daytime",bloodMoonSeen:false,takeoverTime:0,stormAt:0,stormBursts:[],
+        attemptId:"",covenant:null,entryWave:1,omenCounts:{},tarotPet:null,rehearsal:false,finishReason:"",
+        fieldGems:{},gemSerial:0,lootEvents:[],lootSerial:0,
         abyssSeal:{progress:0,closed:false}, grab:null, hypnosis:null, inkStains:false, dizzyLeft:0,
         fearCut:false, souls:0, scytheSouls:0, boneTime:0, boneRank:0, windAt:20, gustLeft:0,scareTime:0,
         starterChoice:"", starterOffers:[], starterSeed:(seed >>> 0)^0x614f93cd,
         cursed:false, smokes:[], smokeRoster:0, fastTurn:0, remoteGuard:0,
         health: Gear.startingHealth, gold: 0, kills: 0, slots: Gear.starter(), inventory:Array(Gear.startingInventorySize).fill(null), selectedWeapon: 0, shopStock: [], unlocks: unlocks || [], pet:null, petChoice:"", petOffers:[], guestPet:null, guestTime:0,
-        refreshUsed:0, refreshBank:0, shopEdition:0, shopCapacity:5, shopQuality:0, repeatRank:0, nextSeal:0,
+        refreshUsed:0, rewireCredit:false, paidRerolls:0, refreshBank:0, frozenOffer:null, shopEdition:0, shopCapacity:5, shopQuality:0, repeatRank:0, nextSeal:0,
         shopStats:{health:0,damage:0,speed:0}, bossOffers:[], boons:{ health:0, damage:0, speed:0 },
         waveSize: 0, barrier: 0, barrierHp: 0, barrierMax: 0, barrierBreak: 0, barrierRefill:0,
         barrierCell:{level:0,hp:0}, stun: 0, distortion: 0, voidStorm:false,
@@ -93,6 +95,7 @@ function create(seed, unlocks) {
             mode:"standard",tint:"#65c8ff",credit:0,blocked:0,absorbed:0,flash:0,bolstered:false },
         criticalSeed:(seed >>> 0) ^ 0xc38eaf17, aimSeed:(seed >>> 0) ^ 0x61c7b172,
         criticalFlash:0, criticalRoll:0, sureAttack:false, sharpenTime:0,
+        incomingCriticalUntil:0,incomingCriticalDamage:0,hostileMissUntil:0,hostileMissName:"",lastKillTime:-1,
         lastCritical:0, criticalNumber:0, shieldCrits:0, reflections:[], carefulAim:0, axePower:0, surePower:0,
         elements: Elements.fresh(), burnOrigin: "front", burnSource:"", hexes: {}, taxedCooldowns: {},
         detonations: [], flames: [], venomClouds: [], bursts: [], abilitySchedule: {},
@@ -117,6 +120,9 @@ function draftStarters(run, previous) {
 
 var omenMetrics={kills:"kill",bossKills:"boss",hitShots:"hit",shieldBlocks:"block",parries:"parry",
     seals:"seal",intercepts:"intercept",reloads:"reload",shopBuys:"buy"}
+
+var omenStyle={gold:["coin","mint"],heal:["heal","recover"],cool:["rune","empower"],shield:["guard","shield"],
+    fire:["burn","empower"],barrier:["guard","shield"],rounds:["reload","reload"],infinite:["reload","empower"],refresh:["rune","rift"]}
 
 function tarotEvent(run,event,advance) {
     if (!event || !run.covenant || !run.covenant.tarot) return
@@ -172,8 +178,10 @@ function tarotEvent(run,event,advance) {
         run.refreshBank=Math.min(5,run.refreshBank+1)
         break
     }
-    if (run.cues)
-        announce(run,null,action==="gold" ? "gold" : action==="barrier" ? "shieldBlock" : "seal")
+    const style=omenStyle[action]
+    if (style && run.phase==="combat")
+        passiveVisual(run,"omen",run.playerFront,style[0],style[1],null,"",.28)
+    announce(run,null,action==="gold" ? "gold" : action==="barrier" ? "shieldBlock" : "seal")
 }
 
 function record(run, key, amount) {
@@ -185,7 +193,7 @@ function record(run, key, amount) {
 }
 
 function spendGold(run, amount) {
-    run.gold -= amount
+    Gear.chargeGold(run,amount)
     run.spentGold += amount
     run.metrics.bestRunSpent = run.spentGold
     run.progress += 1
@@ -212,6 +220,7 @@ function configure(run, difficulty, startAt, build) {
     run.startAt = startAt
     run.debug = startAt !== 1
     if (!run.debug) {
+        run.debugMoney = false
         run.debugBuild = "standard"
         run.debugWeather = ""
         run.debugLayer = ""
@@ -234,7 +243,7 @@ function setPracticeWeather(run, enabled) {
 }
 
 function setPracticeLayer(run, layer) {
-    if (run.phase!=="ready" || !run.debug || !["","clear","rain","thunder","fog","winter","inferno","incursion","meteor","windy","glitch"].includes(layer)) return false
+    if (run.phase!=="ready" || !run.debug || !["","clear","rain","thunder","fog","winter","inferno","incursion","meteor","windy","glitch","cloudy","heatwave","windyCloudy"].includes(layer)) return false
     run.debugLayer=layer
     run.nextStage=null
     prepareStage(run)
@@ -282,6 +291,7 @@ function skipSelection(run) {
         return leaveShop(run)
     if (run.phase !== "reward")
         return false
+    Draw.leaveFrozen(run)
     run.offers = []
     run.phase = "between"
     return true
@@ -309,20 +319,42 @@ function slotInput(run, index) {
     return run.weatherEffect === "glitch" ? 1-index : index
 }
 
-function missChance(run, blind) {
-    return 1 - (1 - (Elements.kinds.blind.miss[blind] || 0)) * (run.weatherEffect === "windy" ? .85 : 1)
+function missChance(run, blind, playerAttack) {
+    return 1 - (playerAttack ? .95 : 1) * (1 - (Elements.kinds.blind.miss[blind] || 0)) * (Conditions.hasWeather(run.weatherEffect,run.stage,"windy") ? .85 : 1)
 }
 
-function attackMisses(run, blind) {
-    const chance = missChance(run,blind)
+function attackMisses(run, blind, playerAttack) {
+    const chance = missChance(run,blind,playerAttack)
     if (!chance)
         return false
     run.aimSeed = (Math.imul(1664525,run.aimSeed)+1013904223) >>> 0
     return run.aimSeed / 4294967296 < chance
 }
 
-function missFeedback(run, owner) {
-    announce(run,owner+" missed · "+(run.weatherEffect === "windy" ? "high winds" : "blindness"),"aimMiss")
+function missFeedback(run, owner, blind) {
+    announce(run,owner+" missed"+(Conditions.hasWeather(run.weatherEffect,run.stage,"windy") ? " · high winds" : blind ? " · blindness" : ""),"aimMiss")
+}
+
+function hostileMiss(run, attacker, blind) {
+    run.hostileMissUntil=run.time+1.05
+    run.hostileMissName=attacker.title
+    missFeedback(run,attacker.title,blind)
+}
+
+function isMarked(enemy) {
+    return enemy && (enemy.marked || enemy.mark > 0 || enemy.sightMark > 0 || enemy.criticalMark > 0)
+}
+
+function sightLocked(run, id, view) {
+    if (!id) return false
+    const enemy = target(run,id) || Ship.turretAt(run,id)?.boss || fangAt(run,id,view)?.boss
+    return enemy && enemy.front === view && enemy.sightMark > 0
+}
+
+function closeAttackHits(run, contact) {
+    if (!contact) return false
+    const enemy = contact.enemy || contact.tube?.boss || contact.fang?.boss
+    return enemy?.sightMark > 0 || !attackMisses(run,blindRank(run),true)
 }
 
 function criticalRoll(run, chance) {
@@ -349,13 +381,12 @@ function weaponCritical(run, weapon, gun, enemy) {
     const chance = base.chance + (poised ? rank(run,"edgeRhythm")*.095 : 0)
         + (run.criticalRoll > 0 ? .36 : 0) + (melee && run.sharpenTime > 0 ? .20 : 0)
         + (enemy && enemy.criticalMark > 0 ? .27 : 0)
-        + (enemy && (enemy.criticalMark>0 || enemy.marked || enemy.mark>0) ? Gear.weaponSocket(run).markCrit || 0 : 0)
+        + (isMarked(enemy) ? Gear.weaponSocket(run).markCrit || 0 : 0)
     const forced = run.sureAttack
     const boost = forced ? run.surePower : 0
     run.sureAttack = false
     run.surePower = 0
-    const bossPower=enemy && enemyTypes[enemy.type].role==="boss" ? Tarot.value(run,"bossCrit") : 0
-    return forced || criticalRoll(run,Math.min(.83,chance)) ? base.power + boost + bossPower + (melee && run.sharpenTime > 0 ? .45 : 0) : 1
+    return forced || criticalRoll(run,Math.min(.83,chance)) ? base.power + boost + (melee && run.sharpenTime > 0 ? .45 : 0) : 1
 }
 
 function criticalHit(run, damage, killed) {
@@ -504,46 +535,75 @@ function blockWithShield(run, amount, origin, type, payload, projectile, critica
         returned ? "returnBolt" : critical ? "fieldCritical" : parried ? "parryBlock" : "fieldBlock")
 }
 
-function refreshRemaining(run) {
-    if (!Draw.canRefresh(run.phase) || run.phase === "shop" && run.shopStock.every(function(card) { return card.sold || card.paid }))
-        return 0
-    return Draw.freeRefreshes(run) + run.refreshBank
+function refreshRemaining(run, preview) {
+    const terms=run.covenant || preview
+    const extra=terms && terms.ranks ? terms.ranks.rerolls || 0 : 0
+    return Math.max(0,1+extra-run.refreshUsed)+run.refreshBank+Number(!run.rewireCredit && rank(run,"rewire")>0)
 }
 
-function refresh(run) {
-    if (!refreshRemaining(run))
-        return false
-    const pick = function() { return random(run) }
-    if (run.phase === "ready") {
-        run.petOffers = Pets.draft(run.unlocks, pick, run.petOffers)
-        run.petChoice = run.petOffers[0]
-        run.starterOffers = draftStarters(run,run.starterOffers)
-        run.starterChoice = ""
-    } else if (run.phase === "bossReward") {
-        run.bossOffers = Draw.draftBoss(pick, run.bossOffers)
-    } else if (run.phase === "shop") {
-        const next = Draw.rerollShop(run, pick)
-        if (!next)
-            return false
-        run.shopStock = next
-        run.shopEdition += 1
+function rerollPrice(run, preview) {
+    return refreshRemaining(run,preview)>0 ? 0 : Math.round(55*Math.pow(1.65,Math.min(32,run.paidRerolls)))
+}
+
+function canReroll(run, preview) {
+    return Draw.canRefresh(run.phase) && Gear.availableGold(run)>=rerollPrice(run,preview)
+        && (run.phase!=="shop" || run.shopStock.some(function(card){return !card.sold && !card.paid && !Draw.isFrozen(run,card)}))
+        && (run.phase!=="reward" || run.offers.some(function(card){return Gear.groupOf(card) && !Draw.isFrozen(run,card)}))
+}
+
+function refresh(run, preview) {
+    if (!canReroll(run,preview)) return false
+    const price=rerollPrice(run,preview)
+    const pick=function(){return random(run)}
+    if (run.phase==="ready") {
+        run.petOffers=Pets.draft(run.unlocks,pick,run.petOffers)
+        run.petChoice=run.petOffers[0]
+        run.starterOffers=draftStarters(run,run.starterOffers)
+        run.starterChoice=""
+    } else if (run.phase==="bossReward") {
+        run.bossOffers=Draw.draftBoss(pick,run.bossOffers)
+    } else if (run.phase==="shop") {
+        const next=Draw.rerollShop(run,pick)
+        if (!next) return false
+        run.shopStock=next
+        run.shopEdition++
     } else {
-        const next = Draw.rerollRewards(run, pick)
-        if (next.every(function(card, index) { return card.id === run.offers[index].id }))
-            return false
-        run.offers = next
+        const next=Draw.rerollRewards(run,pick)
+        if (next.every(function(card,index){return card.id===run.offers[index].id})) return false
+        run.offers=next
     }
-    if (Draw.freeRefreshes(run))
-        run.refreshUsed += 1
-    else
-        run.refreshBank -= 1
-    announce(run, "Selection refreshed", "refresh")
+    if (price) {
+        spendGold(run,price)
+        record(run,"shopSpent",price)
+        run.paidRerolls++
+    } else {
+        const terms=run.covenant || preview
+        const extra=terms && terms.ranks ? terms.ranks.rerolls || 0 : 0
+        if (run.refreshUsed<1+extra) run.refreshUsed++
+        else if (run.refreshBank>0) run.refreshBank--
+        else run.rewireCredit=true
+    }
+    announce(run,price ? "Rerolled · "+price+" gold" : "Free reroll used","refresh")
+    return true
+}
+
+function freezeOffer(run,id) {
+    if (!Draw.canFreeze(run)) return false
+    const stock=run.phase==="shop" ? run.shopStock : run.offers
+    const card=stock.find(function(entry){return entry.id===id})
+    if (!Draw.freezable(run,run.phase,card)) return false
+    if (Draw.isFrozen(run,card)) {
+        run.frozenOffer=null
+        announce(run,card.title+" thawed","refresh")
+        return true
+    }
+    run.frozenOffer={phase:run.phase,wave:run.wave,card:Object.assign({},card)}
+    announce(run,card.title+" frozen for next "+(run.phase==="shop" ? "shop" : "reward"),"frost")
     return true
 }
 
 function beginBossReward(run) {
     run.phase = "bossReward"
-    run.refreshUsed = 0
     run.bossOffers = Draw.draftBoss(function() { return random(run) }, [])
 }
 
@@ -584,43 +644,27 @@ function skyRanks(dark,red) {
         speed:red ? 1.20 : dark ? 1.05 : 1, cadence:red ? 1.10 : dark ? 1.05 : 1}
 }
 
-function updateSky(run, dt) {
-    if (run.training || !run.stage?.night) return
-    const pace = run.skyClearing ? Math.max(1/run.stage.skySeconds,.37) : 1/run.stage.skySeconds
-    const lateGuest=run.stage.night==="bloodMoon" && run.pending.some(function(entry) {return entry.type==="blandromedus"})
-    run.skyProgress = Math.max(run.skyProgress,Math.min(lateGuest ? .74 : 1,run.skyProgress+dt*pace))
-    const phase = Conditions.daypart(run.skyProgress,run.stage.night)
-    if (phase === run.skyPhase) return
-    run.skyPhase=phase
-    const dark=night(run), red=bloodMoon(run)
-    const now=skyRanks(dark,red)
-    for (const enemy of run.enemies) {
-        const old=skyRanks(enemy.night,enemy.bloodMoon)
-        const health=now.health/old.health
-        enemy.damage*=now.damage/old.damage
-        enemy.travelSpeed*=now.speed/old.speed
-        enemy.attack*=old.cadence/now.cadence
-        enemy.ranged*=old.cadence/now.cadence
-        enemy.baseHp*=health
-        enemy.hp*=health
-        enemy.maxHp*=health
-        enemy.barrier*=health
-        if (enemy.turrets) {
-            for (const tube of enemy.turrets) {tube.hp*=health;tube.maximum*=health}
-            enemy.coreHp*=health
-        }
-        if (enemy.fangs)
-            for (const fang of enemy.fangs) {fang.hp*=health;fang.maximum*=health}
-        enemy.night=dark
-        enemy.bloodMoon=red
+function takeoverActive(run) {
+    return run.weatherEffect==="incursion" && !run.abyssSeal.closed
+}
+
+function tickTakeover(run,dt) {
+    if (!takeoverActive(run)) return false
+    const before=Math.ceil(Conditions.abyssSeconds-run.takeoverTime)
+    run.takeoverTime=Math.min(Conditions.abyssSeconds,run.takeoverTime+dt)
+    const seconds=Math.ceil(Conditions.abyssSeconds-run.takeoverTime)
+    if (seconds<=0) {
+        record(run,"damageTaken",run.health)
+        run.health=0
+        run.hurtThisWave=true
+        run.phase="defeat"
+        run.finishReason="death"
+        announce(run,"The Abyss swallowed the Shrine","loss")
+        return true
     }
-    if (red && !run.bloodMoonSeen) {
-        run.bloodMoonSeen=true
-        record(run,"bloodMoonNights")
-        announce(run,"Blood Moon Night","bloodMoonArrival")
-    } else if (phase==="night" && !run.skyClearing && !run.enemies.some(function(enemy){return enemyTypes[enemy.type].role==="boss"})) {
-        announce(run,null,"nightArrival")
-    }
+    if (seconds<=10 && seconds<before)
+        announce(run,null,seconds<=3 ? "takeoverFinal" : "takeoverTick")
+    return false
 }
 
 function thunderStrike(run) {
@@ -659,7 +703,7 @@ function turnDuration(run) {
 }
 
 function sealTarget(run, view) {
-    return view === "down" && run.wave >= 11 ? run.abyssSeal : null
+    return view==="down" && (run.wave>=11 || takeoverActive(run)) ? run.abyssSeal : null
 }
 
 function blockedBySeal(run, type) {
@@ -669,7 +713,7 @@ function blockedBySeal(run, type) {
 
 function advanceSeal(run, amount) {
     const seal = run.abyssSeal
-    if (seal.closed || run.wave < 11)
+    if (seal.closed || run.wave<11 && !takeoverActive(run))
         return false
     seal.progress = Math.min(1,seal.progress+amount)
     if (seal.progress < 1-1e-8)
@@ -680,7 +724,7 @@ function advanceSeal(run, amount) {
     run.reinforcements = run.reinforcements.filter(function(entry) { return !blockedBySeal(run,entry.type) })
     record(run,"seals")
     run.health = Math.min(Gear.maxHealth(run),run.health + rank(run,"riftHabit")*4)
-    announce(run,"Rift sealed for this wave","seal")
+    announce(run,"Rift sealed for this wave",run.weatherEffect==="incursion" ? "takeoverSeal" : "seal")
     return true
 }
 
@@ -769,7 +813,7 @@ function stunTime(run) {
 }
 
 function canAct(run) {
-    return run.phase === "combat" && !run.skyClearing && !run.scareTime && stunTime(run) <= 0 && (!run.grab || !run.grab.constrict)
+    return run.phase === "combat" && !run.scareTime && stunTime(run) <= 0 && (!run.grab || !run.grab.constrict)
 }
 
 function random(run) {
@@ -805,7 +849,7 @@ function makeSchedule(run) {
 }
 
 function prepareStage(run) {
-    const wave = run.phase === "ready" && run.debug ? run.startAt : run.wave+1
+    const wave=run.phase==="ready" && run.debug ? run.startAt : Math.max(run.wave+1,run.entryWave)
     if (!run.nextStage || run.nextStage.wave !== wave || run.nextStage.difficulty !== run.difficulty)
         run.nextStage = Mission.planWave(wave,run.seed,run.difficulty,run.desktop?.resonance,
             run.debug ? run.debugWeather : "",run.debug ? run.debugLayer : "")
@@ -815,6 +859,7 @@ function prepareStage(run) {
 function applyCovenant(run,terms) {
     if (!terms || run.debug || run.training || run.covenant) return
     run.covenant=terms
+    run.entryWave=Meta.startWave(terms)
     const parcel=terms.pending
     const rarity=parcel.legendary ? "legendary" : parcel.epic ? "epic" : ""
     if (rarity) run.starterChoice=Gear.covenantOffer(run,"weapon",[rarity],0x178ca4)
@@ -841,8 +886,8 @@ function startWave(run) {
         run.pet = run.petChoice ? Pets.deploy(run.petChoice) : null
         if (run.starterChoice)
             run.slots.weapon[0].item = Gear.makeItem(run.starterChoice)
+        run.wave=stage.wave-1
         if (run.debug) {
-            run.wave = run.startAt - 1
             if (run.debugBuild === "star") {
                 run.slots.weapon[0].item = Gear.makeItem("starDestroyerPlus")
                 run.health = Gear.maxHealth(run)
@@ -852,6 +897,7 @@ function startWave(run) {
         }
     }
     run.phase = "combat"
+    run.paidRerolls=0
     run.shield.absorbed = 0
     run.playerFront = "front"
     run.viewReady = true
@@ -907,6 +953,8 @@ function startWave(run) {
     run.meleeImpact = 0
     holdShield(run,false)
     run.criticalFlash = run.criticalRoll = run.sharpenTime = run.carefulAim = run.axePower = 0
+    run.incomingCriticalUntil = run.hostileMissUntil = 0
+    run.lastKillTime = -1
     run.sureAttack = false
     run.lastCritical = run.criticalNumber = run.surePower = 0
     run.reflections = []
@@ -952,19 +1000,24 @@ function startWave(run) {
     run.pending = stage.schedule.map(function(entry) { return Object.assign({},entry) })
     run.waveSize = stage.enemyCount
     run.weatherEffect = stage.weather
-    run.skyProgress=0
-    run.skyPhase="daytime"
-    run.skyClearing=false
-    run.bloodMoonSeen=false
+    run.takeoverTime=0
+    run.skyPhase=stage.sky
+    run.bloodMoonSeen=bloodMoon(run)
+    if (run.bloodMoonSeen) {
+        record(run,"bloodMoonNights")
+        announce(run,null,"bloodMoonArrival")
+    } else if (night(run)) {
+        announce(run,null,"nightArrival")
+    }
     run.stormAt=run.weatherEffect==="thunder" ? 4.6+ambientRandom(run)*3.5 : 0
     run.stormBursts=[]
     run.nextFirePulse = 0
     run.nextFrostPulse = 5
     tarotEvent(run,"wave")
     const sky = Conditions.entries[run.weatherEffect]
-    const cue = {inferno:"inferno",incursion:"voidIntrusion",winter:"winterArrival",windy:"windArrival",
+    const cue = {inferno:"inferno",incursion:"takeoverWarn",winter:"winterArrival",windy:"windArrival",
         glitch:"glitchArrival",rain:"rainArrival",thunder:"rainArrival",meteor:"meteorArrival"}
-    announce(run,"Wave "+run.wave+(sky.id === "clear" ? " incoming" : " · "+sky.title),cue[sky.id] || "wave")
+    announce(run,"Wave "+run.wave+(sky.id === "clear" ? " incoming" : " · "+Conditions.weatherLabel(sky.id,stage)),cue[sky.id] || "wave")
     return true
 }
 
@@ -992,7 +1045,7 @@ function spawn(run, entry) {
         ranged:creature.rangedInterval ? .89 : 0, rangedReady:false, firstStrike:creature.role === "boss",
         beamWarning:0, beamLeft:0, beamTick:0, goldAttackAt:run.time + (creature.beamsEvery || 0),
         stolenGold:0, bloodAt:0, bled:false,
-        generation: entry.generation || 0, parent: entry.parent || 0, brood: 9, slow: 0, mark: 0,
+        generation: entry.generation || 0, parent: entry.parent || 0, brood: 9, slow: 0, mark: 0, sightMark:0,
         shiftIn:3, sideIn:creature.role === "boss" ? 4.5 + random(run) * 2.0 : 0,
         sideDirection:0, sideTo:"", retreat:false, elements: Elements.fresh(),
         diagonal: entry.lane >= 0 ? -1 : 1, seal: 0, age: 0, flash: 0, roar: 0, roared: false,
@@ -1151,6 +1204,8 @@ function elevation(enemy) {
 
 function baseElevation(enemy) {
     const role = enemyTypes[enemy.type].role
+    if (enemy.type === "veilskate")
+        return 120
     if (role === "illusion")
         return (enemy.illusionY || 0)*enemy.depth*1.0634+Math.sin(enemy.age*2.1)*5
     if (enemy.type === "reapfast")
@@ -1233,8 +1288,28 @@ function target(run, id) {
     return byId(run.enemies, id)
 }
 
-function goldPerKill(wave) {
-    return killGold + Math.max(0, Math.floor(wave / 10)) * 2
+function goldPerKill(wave, type) {
+    const base = killGold + Math.max(0, Math.floor(wave / 10)) * 2
+    const multiplier = type === "gojemarus" ? 5 : type ? killGoldMultiplier[Mission.tier(type)] : 1
+    return Math.round(base * multiplier)
+}
+
+function lootFlight(run,kind,amount,source,point) {
+    run.lootEvents.push(Object.assign({id:++run.lootSerial,kind:kind,amount:amount,front:source.front},point))
+    if (run.lootEvents.length>20) run.lootEvents.shift()
+}
+
+function bossGems(wave,seed) {
+    const roll=Conditions.roll(wave,seed,0x49a13f6f)
+    return roll<.016 ? 4 : roll<.13 ? 3 : roll<.44 ? 2 : 1
+}
+
+function grantFieldGems(run,kind,amount,source,point) {
+    const key=kind+"-"+run.wave
+    if (kind==="boss" && run.fieldGems[key]) return
+    run.fieldGems[key]=(run.fieldGems[key] || 0)+amount
+    run.gemSerial++
+    lootFlight(run,"gem",amount,source,point)
 }
 
 function remove(run, index, paid, source) {
@@ -1274,6 +1349,7 @@ function remove(run, index, paid, source) {
     if (!enemy.bled)
         blood(run, enemy, source, true)
     run.kills += 1
+    run.lastKillTime = run.time
     run.waveKills += 1
     record(run, "kills")
     record(run,"enemyKills_"+enemy.type)
@@ -1302,12 +1378,15 @@ function remove(run, index, paid, source) {
         passiveVisual(run,"wardBattery",run.playerFront,"guard","shield",null,"BARRIER CHARGE")
     }
     const role = enemyTypes[enemy.type].role
-    const baseGold = Math.round(goldPerKill(run.wave) * (role === "boss" ? 10 : enemy.type === "gojemarus" ? 5 : 1)
+    const baseGold = Math.round(goldPerKill(run.wave,enemy.type)
         + rank(run,"liquidAssets") + Gear.passiveSockets(run,"killGold",4))
     const value = bloodMoon(run) ? Math.round(baseGold*1.25) : baseGold
     run.gold += value
     record(run, "goldEarned", value)
+    const position=arcPoint(enemy)
+    lootFlight(run,"gold",value,enemy,position)
     if (role === "boss") {
+        grantFieldGems(run,"boss",bossGems(run.wave,run.seed),enemy,position)
         record(run, "bossKills")
         if (run.wave===100) record(run,"wave100Boss")
         if (bloodMoon(run))
@@ -1366,7 +1445,8 @@ function remove(run, index, paid, source) {
         if (roll < .058) {
             const mega = roll < .011
             const cursed = !mega && random(run) < 1 / 6
-            run.gifts.push({ id:run.nextId++, kind:sample(run, mega ? megaGifts : Object.keys(cursed ? curses : giftNames)),
+            const kind=mega && random(run)<.13 ? "gems" : sample(run,mega ? megaGifts : Object.keys(cursed ? curses : giftNames))
+            run.gifts.push({ id:run.nextId++, kind:kind,
                 mega:mega, cursed:cursed, front:enemy.front, lane:lanePosition(enemy) * .84,
                 depth:Math.max(320, enemy.depth), remaining:mega ? 7.6 : 5.2 })
             run.giftRoster += 1
@@ -1386,10 +1466,16 @@ function callGuest(run, view, seconds) {
 
 function claimMega(run, gift) {
     switch (gift.kind) {
+    case "gems": {
+        const gained=1+Math.floor(random(run)*3)
+        grantFieldGems(run,"mega",gained,gift,{lane:gift.lane,elevation:gift.elevation ?? -68,depth:gift.depth})
+        return "Mega gift · +"+gained+" dark gems"
+    }
     case "coins": {
         const value = 100 + Math.floor(random(run) * 61) + Gear.perk(run, "coins")
         run.gold += value
         record(run, "goldEarned", value)
+        lootFlight(run,"gold",value,gift,{lane:gift.lane,elevation:gift.elevation ?? -68,depth:gift.depth})
         return "Mega gift · +" + value + " gold"
     }
     case "refresh":
@@ -1564,7 +1650,7 @@ function applyKnockback(run, enemy, level, bonus) {
 }
 
 function windForce(run) {
-    return run.weatherEffect === "windy" ? 1.7 : 1
+    return Conditions.hasWeather(run.weatherEffect,run.stage,"windy") ? 1.7 : 1
 }
 
 function interruptAttack(enemy) {
@@ -1669,16 +1755,18 @@ function bankDamage(run, enemy, amount) {
     return 0
 }
 
-function hitShip(run, enemy, part, damage, critical, weaponId) {
+function hitShip(run, enemy, part, damage, critical, weaponId, scoped) {
     if (enemy.waitingBoss || enemy.warp || enemy.wreck || enemy.hp <= 0 || part && part.hp <= 0)
         return ""
     const intact = Ship.remaining(enemy)
     if (!part && intact.length)
         return "Aim at Hasasasa's gun tubes"
+    if (scoped) enemy.sightMark = 4
     hurtReaction(run,enemy)
     if (weaponId)
         enemy.weaponSource = weaponId
-    const value = bankDamage(run, enemy, damage * (critical || 1))
+    const value = bankDamage(run,enemy,damage*(weaponId ? 1+Tarot.value(run,"bossDamage") : 1)
+        *((critical || 1)+(weaponId && critical>1 ? Tarot.value(run,"bossCrit") : 0)))
     const hullBefore = part ? part.hp : enemy.coreHp
     if (weaponId === "veinDrinker" && value > 0)
         feedVeinDrinker(run, Math.min(hullBefore, value))
@@ -1864,11 +1952,12 @@ function wound(run, enemy, amount, source, element, level, impact) {
     const spec = enemyTypes[enemy.type]
     const weaponId=impact && impact.weaponId
     if (source==="ability" && !weaponId) amount*=Meta.benefits(run).active*(1+Gear.perk(run,"activeDamage"))
-    if (spec.role==="boss" && (source==="gun" || weaponId)) amount*=1+Tarot.value(run,"bossDamage")
+    const bossWeaponHit=spec.role==="boss" && (source==="gun" || !!weaponId) && !(impact && impact.bossPart)
     if (run.training && spec.trainer) {
         const mode=run.training.mode
         if (mode==="lesson") {
             if (run.training.step===0 && source==="gun") record(run,"trainingHits")
+            if (impact?.scoped && amount > 0) enemy.sightMark = 4
             hurtReaction(run,enemy)
             return ""
         }
@@ -1895,19 +1984,21 @@ function wound(run, enemy, amount, source, element, level, impact) {
     if (element) enemy.lastElement=element
     if (spec.explosionImmune && (source === "explosion" || source === "hostileBlast" || impact?.explosion))
         return spec.title+" drinks the blast"
-    if ((source === "ability" || source === "grenade") && !impact?.attackRolled && attackMisses(run,blindRank(run)))
+    if ((source === "ability" || source === "grenade") && !impact?.attackRolled && !(enemy.sightMark > 0) && attackMisses(run,blindRank(run),true))
         return ""
     if (element === "electric" && Conditions.isRain(run.weatherEffect) && source !== "electric")
         amount *= 2
-    const multiplier = !spec.critImmune && impact && impact.critical > 1 ? impact.critical : 1
+    const critical = !spec.critImmune && impact && impact.critical>1 ? impact.critical : 1
     if (enemy.type === "hasasasa") {
         if (source === "mega") {
             for (const part of Ship.remaining(enemy))
                 part.hp = 0
             enemy.barrier = 0
         }
-        return hitShip(run, enemy, null, amount, multiplier)
+        return hitShip(run,enemy,null,amount,critical,bossWeaponHit ? weaponId || Gear.current(run).id : "",impact?.scoped)
     }
+    if (bossWeaponHit) amount*=1+Tarot.value(run,"bossDamage")
+    const multiplier=critical+(bossWeaponHit && critical>1 ? Tarot.value(run,"bossCrit") : 0)
     if (source !== "mega" && ghosted(enemy))
         return "Ghorimagous is phasing"
     if (enemy.type === "archfellanus" && Abyss.mirror(enemy.age) && amount > 0) {
@@ -1926,6 +2017,7 @@ function wound(run, enemy, amount, source, element, level, impact) {
         enemy.flash = .38
         return "Archfellanus reflected the hit"
     }
+    if (impact?.scoped && amount > 0) enemy.sightMark = 4
     const resisted = statusImmune(enemy, element)
     if (resisted)
         amount *= .85
@@ -2112,6 +2204,11 @@ function intercept(run, bolt, damage) {
         burstBubble(run,bolt,false)
         return true
     }
+    if (bolt.fang) {
+        run.bursts.push(Object.assign(projectilePoint(bolt),{front:bolt.front,radius:104,
+            life:.42,span:.42,color:"#f7e5bd"}))
+        announce(run,"Flying fang shattered","fangCrack")
+    }
     record(run, "intercepts")
     return true
 }
@@ -2144,9 +2241,9 @@ function explode(run, grenade) {
     const turret = Ship.turretAt(run, grenade.targetId)
     const fang = fangAt(run,grenade.targetId,grenade.front)
     if (turret && turret.boss.front === grenade.front)
-        hitShip(run, turret.boss, turret.part, grenade.damage, grenade.effect.critical,grenade.effect.weaponId)
+        hitShip(run, turret.boss, turret.part, grenade.damage, grenade.effect.critical,grenade.effect.weaponId,grenade.effect.scoped)
     if (fang)
-        hitFang(run,fang.boss,fang.part,grenade.damage,grenade.effect.critical)
+        hitFang(run,fang.boss,fang.part,grenade.damage,grenade.effect.critical,grenade.effect.scoped)
     for (const bolt of run.bolts.slice()) {
         if (!grenade.illusionOnly && bolt.front === grenade.front && bolt.hp > 0 && within(projectilePoint(bolt)))
             intercept(run, bolt, grenade.damage * (grenade.effect.critical || 1))
@@ -2164,7 +2261,8 @@ function explode(run, grenade) {
             grenade.kind === "staff" ? "ability" : "grenade", effect.element, effect.elementLevel,
             { arcReach:effect.spell === "electric" && Gear.hasKit(run,"thunderKit") ? 45 : 0,
                 critical:effect.critical,ranged:grenade.kind === "launcher",breakBarrier:grenade.kind === "nullgrenade",
-                attackRolled:effect.attackRolled,explosion:!effect.spell,weaponId:effect.weaponId,durationScale:effect.durationScale })
+                attackRolled:effect.attackRolled,scoped:effect.scoped && enemy.id===grenade.targetId,
+                explosion:!effect.spell,weaponId:effect.weaponId,durationScale:effect.durationScale })
         if (effect.spell && effect.element === "freeze" && exposed && !statusImmune(enemy,"freeze"))
             enemy.elements.frozen = Math.max(enemy.elements.frozen, 1.45 + (Gear.hasKit(run,"iceKit") ? .50 : 0))
         if (effect.element === "freeze" && enemy.elements.frost)
@@ -2487,8 +2585,9 @@ function fangPoint(enemy,fang) {
         depth:Math.max(237,enemy.depth-526+Math.abs(fang.side)*27)}
 }
 
-function hitFang(run, boss, fang, amount, critical) {
-    const dealt = Math.min(fang.hp,amount*(critical || 1))
+function hitFang(run, boss, fang, amount, critical, scoped) {
+    const power=(critical || 1)+(critical>1 ? Tarot.value(run,"bossCrit") : 0)
+    const dealt = Math.min(fang.hp,amount*power*(1+Tarot.value(run,"bossDamage")))
     fang.hp -= dealt
     if (!fang.hp) {
         fang.rebuildAt = run.time+30
@@ -2496,7 +2595,7 @@ function hitFang(run, boss, fang, amount, critical) {
     }
     if (critical > 1 && dealt > 0)
         criticalHit(run,dealt,boss.hp <= dealt)
-    wound(run,boss,dealt,"gun")
+    wound(run,boss,dealt,"gun","",0,{bossPart:true,scoped:scoped})
 }
 
 function launchFangs(run, enemy) {
@@ -2505,7 +2604,7 @@ function launchFangs(run, enemy) {
             continue
         const mouth = fangPoint(enemy,fang)
         const health = Math.max(9,enemy.maxHp*.0115)
-        const duration = 1.20
+        const duration = 1.85
         run.bolts.push(Object.assign(mouth,{id:run.nextId++,front:enemy.front,fang:true,source:"reapfast",sourceId:enemy.id,
             remaining:duration,duration:duration,damage:enemy.damage*.37,
             color:"#f8d5b9",hp:health,maximum:health,localOnly:true,blindAtFire:enemy.elements.blind}))
@@ -2529,8 +2628,9 @@ function stepLeviathan(run, enemy, dt) {
         enemy.attack -= dt
         if (enemy.attack > 0)
             return
+        const readyFangs = enraged && fangs.some(function(fang) { return fang.hp > 0 })
         const choices = Abyss.attacks.filter(function(plan) {
-            return plan.id !== enemy.lastSpecial && (!plan.enraged || enraged && fangs.some(function(fang) { return fang.hp > 0 }))
+            return readyFangs ? plan.id === "fangs" : !plan.enraged && plan.id !== enemy.lastSpecial
         })
         const plan = sample(run,choices)
         enemy.lastSpecial = plan.id
@@ -2672,7 +2772,9 @@ function stepHarvester(run, enemy, dt) {
         enemy.soulTick -= dt
         if (enemy.soulTick <= 0) {
             enemy.soulTick += .4
-            if (!attackMisses(run,enemy.elements.blind)) {
+            if (attackMisses(run,enemy.elements.blind))
+                hostileMiss(run,spec,enemy.elements.blind)
+            else {
                 const health = run.health
                 damagePlayer(run,enemy.damage*Elements.damageFactor(enemy.elements),enemy.front,enemy.type,true,
                     {sourceId:enemy.id,soulDrain:true,critical:false,element:""})
@@ -2703,10 +2805,9 @@ function updateLunge(run, dt) {
         run.lunge = null
 }
 
-function meleeStrike(run, gun, weapon, stats, hits, view, power, aim) {
+function meleeStrike(run, gun, weapon, stats, aimed, view, power) {
     const melee = weapon.melee
     const charged = gun.primed
-    const aimed = charged ? hits.concat(lungeAim(run,view,aim)) : hits
     const enemy = aimed.map(function(id) { return target(run,id) }).find(Boolean)
     const critical = weaponCritical(run,weapon,gun,enemy)
     gun.primed = false
@@ -2878,8 +2979,7 @@ function castStaff(run, gun, weapon, stats, hits, view, aim) {
     if (weapon.id==="hourhand") rewindBolts(run,view,.65+Gear.weaponLevel(run,gun)*.10)
     const element = kind === "avatar" ? sample(run, avatarElements) : kind === "aurora" ? "electric" : kind
     const range = element === "wind" ? 598 : element === "stun" ? 423 : element === "electric" ? 239 : 370
-    const local = run.enemies.find(function(enemy) { return enemy.front === view && !enemy.warp && enemy.hp > 0 })
-    const focus = hits && hits.find(function(id) { return id > 0 }) || (local ? local.id : 0)
+    const focus = hits && hits.find(function(id) { return id > 0 }) || 0
     const pointer = aim || { x:.5, y:.5 }
     const damage = (stats.damage * (kind === "avatar" ? 1.32 : 1.12) + Gear.perk(run,"magicForce")) * outgoing(run)
     throwGrenade(run, view, focus, { x:pointer.x, y:pointer.y, kind:"staff" }, damage,
@@ -2919,7 +3019,10 @@ function shoot(run, hits, view, aim, continuation) {
     }
     if (weapon.spinup && gun.spin<1) return false
 
-    if (run.cursed && !weapon.melee && !weapon.throwing && random(run) < .13) {
+    if (weapon.melee && gun.primed)
+        hits = hits.concat(lungeAim(run,frontId,aim))
+    if (run.cursed && !weapon.melee && !weapon.throwing && random(run) < .13
+        && !hits.some(function(id) { return sightLocked(run,id,frontId) })) {
         record(run,"shots")
         gun.streak = 0
         if (continuation) {
@@ -2937,7 +3040,7 @@ function shoot(run, hits, view, aim, continuation) {
         stats.damage *= 1+(power.elementalDamage || 0)+Gear.passiveSockets(run,"elementDamage",.12)
     if (weapon.signature === "coinShot") {
         const cost = weapon.coinCost-Gear.kitBonus(run,"coinDiscount")
-        gun.coinShot = run.gold >= cost
+        gun.coinShot = Gear.availableGold(run) >= cost
         if (gun.coinShot)
             spendGold(run,cost)
         stats.damage *= gun.coinShot ? 1 : .22
@@ -2980,19 +3083,25 @@ function shoot(run, hits, view, aim, continuation) {
         if (gun.heat >= limit)
             coolWeapon(run, gun, weapon, stats)
     }
-    if (attackMisses(run,blindRank(run))) {
-        gun.streak = gun.focus = gun.lastTarget = 0
-        if (weapon.melee)
-            meleeStrike(run,gun,weapon,stats,[],frontId,power,aim)
-        else if (weapon.staff)
-            chargeStaff(gun,stats,1)
-        missFeedback(run,"Your attack")
-        return true
+    const blindness = blindRank(run)
+    if (attackMisses(run,blindness,true)) {
+        // One volley can cross both a marked enemy and an unmarked enemy.
+        hits = hits.filter(function(id) { return sightLocked(run,id,frontId) || byId(run.gifts,id) })
+        if (!hits.length) {
+            gun.streak = gun.focus = gun.lastTarget = 0
+            if (weapon.melee)
+                meleeStrike(run,gun,weapon,stats,[],frontId,power)
+            else if (weapon.staff)
+                chargeStaff(gun,stats,1)
+            missFeedback(run,"Your attack",blindness)
+            return true
+        }
     }
     if (weapon.melee) {
-        meleeStrike(run, gun, weapon, stats, hits, frontId, power, aim)
+        meleeStrike(run, gun, weapon, stats, hits, frontId, power)
         return true
     }
+    const scoped = !!aim?.scoped && Gear.hasGunSights(weapon)
     const primary = hits.find(function(id) { return id > 0 }) || 0
     const critical = weaponCritical(run,weapon,gun,target(run,primary))
     const previousCriticals = run.metrics.criticalHits || 0
@@ -3015,7 +3124,7 @@ function shoot(run, hits, view, aim, continuation) {
         throwGrenade(run, frontId, primary, Object.assign({ x:.5, y:.5 }, aim, { kind:"launcher" }),
             (stats.damage + rank(run, "booster") * .78 + (power.damage || 0) + (run.giftDamage > 0 ? 2 : 0)) * outgoing(run),
             weapon.blast * (1 + Gear.perk(run, "blastRadius")), primary ? .28 : .55, 0,
-            Object.assign({}, stats, { breachBonus:breachRoundsBonus, critical:critical, attackRolled:true,weaponId:weapon.id }))
+            Object.assign({}, stats, { breachBonus:breachRoundsBonus, critical:critical, attackRolled:true,scoped:scoped,weaponId:weapon.id }))
         announce(run, "", "shot")
         return true
     }
@@ -3038,7 +3147,7 @@ function shoot(run, hits, view, aim, continuation) {
     const elementLevel = signature === "jesterDeck" ? 1+Number(Gear.weaponLevel(run,gun) >= 2)
         : stats.elementLevel || Number(element === "electric")
     const impact = { deathLevel:stats.deathLevel, arcReach:signature === "longArcs" ? 72 : 0, critical:critical,ranged:true,
-        breakBarrier:signature === "breachArmor",
+        breakBarrier:signature === "breachArmor",scoped:scoped,
         knockback:stats.knockback,pushBonus:stats.pushBonus,weaponId:weapon.id }
     const pressure = signature === "rotaryRamp" ? .26 * Math.min(1, (gun.hold || 0) / 2.25)
         : signature === "hitStreak" ? Math.min(10, gun.streak) * .12 : 0
@@ -3069,9 +3178,9 @@ function shoot(run, hits, view, aim, continuation) {
                 const heated = signature === "thermalBreach" && turret.boss.barrier > 0
                 const shot = signature === "breachArmor" ? Math.max(turret.boss.barrier,amount) : amount
                 message = hitShip(run, turret.boss, turret.part, shot * (1 + (heated ? .65 : 0)
-                    + (turret.boss.barrier ? breachRoundsBonus : 0)), critical,weapon.id) || message
+                    + (turret.boss.barrier ? breachRoundsBonus : 0)), critical,weapon.id,scoped) || message
             } else if (fang) {
-                hitFang(run,fang.boss,fang.part,amount,critical)
+                hitFang(run,fang.boss,fang.part,amount,critical,scoped)
             } else if (intercept(run, bolt, amount * critical)) {
                 cue = "intercept"
             }
@@ -3098,7 +3207,7 @@ function shoot(run, hits, view, aim, continuation) {
         const kitBonus = !Gear.hasKit(run, gun.id) ? 0
             : gun.id === "pistol" ? 1 : gun.id === "rail" && enemy.barrier > 0 ? 2 : 0
         const shieldBonus = enemy.barrier > 0 ? (weapon.shieldDamage || 0) + rank(run, "hunter") : 0
-        const targetMarked = enemy.marked || enemy.mark > 0
+        const targetMarked = isMarked(enemy)
         const marked = (enemy.mark > 0 ? 1.35 : 0)
             + (targetMarked ? rank(run, "markSight") * 1.10 : 0)
         const chill = enemy.elements.frost ? rank(run, "frostBite") * .84 : 0
@@ -3207,7 +3316,7 @@ function reload(run, hits, view, aim) {
         const range = weapon.stab.reach + rank(run,"longguard")*38 + (Gear.hasKit(run,"tridentKit") ? 65 : 0)
         const contact = (hits || []).map(function(id) { return impactContact(run,id,view || run.playerFront) })
             .find(function(candidate) { return candidate && candidate.point.depth <= range && !candidate.gift })
-        if (contact) {
+        if (closeAttackHits(run,contact)) {
             const damage = (weapon.stab.damage + (stats.damage - weapon.damage)) * outgoing(run)
             strikeContact(run,contact,damage,stats.element,stats.elementLevel,"helltrident",weaponCritical(run,weapon,gun,contact.enemy))
             if (contact.enemy && contact.enemy.hp <= 0)
@@ -3246,10 +3355,11 @@ function reload(run, hits, view, aim) {
         const reach = 385 + Gear.perk(run, "stabReach")
         const contact = (hits || []).map(function(id) { return impactContact(run, id, view || run.playerFront) })
             .find(function(candidate) { return candidate && candidate.point.depth <= reach && !candidate.gift })
-        if (contact)
+        const landed = closeAttackHits(run,contact)
+        if (landed)
             strikeContact(run, contact, (4.5 + blade * 1.5) * outgoing(run), "", 0, "bayonet")
         passiveVisual(run,"bayonet",view || run.playerFront,"cut","slice",contact?.point,"BAYONET",.25)
-        announce(run, contact ? "Bayonet strike" : null, "bayonet")
+        announce(run, landed ? "Bayonet strike" : null, "bayonet")
     }
     return true
 }
@@ -3320,9 +3430,9 @@ function expansionActive(run, id, stats, view, aimId, available) {
         run.dodgeFlash = .35
         return "playerDodge"
     case "liquidation": {
-        if (!local.length || run.gold < 20)
+        if (!local.length || Gear.availableGold(run) < 20)
             return false
-        const coins = Math.min(80,run.gold)
+        const coins = Math.min(80,Gear.availableGold(run))
         spendGold(run,coins)
         for (const enemy of local.slice()) {
             wound(run,enemy,coins*.25*(1+strength*.14)*outgoing(run),"ability",coins>=50 ? "weaken" : "",2)
@@ -4152,7 +4262,7 @@ function useAbility(run, slot, view, aimId, aim) {
     abilityVisual(run,id,view,stats,aim,targets,summary)
     run.cooldowns[id] = abilityRecovery(run, equipped, stats, slotBonus)
     tarotEvent(run,"cast")
-    announce(run, feedback || activeAbilities[id].title + " activated", sound)
+    announce(run,feedback || activeAbilities[id].title+" activated","ability:"+id)
     return true
 }
 
@@ -4266,8 +4376,7 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
         amount *= 2
     if (!burningTick && !payload?.mirror && !payload?.environment
         && attackMisses(run,payload?.blindAtFire ?? source?.elements.blind ?? 0)) {
-        if (origin === run.playerFront)
-            missFeedback(run,attacker.title)
+        hostileMiss(run,attacker,payload?.blindAtFire ?? source?.elements.blind)
         return
     }
     const chance = payload && payload.critChance !== undefined ? payload.critChance : (attacker.crit || 0) + (source && source.linked ? .14 : 0)
@@ -4332,6 +4441,10 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
     if (run.desktop)run.desktop.pressure=Math.min(1,run.desktop.pressure+.06+damage/400)
     const before=run.health
     run.health = Math.max(0, run.health - damage)
+    if (critical) {
+        run.incomingCriticalUntil=run.time+1.15
+        run.incomingCriticalDamage=before-run.health
+    }
     record(run,"damageTaken",before-run.health)
     if (type === "crufixicatus" && source && !source.scareUsed && !burningTick && run.health > 0) {
         source.scareUsed = true
@@ -4408,7 +4521,7 @@ function launchBolts(run, enemy, creature) {
             elevation:elevation(enemy) + (creature.serpent ? 59 : creature.sniper ? 26 : 0),
             depth:enemy.depth-(creature.distance ? 135 : 0),duration:duration,remaining:duration + stagger,
             damage:enemy.damage * (burst === 5 ? .40 : burst > 1 ? .72 : 1) * Elements.damageFactor(enemy.elements),
-            color:enemy.stormCharged ? "#e2c9ff" : enemy.type === "nightosphere" ? "#cb63ff" : creature.serpent ? "#e4c1ff" : creature.accent,
+            color:enemy.type === "veilskate" ? creature.accent : enemy.stormCharged ? "#e2c9ff" : enemy.type === "nightosphere" ? "#cb63ff" : creature.serpent ? "#e4c1ff" : creature.accent,
             source:enemy.type, sourceId:enemy.id, element:creature.element || "", stormCharged:!!enemy.stormCharged,
             hp:creature.boltHealth || 0, maximum:creature.boltHealth || 0,sniper:!!creature.sniper,voidShot:!!creature.voidBoss || !!creature.ink,
             ink:!!creature.ink,localOnly:!!creature.ink || ["nightosphere","lalaBubu","blandromedus"].includes(enemy.type),
@@ -4417,8 +4530,8 @@ function launchBolts(run, enemy, creature) {
             critChance:(creature.crit || 0) + (enemy.linked ? .14 : 0),blindAtFire:enemy.elements.blind })
     }
     run.boltRoster += 1
-    announce(run, null, creature.ink ? "inkFire" : enemy.type === "nightosphere" ? "orbBolt" : creature.vampire ? "bloodBolt" : creature.voidBoss ? "voidFire" : creature.sniper ? "sniperFire"
-        : creature.serpent ? "snakeBolt" : creature.triad ? "magnetFire" : "bolt")
+    announce(run, null, creature.ink ? "inkFire" : enemy.type === "veilskate" ? "veilBolt" : enemy.type === "nightosphere" ? "orbBolt" : creature.vampire ? "bloodBolt" : creature.voidBoss ? "voidFire" : creature.sniper ? "sniperFire"
+        : creature.serpent ? "snakeBolt" : creature.triad ? "magnetFire" : "attack:"+enemy.type)
 }
 
 function launchBreath(run, enemy) {
@@ -4484,7 +4597,7 @@ function launchSlime(run, enemy, damage) {
         id:run.nextId++, front:enemy.front, lane:lanePosition(enemy), elevation:elevation(enemy), depth:enemy.depth,
         duration:1.13, remaining:1.13, damage:damage, hp:1.8, maximum:1.8,
         color:"#c9ed5e", source:enemy.type, sourceId:enemy.id, slug:true, parent:enemy.parent,
-        element:"sticky", elementLevel:3, critChance:enemy.linked ? .14 : 0
+        element:"sticky", elementLevel:3, critChance:enemy.linked ? .14 : 0, blindAtFire:enemy.elements.blind
     })
     run.boltRoster += 1
     announce(run, null, "slimeSpit")
@@ -4496,7 +4609,7 @@ function fireSpinShard(run, enemy) {
         id:run.nextId++, front:enemy.front, lane:lanePosition(enemy), elevation:elevation(enemy), depth:enemy.depth,
         duration:1.18, remaining:1.18, damage:enemy.damage * .36 * Elements.damageFactor(enemy.elements),
         hp:1.8, maximum:1.8, color:"#8af4de", source:enemy.type, sourceId:enemy.id, shard:true,
-        critChance:enemyTypes[enemy.type].crit + (enemy.linked ? .14 : 0)
+        critChance:enemyTypes[enemy.type].crit + (enemy.linked ? .14 : 0),blindAtFire:enemy.elements.blind
     })
     run.boltRoster += 1
     announce(run, null, "spinShard")
@@ -4843,9 +4956,9 @@ function stepGoldRay(run, enemy, creature, dt) {
                 const before = run.health
                 damagePlayer(run, enemy.damage * .40, enemy.front, enemy.type, false, { sourceId:enemy.id,beam:true })
                 if (run.health < before) {
-                    taken = Math.min(run.gold, Math.round(goldPerKill(run.wave) * 1.45))
+                    taken = Math.min(run.debug && run.debugMoney ? 0 : run.gold, Math.round(goldPerKill(run.wave) * 1.45))
                     enemy.stolenGold += taken
-                    run.gold -= taken
+                    Gear.chargeGold(run,taken)
                 }
             }
             announce(run, taken ? "Skarabatunus stole " + taken + " gold" : null, "goldRay")
@@ -4938,8 +5051,9 @@ function strike(run, enemy, creature) {
     if (enemy.type === "fearme") {
         if (enemy.front !== run.playerFront || !run.viewReady)
             return
+        announce(run,null,"attack:"+enemy.type)
         if (attackMisses(run,enemy.elements.blind)) {
-            missFeedback(run,creature.title)
+            hostileMiss(run,creature,enemy.elements.blind)
             return
         }
         if (run.shield.raised) {
@@ -4983,6 +5097,7 @@ function strike(run, enemy, creature) {
     } else if (enemy.type === "hasasasa") {
         fireShip(run, enemy)
     } else if (enemy.type === "lucifoverus") {
+        announce(run,null,"attack:"+enemy.type)
         const status = sample(run, ["burn","freeze","electric","stun","blind","poison","weaken","explosive"])
         damagePlayer(run, damage, enemy.front, enemy.type, false, { sourceId:enemy.id, element:status, elementLevel:1 })
         enemy.nextFront = adjacentGround(run, enemy.front)
@@ -4990,11 +5105,13 @@ function strike(run, enemy, creature) {
         enemy.recover = 5
         beginWarp(enemy, "departure", .46)
     } else if (creature.devour) {
+        announce(run,null,"attack:"+enemy.type)
         const before = run.health
         damagePlayer(run,damage,enemy.front,enemy.type,false,{ sourceId:enemy.id })
         if (run.health < before)
             feedHeal(run,enemy,.12)
     } else {
+        announce(run,null,"attack:"+enemy.type)
         damagePlayer(run, damage, enemy.front, enemy.type, false, { sourceId:enemy.id })
     }
 }
@@ -5065,11 +5182,7 @@ function tickWeapon(run, slot, index, dt, firingHeld) {
 function update(run, dt, sealing, firingHeld, aim, viewReady) {
     if (run.phase !== "combat")
         return
-    if (run.skyClearing) {
-        updateSky(run,dt)
-        if (run.skyProgress>=1) finishWave(run)
-        return
-    }
+    if (tickTakeover(run,dt)) return
     if (run.scareTime > 0) {
         run.scareTime = Math.max(0,run.scareTime-dt)
         return
@@ -5086,7 +5199,6 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         desktop.pressure=Math.max(0,(desktop.pressure || 0)-dt*.022)
     }
     run.waveTime += dt
-    updateSky(run,dt)
     if (run.weatherEffect==="thunder") {
         run.stormBursts=run.stormBursts.filter(function(strike) {strike.life-=dt;return strike.life>0})
         if (run.waveTime>=run.stormAt) {
@@ -5171,7 +5283,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
                 applyToEnemy(run,enemy,"freeze",1)
         announce(run,null,"winterPulse")
     }
-    if (run.weatherEffect === "windy" && run.waveTime >= run.windAt) {
+    if (Conditions.hasWeather(run.weatherEffect,run.stage,"windy") && run.waveTime >= run.windAt) {
         run.windAt += 20
         run.gustLeft = 1.26
         for (const enemy of run.enemies.slice()) {
@@ -5241,8 +5353,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
 
     while (run.reinforcements.length && roomToSpawn(run,run.reinforcements[0]))
         spawn(run, run.reinforcements.shift())
-    while (run.pending.length && run.pending[0].at <= run.waveTime
-        && run.skyProgress >= (run.pending[0].skyGate || 0) && roomToSpawn(run,run.pending[0])) {
+    while (run.pending.length && run.pending[0].at <= run.waveTime && roomToSpawn(run,run.pending[0])) {
         const next = run.pending[0].type
         if (enemyTypes[next].role === "boss" && (run.enemies.length || run.bolts.length))
             break
@@ -5309,6 +5420,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         enemy.shatter = Math.max(0, enemy.shatter - dt)
         enemy.slow = Math.max(0, enemy.slow - dt)
         enemy.mark = Math.max(0, enemy.mark - dt)
+        enemy.sightMark = Math.max(0,(enemy.sightMark || 0) - dt)
         enemy.criticalMark = Math.max(0,(enemy.criticalMark || 0) - dt)
         const burning = Elements.advance(enemy.elements, dt)
         enemy.maxHp = Math.max(1, enemy.baseHp * Elements.healthFactor(enemy.elements))
@@ -5418,7 +5530,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         const pinned = enemy.elements.sticky > 0 || enemy.hitStop > 0
         if (creature.devour && (!pinned || enemy.feed) && stepFeeding(run,enemy,dt,bites))
             continue
-        const blindDrift = !pinned && enemy.elements.blind && enemy.travelSpeed > 0
+        const blindDrift = !pinned && enemy.elements.blind && enemy.travelSpeed > 0 && enemy.type !== "veilskate"
         if (blindDrift)
             driftBlind(run,enemy,dt)
         else if (!pinned) {
@@ -5450,6 +5562,14 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         const speed = (hastened.has(enemy.front) ? 1.2 : 1) * (enemy.slow > 0 ? .62 : 1) * Elements.pace(enemy.elements)
         const movement = speed * bossMovement(enemy) * (enemy.linked ? 1.30 : 1)
         const cadence = speed * (enemy.linked ? 1.28 : 1)
+        if (enemy.type === "veilskate" && !pinned) {
+            const limit = enemy.depth*.26
+            enemy.lane += enemy.diagonal*enemy.travelSpeed*movement*dt
+            if (Math.abs(enemy.lane) >= limit) {
+                enemy.lane = Math.sign(enemy.lane)*limit
+                enemy.diagonal *= -1
+            }
+        }
         if (creature.role === "boss" && !creature.ship && !pinned)
             moveBoss(run, enemy, dt, movement)
         if (creature.rangedInterval && enemy.depth > creature.reach && enemy.depth <= 1380
@@ -5465,7 +5585,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
                 fireSpinShard(run, enemy)
             }
         }
-        if (enemy.depth > creature.reach) {
+        if (enemy.depth > creature.reach && enemy.type !== "veilskate") {
             if (pinned || blindDrift)
                 continue
             const before = enemy.depth
@@ -5602,16 +5722,13 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         && !run.venomClouds.some(function(cloud) { return cloud.hostile && !cloud.hit })
         && !run.detonations.length && !run.bursts.some(function(burst) { return burst.life > .30 })
         && !run.gore.some(function(event) { return event.boss && event.fatal && event.life > .55 })) {
-        if (run.training) return
-        if (run.stage?.night && run.skyProgress<1)
-            run.skyClearing=true
-        else
+        if (!run.training && run.time-(run.lastKillTime ?? -1) >= .5-1e-7)
             finishWave(run)
     }
 }
 
 function finishWave(run) {
-    run.skyClearing=false
+    if (takeoverActive(run)) return false
     record(run, "waves")
     if (run.waveTime<30) record(run,"quickWaves")
     if (run.waveTime<60) {run.metrics.bestTimedWave=Math.max(run.metrics.bestTimedWave || 0,run.wave);run.progress++}
@@ -5625,8 +5742,10 @@ function finishWave(run) {
         record(run, "lowHealthWaves")
     if (Conditions.isRain(run.weatherEffect))
         record(run, "rainWaves")
-    if (run.bloodMoonSeen || run.weatherEffect === "bloodMoon")
+    if (run.bloodMoonSeen || run.weatherEffect==="bloodMoon") {
         record(run,"bloodMoonClears")
+        if (!run.hurtThisWave) record(run,"bloodMoonFlawless")
+    }
     Elements.clearPoison(run.elements)
     run.fearCut = false
     const cap = Gear.maxHealth(run)
@@ -5646,7 +5765,6 @@ function finishWave(run) {
     else if (isGearRewardWave(run.wave)) {
         run.offers = draft(run)
         run.phase = "reward"
-        run.refreshUsed = 0
     } else {
         run.offers = []
         run.phase = "between"
@@ -5722,50 +5840,51 @@ function nextAbilityWave(run, rarity) {
     return run.wave + span[0] + Math.floor(random(run) * (span[1] - span[0] + 1))
 }
 
-function abilityOffers(run) {
-    const actives = Object.values(activeAbilities).filter(function(card) { return Gear.canOffer(run, card) })
-    const passivesPool = Object.values(passives).filter(function(card) { return Gear.canOffer(run, card) })
-    const pool = actives.concat(passivesPool)
-    const shown = []
-    for (const tier of Object.keys(abilityCadence)) {
-        if (run.abilitySchedule[tier] === undefined)
-            run.abilitySchedule[tier] = nextAbilityWave(run, tier) - 1
-        if (run.abilitySchedule[tier] > run.wave || shown.length === 2)
-            continue
-        const eligible = pool.filter(function(card) { return card.rarity === tier })
-        if (!eligible.length)
-            continue
-        const otherGroup = shown.length ? eligible.filter(function(card) { return card.category !== shown[0].category }) : []
-        shown.push(Gear.pickRarityItem(run,otherGroup.length ? otherGroup : eligible,random(run)))
-        run.abilitySchedule[tier] = nextAbilityWave(run, tier)
-    }
-
-    if (shown.length < 2) {
-        const rare = pool.filter(function(card) { return card.rarity === "rare" })
-        if (rare.length)
-            shown.push(Gear.pickRarityItem(run,rare,random(run)))
-    }
-
-    const common = pool.filter(function(card) { return card.rarity === "common" })
-    while (shown.length < 2) {
-        const needActive = !shown.some(function(card) { return card.category === "Active" })
-        const support = !needActive && random(run) < .23
-        const poolForSlot = common.filter(function(card) {
-            return !shown.includes(card) && card.category === (needActive ? "Active" : "Passive")
-        })
-        if (support)
-            shown.push(run.health < Gear.maxHealth(run) && random(run) < .38 ? dressing : reserve)
-        else {
-            const available = common.filter(function(card) { return !shown.includes(card) })
-            shown.push(Gear.pickRarityItem(run,poolForSlot.length ? poolForSlot : available,random(run)))
-        }
-    }
-    return shown
-}
-
 function draft(run) {
-    const arms = Object.values(weapons).filter(function(card) { return Gear.canOffer(run, card) })
-    return [drawPowerup(run, arms)].concat(abilityOffers(run)).map(function(card) { return Gear.describeOffer(run, card) })
+    let pool=Draw.rewardPool(run)
+    const offers=[]
+    function add(card) {
+        if (!card) return
+        offers.push(Gear.describeOffer(run,card))
+        pool=pool.filter(function(candidate){return candidate.id!==card.id})
+    }
+
+    const stored=Draw.frozenFor(run,"reward")
+    if (stored) {
+        const group=Gear.groupOf(stored)
+        add(group ? Gear.catalogs[group][stored.id] : stored)
+    }
+
+    // Rare or better appears in each draft, with long-run protection against
+    // streaks without higher tiers. Any category can fill any of these places.
+    for (const tier of Object.keys(abilityCadence)) {
+        if (run.abilitySchedule[tier]===undefined)
+            run.abilitySchedule[tier]=nextAbilityWave(run,tier)-1
+        if (run.abilitySchedule[tier]>run.wave || offers.length>=3) continue
+        if (!offers.some(function(card){return card.rarity===tier})) {
+            const eligible=pool.filter(function(card){return card.rarity===tier})
+            if (!eligible.length) continue
+            add(Gear.pickRarityItem(run,eligible,random(run)))
+        }
+        run.abilitySchedule[tier]=nextAbilityWave(run,tier)
+    }
+    while (offers.length<3 && pool.length) {
+        const needRare=offers.length===2 && offers.every(function(card){return !card.rarity || card.rarity==="common"})
+        const useful=needRare ? pool.filter(function(card){return card.rarity!=="common"}) : pool
+        if (offers.length===2 && !needRare && !offers.some(function(card){return card.category==="Supply"}) && random(run)<.13)
+            add(run.health<Gear.maxHealth(run) && random(run)<.38 ? dressing : reserve)
+        else
+            add(drawPowerup(run,useful.length ? useful : pool))
+    }
+    // A pinned card keeps its leading position; everything else can appear in any slot.
+    for (let i=offers.length-1;i>(stored ? 1 : 0);i--) {
+        const first=stored ? 1 : 0
+        const j=first+Math.floor(random(run)*(i-first+1))
+        const saved=offers[i]
+        offers[i]=offers[j]
+        offers[j]=saved
+    }
+    return offers
 }
 
 function choose(run, id, slot) {
@@ -5787,6 +5906,7 @@ function choose(run, id, slot) {
     } else {
         run.nextAmmo = 3
     }
+    Draw.leaveFrozen(run,card)
     run.offers = []
     run.phase = "between"
     return true
@@ -5815,10 +5935,11 @@ function canEditLoadout(run) {
 
 function openShop(run) {
     run.phase = "shop"
-    run.refreshUsed = 0
     run.shopEdition += 1
     run.shopCleared = false
-    run.shopStock = Gear.makeShop(run, function() { return random(run) })
+    const card=Draw.frozenFor(run,"shop")
+    const fresh=Gear.makeShop(run,function(){return random(run)},card ? [card.id] : [],run.shopCapacity-Number(!!card))
+    run.shopStock=card ? [card].concat(fresh) : fresh
 }
 
 function buy(run, id, slot, confirmed) {
@@ -5829,6 +5950,7 @@ function buy(run, id, slot, confirmed) {
     const before = run.gold
     if (!Gear.buy(run, id, slot, function() { return random(run) }, confirmed))
         return false
+    if (Draw.isFrozen(run,card)) run.frozenOffer=null
     const spent = before-run.gold
     if (spent > 0) {
         run.spentGold += spent
@@ -5852,9 +5974,21 @@ function buy(run, id, slot, confirmed) {
     return true
 }
 
+function refundAbility(run,group,id) {
+    const amount=Gear.refundAbility(run,group,id)
+    if (!amount) return false
+    run.spentGold=Math.max(0,run.spentGold-amount)
+    run.metrics.bestRunSpent=run.spentGold
+    run.metrics.shopSpent=Math.max(0,(run.metrics.shopSpent || 0)-amount)
+    run.metrics.shopBuys=Math.max(0,(run.metrics.shopBuys || 0)-1)
+    announce(run,"Refunded "+Gear.catalogs[group][id].title+" rank · "+amount+" gold","buy")
+    return true
+}
+
 function leaveShop(run) {
     if (run.phase !== "shop" || run.shopStock.some(function(card) { return card.paid && !card.sold }))
         return false
+    Draw.leaveFrozen(run)
     run.shopStock = []
     run.offers = []
     run.phase = "between"

@@ -20,8 +20,8 @@ Node {
             x:53*modelData
             y:15
             z:25
-            eulerRotation.z:modelData*(9+Math.sin(arms.clock*5)*4)
-            eulerRotation.x:-Math.max(0,arms.strike)*46+Math.min(0,arms.strike)*20
+            eulerRotation.z:modelData*(9+Math.sin(arms.clock*5)*4+Math.max(0,-arms.strike)*50)
+            eulerRotation.x:-arms.strike*51
             Model {source:"#Sphere"; scale:Qt.vector3d(.25,.30,.26); materials:[flesh]}
             Model {
                 source:"#Sphere"; x:arm.modelData*4; y:-13; eulerRotation.z:arm.modelData*11

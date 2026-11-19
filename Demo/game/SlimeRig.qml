@@ -3,6 +3,7 @@ import QtQuick3D
 
 Node {
     id: slime
+    property var surfaces:null
 
     required property int targetId
     required property bool horned
@@ -34,7 +35,7 @@ Node {
     PrincipledMaterial { id: pupil; baseColor: "#21140c"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: glow; baseColor: slime.accent; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: teeth; baseColor: "#d4c58a"; roughness: .52 }
-    PrincipledMaterial { id: horn; baseColor: "#62522e"; roughness: .60 }
+    LitSurface { surfaces:slime.surfaces; finish:"hide"; id:horn; baseColor: "#62522e"; roughness: .60 }
 
     Model {
         source: "#Sphere"

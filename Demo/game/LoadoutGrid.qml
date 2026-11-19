@@ -110,6 +110,8 @@ RowLayout {
                         Accessible.description: (grid.offerId.length && spec ? "Replace " + spec.title + ". " : "")
                             + (power.title ? power.title + ". " + power.description : "")
                         hintEnabled: hovered && (!!spec || !!power.title)
+                        hintStats: hovered && track.group==="weapon" && item && item!==Gear.current(grid.run)
+                            ? Gear.weaponComparison(grid.run,Gear.current(grid.run),item) : []
                         hintDelay: 420
                         entryChapter:spec ? (track.group==="weapon" ? "weapons" : "abilities") : "shop"
                         entryId:spec ? (spec.debugOnly ? "" : spec.id) : power.id || ""

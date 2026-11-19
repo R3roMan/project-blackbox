@@ -5,6 +5,7 @@ import "Rules.js" as Rules
 
 Node {
     id: beast
+    property var surfaces:null
     required property var enemy
     required property int revision
     required property bool animate
@@ -38,14 +39,13 @@ Node {
     readonly property real jaw: leviathan && special ? Math.min(1,.22+special.time / Math.max(.1,special.warning)*.65)
         : grabbing ? .89 : Math.min(1,tell*.86+flash*.15)
 
-    PrincipledMaterial {
-        id: skin
+    LitSurface { surfaces:beast.surfaces; finish:"hide"; id:skin
         baseColor: beast.flash ? Qt.lighter(beast.spec.skin,1.36) : beast.spec.skin
         roughness: beast.fish ? .46 : .78
         metalness: beast.crystal ? .69 : .12
     }
-    PrincipledMaterial { id: voidSkin; baseColor: "#100915"; roughness: .68 }
-    PrincipledMaterial { id: pale; baseColor: "#d6c0ab"; roughness: .38 }
+    LitSurface { surfaces:beast.surfaces; finish:"hide"; id:voidSkin; baseColor: "#100915"; roughness: .68 }
+    LitSurface { surfaces:beast.surfaces; finish:"hide"; id:pale; baseColor: "#d6c0ab"; roughness: .38 }
     PrincipledMaterial { id: glow; baseColor: beast.spec.accent; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: blue; baseColor: "#54bfe8"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: gold; baseColor: "#f3dd83"; roughness: .28; metalness: .63 }

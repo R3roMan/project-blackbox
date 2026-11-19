@@ -57,19 +57,19 @@ for (const item of passiveRows) {
 }
 
 var actives = {
-    guardPulse:{ id:"guardPulse",title:"Guard pulse",category:"Active",rarity:"epic",cooldown:25,
+    guardPulse:{ id:"guardPulse",title:"Guard pulse",category:"Active",rarity:"epic",cooldown:22,
         description:"Spend the force stored by recent shield blocks to release a shockwave. A raised shield drops when you spend it." },
-    reserveGuard:{ id:"reserveGuard",title:"Reserve guard",category:"Active",rarity:"epic",cooldown:26,
+    reserveGuard:{ id:"reserveGuard",title:"Reserve guard",category:"Active",rarity:"epic",cooldown:19,
         description:"Take four seconds off your shield recovery. If a temporary barrier is up, restore one barrier charge." },
     sureStrike:{ id:"sureStrike",title:"Sure strike",category:"Active",rarity:"rare",cooldown:22,
         description:"Your next weapon attack is a guaranteed critical if it connects. The strength upgrade raises its critical damage." },
     sharpen:{ id:"sharpen",title:"Sharpen",category:"Active",rarity:"rare",cooldown:21,
         description:"For six seconds, melee strikes have higher critical chance and critical damage." },
-    riskCharge:{ id:"riskCharge",title:"Blood gamble",category:"Active",rarity:"legendary",cooldown:34,
+    riskCharge:{ id:"riskCharge",title:"Blood gamble",category:"Active",rarity:"legendary",cooldown:24,
         description:"Spend 15 HP for six seconds of greatly increased critical chance." },
-    critMark:{ id:"critMark",title:"Fatal mark",category:"Active",rarity:"epic",cooldown:25,
+    critMark:{ id:"critMark",title:"Fatal mark",category:"Active",rarity:"epic",cooldown:20,
         description:"Mark the enemy under your aim. Attacks against it gain critical chance for six seconds." },
-    criticalEcho:{ id:"criticalEcho",title:"Critical echo",category:"Active",rarity:"epic",cooldown:27,locked:true,
+    criticalEcho:{ id:"criticalEcho",title:"Critical echo",category:"Active",rarity:"epic",cooldown:23,locked:true,
         description:"Release your last critical hit as a smaller pulse into nearby enemies. Consumes the stored hit." }
 }
 
@@ -85,13 +85,13 @@ var rituals = [
     ["slingCast","Sling cast","rare",21,"axePrep",.7,"Recover a thrown axe faster and strengthen the next throw."],
     ["pinpointDust","Pinpoint dust","rare",24,"sight",7,"Tighten your shot spread for seven seconds."],
     ["steadyCharm","Steady charm","rare",23,"cleanFrost",2.5,"Clear Frost and briefly speed up turns."],
-    ["glassVault","Glass vault","epic",27,"shieldWindow",.59,"Give your raised shield one extra block and shorten your next shot recovery."],
-    ["fireline","Fireline","epic",27,"ember",6.4,"Ignite the closest enemy on each wallpaper."],
-    ["clawStop","Claw stop","epic",29,"interrupt",3.2,"Interrupt two charging enemies and damage them lightly."],
-    ["sporeVise","Spore vise","epic",26,"corrode",5.2,"Poison one target and weaken its attack before it reaches you."],
-    ["coilTrigger","Coil trigger","epic",27,"burstPulse",4.9,"Fire a kinetic pulse that gains strength from an equipped burst gun."],
-    ["flashCoins","Flash mint","epic",30,"mint",1,"Aiming at a gift cashes it in and showers nearby threats with sparks."],
-    ["ladderLight","Ladder light","legendary",32,"pierceScroll",8.5,"Send a piercing shock through three enemies lined up in depth."]
+    ["glassVault","Glass vault","epic",22,"shieldWindow",.59,"Give your raised shield one extra block and shorten your next shot recovery."],
+    ["fireline","Fireline","epic",24,"ember",6.4,"Ignite the closest enemy on each wallpaper."],
+    ["clawStop","Claw stop","epic",21,"interrupt",3.2,"Interrupt two charging enemies and damage them lightly."],
+    ["sporeVise","Spore vise","epic",20,"corrode",5.2,"Poison one target and weaken its attack before it reaches you."],
+    ["coilTrigger","Coil trigger","epic",21,"burstPulse",4.9,"Fire a kinetic pulse that gains strength from an equipped burst gun."],
+    ["flashCoins","Flash mint","epic",20,"mint",1,"Aiming at a gift cashes it in and showers nearby threats with sparks."],
+    ["ladderLight","Ladder light","legendary",24,"pierceScroll",8.5,"Send a piercing shock through three enemies lined up in depth."]
 ]
 for (const row of rituals) {
     const [id,title,rarity,cooldown,mode,strength,description] = row

@@ -5,6 +5,7 @@ import "Encounters.js" as Mission
 import "EnemyLore.js" as Lore
 import "MusterData.js" as Muster
 import "Conditions.js" as Weather
+import "Pets.js" as Pets
 import "../ui" as Ui
 
 Item {
@@ -14,6 +15,8 @@ Item {
     required property var discoveries
     signal entryRequested(string chapter, string id)
     property bool software: false
+    property int detail:1
+    property var companion:null
     property bool motion: true
     property bool compact: false
     property real paradeHeight: 160
@@ -48,9 +51,9 @@ Item {
             }
             Text {
                 readonly property var weather:Weather.entries[muster.stage.weather] || Weather.entries.clear
-                readonly property bool blood:muster.stage.night==="bloodMoon"
+                readonly property bool blood:muster.stage.sky==="bloodMoon"
                 visible:weather.id !== "clear" || blood
-                text:(weather.id!=="clear" ? weather.glyph+" "+weather.title : "")+(blood ? (weather.id!=="clear" ? "  ·  " : "")+"Blood Moon" : "")
+                text:(weather.id!=="clear" ? weather.glyph+" "+Weather.weatherLabel(weather.id,muster.stage) : "")+(blood ? (weather.id!=="clear" ? "  ·  " : "")+"Blood Moon" : "")
                 color:blood ? "#f09c9a" : weather.tint
                 font.family:"Inter"
                 font.pixelSize:Ui.UiMetrics.text(muster.compact ? 12 : 15)
@@ -111,7 +114,66 @@ Item {
             anchors.fill:parent
             anchors.margins:6
             active:!muster.software
-            sourceComponent:MusterScene3D {company:muster.company; placements:muster.placements; motion:muster.motion}
+            sourceComponent:MusterScene3D {company:muster.company; placements:muster.placements; detail:muster.detail; motion:muster.motion}
+        }
+        Loader {
+            id:companionCorner
+            objectName:"musterCompanion"
+            anchors.right:parent.right
+            anchors.bottom:parent.bottom
+            anchors.rightMargin:5
+            anchors.bottomMargin:8
+            width: muster.compact ? 88 : 128
+            height:Math.min(parade.height*.57,muster.compact ? 81 : 122)
+            active:!!muster.companion
+            visible:active
+            z:5
+            sourceComponent:Item {
+                readonly property real clock:muster.motion ? flight : 0
+                property real flight:0
+                Timer {
+                    running:muster.motion && companionCorner.visible;repeat:true;interval:60
+                    onTriggered:parent.flight=(parent.flight+.060)%60
+                }
+                Rectangle {
+                    anchors.horizontalCenter:parent.horizontalCenter
+                    anchors.bottom:parent.bottom
+                    anchors.bottomMargin:15
+                    width:parent.width*.7;height:5;radius:2
+                    color:"#91ae8bca"
+                }
+                Loader {
+                    anchors.fill:parent
+                    anchors.bottomMargin:16
+                    sourceComponent:muster.software ? petFlat : petNative
+                }
+                Component {
+                    id:petNative
+                    PetPortrait3D {
+                        helper:muster.companion
+                        detailed:muster.detail>=2
+                        clock:companionCorner.item?.clock || 0
+                        animate:muster.motion
+                    }
+                }
+                Component {
+                    id:petFlat
+                    ProjectedPet {helper:muster.companion;flap:Math.sin(companionCorner.item?.clock*4 || 0)}
+                }
+                Text {
+                    anchors.bottom:parent.bottom
+                    width:parent.width
+                    text:muster.companion.title
+                    font.family:"Inter"
+                    font.pixelSize:Ui.UiMetrics.text(muster.compact ? 10 : 12)
+                    horizontalAlignment:Text.AlignHCenter
+                    elide:Text.ElideRight
+                    color:Pets.uniqueColor
+                    style:Text.Outline
+                    styleColor:"#24172f"
+                    Accessible.name:"Companion "+text
+                }
+            }
         }
         MouseArea {
             id:paradeHover

@@ -11,7 +11,7 @@ Item {
             width:parent.width;columns:width>720 ? 2 : 1;columnSpacing:16;rowSpacing:12
             Repeater {
                 model:[
-                    {title:"LOOK & AIM",rows:[["A D / ← →","Look left / right; walk back through the shrine."],["W S / ↑ ↓","Sky and Abyss are reached from the shrine."],["Mouse edges","Cross an edge once to turn; move away to re-arm it."],["Hold Shift","Use your weapon’s scope and hold the current view."]]},
+                    {title:"LOOK & AIM",rows:[["A D / ← →","Look left / right; walk back through the shrine."],["W S / ↑ ↓","Sky and Abyss are reached from the shrine."],["Mouse edges","Cross an edge once to turn; move away to re-arm it."],["Hold Shift","Aim a gun to mark on hit for 4s. Lean in with a staff or melee weapon."]]},
                     {title:"FIRE & DEFEND",rows:[["Left mouse / hold","Fire. Hold to repeat; watch the reticle recover."],["R / right mouse","Reload, melee trick, staff spell or trident stab."],["Hold Space","Raise shield. Release to shoot. Blocking spends it."],["Perfect block","A block within 0.2 seconds credits 25% recovery."]]},
                     {title:"YOUR BUILD",rows:[["1 / 2 / wheel","Choose your first or second weapon."],["Q / E","Independent active abilities and cooldown bars."],["T / Esc","Pause and inspect your combined loadout and bag."],["Between waves","Drag items to slots; hover for effects and upgrades."]]},
                     {title:"SURVIVE",rows:[["Hold F in Abyss","Seal the pool for this wave. Progress is saved."],[". / timer setting","Show or hide elapsed wave time."],["1× corner button","Cycle 1×, 2× and 0.5× simulation speed."],["F11","Toggle full screen. Tutorial battle teaches the basics."]]}

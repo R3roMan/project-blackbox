@@ -20,9 +20,9 @@ var arrivalSpacing = 1.16
 var enemyTypes = {
     silophosus: {
         id: "silophosus", title: "Silophosus", role: "ground", health: 2, damage: 7,
-        speed: 150, pace: "Medium", reach: 270, interval: 3.0, windup: 0.85,
+        speed: 335, pace: "Very high", reach: 270, interval: 3.0, windup: 0.85,
         skin: "#b95e30", accent: "#ffc670", size: 1, shake: [5, 2, 0.20, 74],
-        description: "A light melee demon with little health and a weak strike."
+        description: "A light melee demon that closes ground quickly. Its jaw opens wide before a weak bite."
     },
     fhantamegus: {
         id: "fhantamegus", title: "Fhantamegus", role: "ground", health: 8, damage: 13,
@@ -167,6 +167,12 @@ var enemyTypes = {
         dodge:2,maneuver:true,
         description:"A fast fighter that slips erratically across Star Sky and dodges a held aim at level 2."
     },
+    veilskate: {
+        id:"veilskate",title:"Veilskate",role:"alien",health:4.5,damage:12,
+        speed:65,pace:"Low",distance:6500,reach:6500,interval:7.2,windup:1.5,crit:.40,
+        boltTime:2.15,boltHealth:3,skin:"#35474a",accent:"#66ff35",size:.79,shake:[8,4,.24,70],
+        description:"A small camouflaged alien that drifts sideways at extreme range. Its green plasma balls hit for medium damage and have a 40% critical chance."
+    },
     hasasasa: {
         id:"hasasasa",title:"Hasasasa Forum",role:"boss",ship:true,health:218,damage:18,barrier:4,
         speed:0,pace:"Stationary",reach:spawnDistance,interval:3.7,windup:1.02,
@@ -305,6 +311,7 @@ var introductions = [
     {wave:13,type:"fizzalien",front:"up",weight:3},
     {wave:15,type:"ghorimagous",front:"left",weight:3,heavy:true},
     {wave:17,type:"bergensus",front:"right",weight:4},
+    {wave:18,type:"veilskate",front:"up",weight:2.3},
     {wave:19,type:"gojemarus",front:"front",weight:1.5,rare:true},
     {wave:21,type:"gendoustagus",front:"left",weight:3,rare:true},
     {wave:22,type:"mothergalian",front:"up",weight:1,heavy:true,rare:true},
@@ -336,7 +343,7 @@ var attackStyles = {
     claptrap:"cryoRay", mystery:"tendrils", crawler:"voidLash", meteor:"impact", helboranius:"armClap", jos:"stoneHands",
     lucifoverus:"trident", gendoustagus:"hexPuff", jon:"strafingBolt", hasasasa:"cannon", nindumipus:"claws",
     iceterapus:"iceFist", seraphijus:"detonate", stinkaturumus:"poisonBreath", saslimigus:"slimeSpit",
-    battlestar:"cannon", skarabatunus:"headbutt", capablancamus:"executioner", trispiramahedus:"magnetBolt",
+    veilskate:"bolt", battlestar:"cannon", skarabatunus:"headbutt", capablancamus:"executioner", trispiramahedus:"magnetBolt",
     helesepeptium:"snakeLightning", fetaSpotter:"rifleLock", nosferapabakus:"feedingBite",voidGlitch:"fracture",
     tenmani:"tendrils", lantis:"jawSnap", shadow:"executioner", faeel:"snakeLightning", nightosphere:"hexPuff",
     endme:"claws", archfellanus:"trident", reapfast:"jawSnap", hallucination:"lunge", lalaBubu:"strafingBolt",
@@ -387,12 +394,12 @@ var enemyRanks = {
     capablancamus:"Nightmare", trispiramahedus:"Nightmare", helesepeptium:"Nightmare",
     fetaSpotter:"Nightmare", nosferapabakus:"Nightmare", nightosphere:"Nightmare", endme:"Nightmare",
     archfellanus:"Nightmare", faeel:"Nightmare", fearme:"Nightmare",harvester:"Nightmare",
-    silophosus:"Normal", fhantamegus:"Normal", spartalien:"Normal", crawler:"Normal", fizzalien:"Normal",
+    silophosus:"Normal", fhantamegus:"Normal", spartalien:"Normal", crawler:"Normal", fizzalien:"Normal", veilskate:"Normal",
     ghorimagous:"Ascended", bergensus:"Normal", gojemarus:"Normal", gendoustagus:"Normal", skorochiyus:"Normal",crufixicatus:"Normal"
 }
 
 function tier(type) {
-    if (enemyTypes[type].role === "boss")
+    if (enemyTypes[type]?.role === "boss")
         return "Overlord"
     return enemyRanks[type] || "Ascended"
 }
@@ -479,7 +486,7 @@ function waveBudget(wave, preset) {
     }
 }
 
-function stageWeather(wave, seed, preset) {
+function stageWeather(wave, seed, preset, sky) {
     const rate = Conditions.frequency(preset)
     if (incursion(wave,seed,rate))
         return "incursion"
@@ -496,7 +503,11 @@ function stageWeather(wave, seed, preset) {
         && Conditions.roll(wave,seed,0x7c193a31) < .067*rate)
         return "meteor"
     if (inferno(wave,seed,rate)) return "inferno"
-    return wave>=3 && Conditions.roll(wave,seed,0x74ce32ab)<.19*rate ? "fog" : "clear"
+    if (wave>=3 && Conditions.roll(wave,seed,0x74ce32ab)<.19*rate) return "fog"
+    if (wave>=2 && Conditions.roll(wave,seed,0x67821a4c)<.19*rate) return "cloudy"
+    if (wave>=4 && !Conditions.isNight(sky || Conditions.waveSky(wave,seed))
+        && Conditions.roll(wave,seed,0x624b930d)<.12*rate) return "heatwave"
+    return "clear"
 }
 
 function planWave(wave, seed, preset, resonance, forcedWeather, forcedLayer) {
@@ -507,9 +518,10 @@ function planWave(wave, seed, preset, resonance, forcedWeather, forcedLayer) {
     }
     const budget = waveBudget(wave,preset)
     const ranks = Object.assign({},budget.ranks)
-    const forcedNight = Conditions.isNight(forcedWeather)
-    const night = forcedNight ? forcedWeather : wave===1 ? "night" : Conditions.nightVariant(wave,seed)
-    const condition = forcedLayer || (forcedWeather && !forcedNight ? forcedWeather : stageWeather(wave,seed,preset))
+    const sky=Conditions.waveSky(wave,seed,forcedWeather)
+    const requested=forcedLayer || (forcedWeather && !Conditions.validSky(forcedWeather) ? forcedWeather : stageWeather(wave,seed,preset,sky))
+    const condition=requested==="windyCloudy" ? "windy" : requested==="heatwave" && Conditions.isNight(sky) ? "clear" : requested
+    const extraWeather=requested==="windyCloudy" ? "cloudy" : forcedLayer ? "" : Conditions.companionWeather(condition,wave,seed)
     const groups = []
     const fresh = introductions.find(function(entry) { return entry.wave === wave })
     const pool = introductions.filter(function(entry) { return entry.wave < wave }).map(function(entry) {
@@ -531,7 +543,7 @@ function planWave(wave, seed, preset, resonance, forcedWeather, forcedLayer) {
         }
         ranks[rank] -= count
     }
-    if (night === "bloodMoon") {
+    if (sky === "bloodMoon") {
         const rank = ranks.Nightmare > 0 ? "Nightmare" : ranks.Ascended > 0 ? "Ascended" : "Normal"
         ranks[rank] -= 1
         groups.push({type:"blandromedus",count:1,front:"front",late:true})
@@ -668,7 +680,6 @@ function planWave(wave, seed, preset, resonance, forcedWeather, forcedLayer) {
         if (index === 2 && wave === 2)
             home = "left"
         const arrival={at:at,type:group.type,front:home,lane:index ? Math.round(random()*250-125) : 0,units:group.units}
-        if (group.late) arrival.skyGate=.61
         chosen.push(arrival)
         at += budget.gap+(index > 0 && (index+1)%budget.groupSize === 0 ? budget.rest : 0)
     }
@@ -684,9 +695,7 @@ function planWave(wave, seed, preset, resonance, forcedWeather, forcedLayer) {
         group.origin = enemyTypes[group.type].origin
         actualRanks[group.rank] += group.count
     }
-    const lastArrival=chosen.length ? chosen[chosen.length-1].at : .42
-    const skySeconds=Math.max(12,lastArrival/.70+(final ? 20 : 3))
-    return {wave:wave,difficulty:preset || "normal",weather:condition,night:night,skySeconds:skySeconds,enemyCount:budget.total,
+    return {wave:wave,difficulty:preset || "normal",weather:condition,extraWeather:extraWeather,sky:sky,enemyCount:budget.total,
         variety:groups.length,ranks:actualRanks,groups:groups,schedule:chosen,
         concurrent:maxConcurrent(wave,preset),label:wave > 10 && budget.step <= 2 ? "Aftermath" : final ? "Overlord" : budget.step >= 8 ? "Surge" : "Approach"}
 }

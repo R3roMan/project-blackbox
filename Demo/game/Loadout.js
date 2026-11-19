@@ -113,7 +113,7 @@ var activeAbilities = {
         element:"electric", elementLevel:1, description: "Release a white-violet electric pulse from the closest target." },
     ward: { id: "ward", title: "Ward", category: "Active", rarity: "rare", cooldown:21,
         description: "Raise a two-charge barrier for 3.6 seconds. Each charge absorbs one hit." },
-    trauma: { id: "trauma", title: "Trauma patch", category: "Active", rarity: "epic", cooldown:32,
+    trauma: { id: "trauma", title: "Trauma patch", category: "Active", rarity: "epic", cooldown:24,
         description: "Recover 29 health." },
     interceptor: { id: "interceptor", title: "Interceptor", category: "Active", rarity: "common", cooldown:12, firstOfferWave: 3,
         description: "Destroy incoming bolts on the front you are looking at." },
@@ -121,13 +121,13 @@ var activeAbilities = {
         element:"blind", elementLevel:1, description: "Hold enemy attacks briefly and blind the targets on this wallpaper." },
     breaker: { id: "breaker", title: "Barrier breaker", category: "Active", rarity: "rare", cooldown:14, firstOfferWave: 5,
         description: "Shatter every enemy barrier on the front you are looking at." },
-    stasis: { id: "stasis", title: "Time snare", category: "Active", rarity: "epic", cooldown:26,
+    stasis: { id: "stasis", title: "Time snare", category: "Active", rarity: "epic", cooldown:23,
         description: "Freeze movement and attacks on this front for 3 seconds." },
-    overdrive: { id: "overdrive", title: "Overdrive", category: "Active", rarity: "epic", cooldown:25,
+    overdrive: { id: "overdrive", title: "Overdrive", category: "Active", rarity: "epic", cooldown:21,
         description: "Shorten shot recovery by 32% for 6.5 seconds." },
     sunfall: { id: "sunfall", title: "Sunfall", category: "Active", rarity: "legendary", cooldown:39,
         element:"burn", elementLevel:2, description: "Burn enemies across all fronts and clear every incoming bolt." },
-    reclaim: { id: "reclaim", title: "Reclaim", category: "Active", rarity: "legendary", cooldown:31,
+    reclaim: { id: "reclaim", title: "Reclaim", category: "Active", rarity: "legendary", cooldown:22,
         description: "Refill every carried gun and finish their shot recovery." },
     sealcharge: { id:"sealcharge", title:"Seal charge", category:"Active", rarity:"rare", cooldown:20, firstOfferWave:9,
         description:"Throw a charge into the Abyss to hold a Void creature back and complete 72% of its seal." },
@@ -139,11 +139,11 @@ var activeAbilities = {
         element:"blind", elementLevel:2, description:"Shatter barriers and blind the blast area. Add sealing progress in the Abyss." },
     flashflare: { id:"flashflare", title:"Flash flare", category:"Active", rarity:"rare", cooldown:19, locked:true,
         element:"stun", elementLevel:1, description:"Stun enemies on this wallpaper and mark them for bonus damage on your next hit." },
-    repairkit: { id:"repairkit", title:"Emergency solder", category:"Active", rarity:"epic", cooldown:29, locked:true,
+    repairkit: { id:"repairkit", title:"Emergency solder", category:"Active", rarity:"epic", cooldown:24, locked:true,
         description:"Clear Poison, heal 12% of maximum health and refill the current weapon." },
     arcshield: { id:"arcshield", title:"Arc shield", category:"Active", rarity:"legendary", cooldown:30, locked:true,
         element:"electric", elementLevel:1, description:"Raise a two-charge barrier. Intercept incoming bolts here and discharge Electric damage into the nearest enemy." },
-    gravitywell: { id:"gravitywell", title:"Graviton grenade", category:"Active", rarity:"legendary", cooldown:32, locked:true,
+    gravitywell: { id:"gravitywell", title:"Graviton grenade", category:"Active", rarity:"legendary", cooldown:24, locked:true,
         element:"explosive", elementLevel:2, description:"Trap a group in a delayed blast and push nearby threats deeper into the field." },
     reversal: { id:"reversal", title:"Reversal pulse", category:"Active", rarity:"legendary", cooldown:32, locked:true,
         element:"weaken", elementLevel:1, description:"Reload, repel and weaken enemies nearby. Recover health in a critical state." }
@@ -201,7 +201,7 @@ var passives = {
     chainfuse: { id:"chainfuse", title:"Chain fuse", category:"Passive", rarity:"epic",
         description:"Death blasts prime survivors and deal more damage. Lv 2 expands the blast." },
     rewire: { id:"rewire", title:"Second look", category:"Passive", rarity:"rare",
-        description:"Adds one refresh to each selection. Upgrades lower shop prices and improve mega coin drops." }
+        description:"Adds one extra free reroll per run while equipped. Upgrades lower shop prices and improve Mega Gift coin drops." }
 }
 
 var kits = [
@@ -295,6 +295,10 @@ for (const group of Object.keys(slotPowers))
 
 function usesAmmo(spec) {
     return !spec.melee && !spec.sustain && !spec.throwing && !spec.staff && !spec.stab
+}
+
+function hasGunSights(spec) {
+    return !spec.melee && !spec.throwing && !spec.staff && !spec.stab
 }
 
 function makeItem(id) {
@@ -984,19 +988,25 @@ function makeShop(run, random, excluded, maximum) {
             options.splice(index, 1)
     }
 
+    function drawGear(rarity,prefix,price) {
+        if (stock.length>=limit) return
+        const pool=Object.values(weapons).concat(Object.values(activeAbilities),Object.values(passives)).filter(function(item) {
+            return item.rarity===rarity && canOffer(run,item)
+                && !blocked.includes("stock-"+item.id) && !blocked.includes("premium-"+item.id)
+                && !stock.some(function(card){return card.gearId===item.id})
+        })
+        const item=pickRarityItem(run,pool,random())
+        if (item) stock.push({id:prefix+item.id,action:"gear",gearId:item.id,group:groupOf(item),
+            title:item.title,rarity:item.rarity,cost:price,description:item.description})
+    }
+
     const odds=shopOdds(run.shopQuality || 0)
     const roll = random()
-    if (roll < odds.premium) {
-        const rarity = roll < odds.legendary ? "legendary" : "epic"
-        const premium = Object.values(activeAbilities).concat(Object.values(passives),Object.values(weapons)).filter(function(item) {
-            return item.rarity === rarity && !blocked.includes("premium-" + item.id) && canOffer(run, item)
-        })
-        if (premium.length) {
-            const item = pickRarityItem(run,premium,random())
-            stock.push({ id:"premium-" + item.id, action:"gear", gearId:item.id, group:groupOf(item),
-                title:item.title, rarity:item.rarity, cost:rarity === "legendary" ? 850 : 590,
-                description:item.description })
-        }
+    if (roll<odds.premium)
+        drawGear(roll<odds.legendary ? "legendary" : "epic","premium-",roll<odds.legendary ? 850 : 590)
+    if (limit>=2 || !stock.length) {
+        const rare=random()<.68
+        drawGear(rare ? "rare" : "common","stock-",rare ? 460 : 325)
     }
     if (stock.length < limit && !blocked.includes("slot-power") && random() < .75) {
         stock.push(slotOffer(run, random))
@@ -1103,15 +1113,55 @@ function scramble(run, random) {
     return changes.length > 0
 }
 
+function availableGold(run) {
+    return run.debug && run.debugMoney ? Infinity : run.gold
+}
+
+function chargeGold(run,amount) {
+    if (!(run.debug && run.debugMoney)) run.gold-=amount
+}
+
+function refundableRank(run,group,id) {
+    if (run.phase!=="shop" || !["active","passive"].includes(group)) return 0
+    const item=ownedItem(run,group,id)
+    return item?.paidRanks?.[item.level-1] || 0
+}
+
+function refundableAbilities(run) {
+    const items=[]
+    for (const group of ["active","passive"]) {
+        const ids=run.slots[group].map(function(slot){return slot.item?.id})
+            .concat(run.inventory.filter(function(entry){return entry?.group===group}).map(function(entry){return entry.item.id}))
+        for (const id of ids) {
+            const amount=refundableRank(run,group,id)
+            if (amount) items.push({group:group,id:id,title:catalogs[group][id].title,amount:amount})
+        }
+    }
+    return items
+}
+
+function refundAbility(run,group,id) {
+    const amount=refundableRank(run,group,id)
+    if (!amount) return 0
+    const item=ownedItem(run,group,id)
+    item.paidRanks[item.level-1]=0
+    item.level-=1
+    run.gold+=amount
+    clampStats(run)
+    return amount
+}
+
 function buy(run, id, preferred, random, confirmed) {
     if (run.phase !== "shop")
         return false
     const stored = shopCards(run).find(function(entry) { return entry.id === id })
     const card = id==="expand-counter" ? counterOffer(run) : stored
-    if (!card || card.sold || run.gold < card.cost)
+    if (!card || card.sold || availableGold(run) < card.cost)
         return false
 
     const slots = run.slots[card.group]
+    const abilityRank=["gear","upgrade"].includes(card.action) && ["active","passive"].includes(card.group)
+        ? ownedItem(run,card.group,card.gearId) : null
     switch (card.action) {
     case "scramble":
         if (!random || !scramble(run,random))
@@ -1152,9 +1202,9 @@ function buy(run, id, preferred, random, confirmed) {
         if (!gear)
             return false
         const index = run.shopStock.indexOf(card)
-        run.gold -= card.cost
+        chargeGold(run,card.cost)
         run.shopStock[index] = {id:card.id, action:"gear", gearId:gear.id, group:groupOf(gear), title:gear.title,
-            rarity:gear.rarity, description:gear.description, cost:0, paid:true, sold:false}
+            rarity:gear.rarity, description:gear.description, cost:0, paidPrice:(run.debug && run.debugMoney) ? 0 : card.cost, paid:true, sold:false}
         return true
     }
     case "shield-upgrade":
@@ -1230,9 +1280,46 @@ function buy(run, id, preferred, random, confirmed) {
     }
     const index = run.shopStock.indexOf(card)
     if (index >= 0) run.shopStock[index] = Object.assign({}, card, { sold:true })
-    run.gold -= card.cost
+    const paid=run.debug && run.debugMoney ? 0 : card.cost+(card.paidPrice || 0)
+    if (abilityRank && paid) {
+        if (!abilityRank.paidRanks) abilityRank.paidRanks=[0,0,0]
+        abilityRank.paidRanks[abilityRank.level-1]=paid
+    }
+    chargeGold(run,card.cost)
     clampStats(run)
     return true
+}
+
+function fireRate(spec,stats) {
+    const burst=spec.burst && spec.burst.count || 1
+    return burst/Math.max(.01,stats.delay+(spec.chargeEachShot ? stats.spinup : 0),spec.burst ? (burst-1)*spec.burst.interval : 0)
+}
+
+function weaponComparison(run,reference,item) {
+    if (!reference || !item || !weapons[item.id] || !weapons[reference.id]) return []
+    const from=weapons[reference.id], to=weapons[item.id]
+    const left=run ? effectiveWeaponStats(run,reference) : weaponStats(reference)
+    const right=run ? effectiveWeaponStats(run,item) : weaponStats(item)
+    const boon=run && run.boons ? 1+run.boons.damage : 1
+    const rows=[]
+    function add(label,before,after,unit,invert) {
+        const original=Number(before.toFixed(2)), offered=Number(after.toFixed(2))
+        rows.push({label:label,original:original+unit,offered:offered+unit,
+            delta:Math.sign(offered-original)*(invert ? -1 : 1)})
+    }
+    add("Damage / attack",left.damage*(from.spread ? from.spread.length : 1)*boon,
+        right.damage*(to.spread ? to.spread.length : 1)*boon,"",false)
+    add("Fire rate",fireRate(from,left),fireRate(to,right),"/s",false)
+    if (usesAmmo(to)) {
+        if (usesAmmo(from)) {
+            add("Magazine",left.capacity,right.capacity,"",false)
+            add("Reload",left.reload,right.reload,"s",true)
+        } else {
+            rows.push({label:"Magazine",original:"—",offered:String(right.capacity),delta:0})
+            rows.push({label:"Reload",original:"—",offered:right.reload.toFixed(2)+"s",delta:0})
+        }
+    }
+    return rows
 }
 
 function weaponClass(weapon) {
@@ -1248,7 +1335,7 @@ function itemDetails(run,group,item) {
     if (group==="weapon") {
         const stats=run ? effectiveWeaponStats(run,item) : weaponStats(item)
         const damage=stats.damage*(1+(run?.boons?.damage || 0))
-        lines.push("Damage "+damage.toFixed(2)+" per hit"+(spec.spread ? " × "+spec.spread.length+" pellets" : "")+" · attack interval "+stats.delay.toFixed(2)+"s")
+        lines.push("Damage "+damage.toFixed(2)+" per hit"+(spec.spread ? " × "+spec.spread.length+" pellets" : "")+" · fire rate "+fireRate(spec,stats).toFixed(2)+"/s")
         if (usesAmmo(spec)) lines.push("Magazine "+stats.capacity+" · reload "+stats.reload.toFixed(2)+"s")
         else if (spec.staff) lines.push("Spell charge "+(item.charge || 0)+" / "+stats.chargeCost+" attacks · R / right-click to cast")
         else if (spec.melee || spec.throwing) lines.push("R / right-click: "+(spec.melee ? "weapon trick, then a stronger charging strike" : "draw and spin the next axe"))

@@ -14,6 +14,7 @@ Node {
     property real blindness: 0
     property string viewedFront: "front"
     property int grabId: 0
+    property var surfaces:null
     readonly property var creature: Rules.enemyTypes[enemy.type]
     readonly property bool angel: creature.role === "angel" || !!creature.angel
     readonly property bool shade: enemy.type === "mystery"
@@ -24,11 +25,12 @@ Node {
     readonly property bool anger: { revision; return enemy.anger || false }
     readonly property bool cover: { revision; return enemy.type === "jos" && enemy.front === viewedFront }
     readonly property var pose: Attacks.pose(enemy)
-    readonly property real jawOpen: Math.max(0, strike)*pose[3]+(warning ? Math.abs(strike)*.15 : 0)
-    readonly property real strike: { revision; return Attacks.amount(enemy, warning, animate) }
+    readonly property real windup: { revision; return Rules.warningProgress(enemy) }
+    readonly property real jawOpen: Math.max(Math.max(0,-strike)*1.55, Math.max(0,strike)*.53)*pose[3]
+    readonly property real strike: { revision; return Attacks.amount(enemy, windup, animate) }
     opacity: shade || creature.voidBoss ? 1 : 1 - blindness * .94
     readonly property bool alien: creature.role === "alien"
-    readonly property bool fighter: ["spartalien","fizzalien","mothergalian"].includes(enemy.type)
+    readonly property bool fighter: ["spartalien","fizzalien","mothergalian","veilskate"].includes(enemy.type)
     readonly property var details: Livery.details[enemy.type]
     readonly property bool crawler: creature.role === "void"
     readonly property bool abyssRig: creature.abyss && !shade && !creature.voidBoss
@@ -75,14 +77,18 @@ Node {
         return Qt.vector3d(location.pitch, location.yaw, 0)
     }
 
-    PrincipledMaterial {
-        id: outer
+    LitSurface {
+        surfaces:actor.surfaces;finish:"hide"
+        id:outer
         baseColor: actor.anger ? "#efacb6" : actor.ghost ? "#80848d" : actor.frozen ? "#8ccdf4" : actor.hurt ? actor.creature.accent : actor.creature.skin
-        roughness: 0.76
+        roughness:actor.boss && actor.surfaces?.detailed ? .49 : .76
     }
-    PrincipledMaterial { id: bone; baseColor: actor.ghost ? "#a0a1a6" : Qt.lighter(actor.creature.skin, 1.45); roughness: 0.78 }
-    PrincipledMaterial {
-        id: membrane
+    LitSurface {
+        surfaces:actor.surfaces;finish:"hide"
+        id:bone; baseColor: actor.ghost ? "#a0a1a6" : Qt.lighter(actor.creature.skin, 1.45); roughness: 0.78 }
+    LitSurface {
+        surfaces:actor.surfaces;finish:"weave"
+        id:membrane
         baseColor: actor.ghost ? "#737680" : Qt.darker(actor.creature.skin, 1.21)
         roughness: 0.82
     }
@@ -92,7 +98,9 @@ Node {
         lighting: PrincipledMaterial.NoLighting
     }
     PrincipledMaterial { id: dark; baseColor: "#1e1322"; lighting: PrincipledMaterial.NoLighting }
-    PrincipledMaterial { id: enamel; baseColor: actor.ghost ? "#acb0b5" : "#f1d7b7"; roughness: 0.65 }
+    LitSurface {
+        surfaces:actor.surfaces;finish:"hide"
+        id:enamel; baseColor: actor.ghost ? "#acb0b5" : "#f1d7b7"; roughness: 0.65 }
     PrincipledMaterial {
         id: gateLight
         baseColor: { actor.revision; return Rules.warpColor(actor.enemy) }
@@ -112,6 +120,15 @@ Node {
             return Qt.vector3d(Rules.lanePosition(actor.enemy), Rules.elevation(actor.enemy), -actor.enemy.depth)
         }
         scale: Qt.vector3d(actor.size, actor.size, actor.size)
+        Loader3D {
+            active:actor.boss && !actor.preview && !!actor.surfaces?.detailed && actor.warp<=0
+            sourceComponent:BossPresence3D {
+                enemy:actor.enemy
+                revision:actor.revision
+                tint:actor.creature.accent
+                motion:actor.animate
+            }
+        }
 
         Node {
             id: body
@@ -133,8 +150,21 @@ Node {
                 sourceComponent: Node {
                     SickleHornGeometry { id: hornShape }
                     ScallopedWingGeometry { id: wingShape }
-                    PrincipledMaterial { id: hornIvory; baseColor: Qt.lighter(actor.creature.skin,1.65); roughness:.65; cullMode:Material.NoCulling }
-                    PrincipledMaterial { id: wingHide; baseColor:Qt.darker(actor.creature.skin,1.35); roughness:.72; cullMode:Material.NoCulling }
+                    LitSurface {
+                        id:hornIvory
+                        surfaces:actor.surfaces
+                        baseColor:Qt.lighter(actor.creature.skin,1.65)
+                        roughness:.65
+                        cullMode:Material.NoCulling
+                    }
+                    LitSurface {
+                        id:wingHide
+                        surfaces:actor.surfaces
+                        finish:"weave"
+                        baseColor:Qt.darker(actor.creature.skin,1.35)
+                        roughness:.72
+                        cullMode:Material.NoCulling
+                    }
                     Repeater3D {
                         model:[-1,1]
                         Node {
@@ -166,11 +196,11 @@ Node {
             }
             Loader3D {
                 active:actor.fighter
-                sourceComponent:AlienFighterRig {enemy:actor.enemy; spec:actor.creature; live:actor.warp<=0; strike:actor.strike}
+                sourceComponent:AlienFighterRig { surfaces:actor.surfaces; enemy:actor.enemy; spec:actor.creature; live:actor.warp<=0; strike:actor.strike}
             }
             Loader3D {
                 active:!!actor.creature.vampire
-                sourceComponent:BlandromedusRig {
+                sourceComponent:BlandromedusRig { surfaces:actor.surfaces
                     targetId:actor.enemy.id
                     clock:actor.animate ? actor.age : .35
                     strike:actor.strike
@@ -181,16 +211,17 @@ Node {
             Loader3D {
                 objectName:"fatDemonLoader"
                 active:actor.fatRig
-                sourceComponent:FatDemonRig {
+                sourceComponent:FatDemonRig { surfaces:actor.surfaces
                     enemy:actor.enemy
                     revision:actor.revision
+                    windup:actor.windup
                     live:actor.warp<=0
                     molt:{actor.revision;return actor.enemy.trainingMolt || (actor.enemy.anger ? 1 : 0)}
                 }
             }
             Loader3D {
                 active: actor.angel && !actor.abyssRig
-                sourceComponent: AngelRig {
+                sourceComponent: AngelRig { surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     kind: actor.enemy.type
                     skin: actor.creature.skin
@@ -207,7 +238,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.battlestar
-                sourceComponent: BattlestarRig {
+                sourceComponent: BattlestarRig { surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     charging: { actor.revision; return actor.enemy.beamWarning > 0 }
@@ -217,7 +248,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.skeleton
-                sourceComponent: SkeletalRig {
+                sourceComponent: SkeletalRig { surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     clock: actor.animate ? actor.age : 0
@@ -235,7 +266,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.serpent
-                sourceComponent: SerpentRig {
+                sourceComponent: SerpentRig { surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     phase: actor.animate ? actor.age : 0
@@ -255,7 +286,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.devour
-                sourceComponent: DevourerRig {
+                sourceComponent: DevourerRig { surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     clock: actor.animate ? actor.age : 0
@@ -270,7 +301,7 @@ Node {
             }
             Loader3D {
                 active: actor.abyssRig
-                sourceComponent: AbyssRig {
+                sourceComponent: AbyssRig { surfaces:actor.surfaces
                     enemy: actor.enemy
                     revision: actor.revision
                     animate: actor.animate
@@ -305,7 +336,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.slime
-                sourceComponent: SlimeRig {
+                sourceComponent: SlimeRig { surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     horned: actor.boss
                     live: actor.warp <= 0
@@ -395,6 +426,20 @@ Node {
                         z: 20
                         scale: Qt.vector3d(.095,.225,.059)
                         materials: [dark]
+                    }
+                    Repeater3D {
+                        model: actor.creature.origin==="Hellborne" ? 4 : 0
+                        Model {
+                            required property int index
+                            readonly property int side: index%2 ? 1 : -1
+                            source: "#Sphere"
+                            x: side*(index<2 ? 11 : 15)
+                            y: index<2 ? 8 : 13
+                            z: index<2 ? 15.7 : 13.4
+                            eulerRotation.z: side*(index<2 ? 20 : -40)
+                            scale: Qt.vector3d(.090,.018,.028)
+                            materials: [saliva]
+                        }
                     }
                     Node {
                         id: jawFace

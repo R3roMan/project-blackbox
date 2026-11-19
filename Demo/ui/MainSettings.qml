@@ -1,22 +1,37 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import "../game" as Game
 
 Item {
     id:page
     objectName:"mainSettings"
     required property var display
-    required property bool sound
+    property int initialDetail:display.detail
     required property bool motion
     property string status:""
     signal displayRequested(string key,var value)
-    signal soundRequested()
     signal motionRequested()
     signal exportRequested()
     signal importRequested()
     signal closeRequested()
 
+    readonly property var fronts:["front","left","right","up","down"]
+    function setBackground(url) {
+        const files=Object.assign({},display.backgroundFiles || {})
+        const key=fronts[wallChoice.currentIndex]
+        if (url.length) files[key]=url
+        else delete files[key]
+        displayRequested("backgroundFiles",files)
+    }
+    FileDialog {
+        id:wallPicker
+        title:"Choose wallpaper"
+        fileMode:FileDialog.OpenFile
+        nameFilters:["Images (*.png *.jpg *.jpeg *.webp)"]
+        onAccepted:page.setBackground(String(selectedFile))
+    }
     Rectangle { anchors.fill:parent; color:"#15101b" }
     Shortcut { sequence:"Escape"; onActivated:page.closeRequested() }
     ScrollView {
@@ -48,6 +63,20 @@ Item {
                         Layout.fillWidth:true
                         Layout.alignment:Qt.AlignTop
                         SettingsTitle {text:"Display and accessibility"}
+                        RowLayout {
+                            Layout.fillWidth:true
+                            ComboBox {
+                                id:wallChoice
+                                Layout.fillWidth:true
+                                model:["Shrine","Lakeside","Droid Lab","Star Sky","Abyss"]
+                            }
+                            ActionButton {text:"Choose image…";onClicked:wallPicker.open()}
+                            ActionButton {
+                                text:"Reset"
+                                enabled:!!page.display.backgroundFiles?.[page.fronts[wallChoice.currentIndex]]
+                                onClicked:page.setBackground("")
+                            }
+                        }
                         Game.DisplaySettings {
                             Layout.fillWidth:true
                             fit:page.display.framing
@@ -57,11 +86,13 @@ Item {
                             showTimer:page.display.showTimer
                             autoSave:page.display.autoSave
                             detail:page.display.detail
+                            initialDetail:page.initialDetail
                             transitionStyle:page.display.transitionStyle
                             transitionStrength:page.display.transitionStrength
                             onFrameLimitChangedByUser:function(value) {page.displayRequested("frameLimit",value)}
                             onTimerChangedByUser:function(value) {page.displayRequested("showTimer",value)}
                             onAutoSaveChangedByUser:function(value) {page.displayRequested("autoSave",value)}
+                            onHudScaleChangedByUser:function(value) {page.displayRequested("hudScale",value)}
                             onTextScaleChangedByUser:function(value) {page.displayRequested("textScale",value)}
                             onFitChangedByUser:function(value) {page.displayRequested("framing",value)}
                             onQualityChangedByUser:function(value) {page.displayRequested("quality",value)}
@@ -78,7 +109,10 @@ Item {
                         SettingsCard {
                             Layout.fillWidth:true
                             SettingsTitle {text:"Sound and controls"}
-                            SettingsCheck { text:"Sound"; checked:page.sound; onClicked:page.soundRequested() }
+                            AudioSettings {
+                                Layout.fillWidth:true
+                                onLevelRequested:function(key,value){page.displayRequested(key,value)}
+                            }
                             SettingsCheck { text:"Animation"; checked:page.motion; onClicked:page.motionRequested() }
                             SettingsCheck { text:"Mouse edge turns"; checked:page.display.mouseTurns; onClicked:page.displayRequested("mouseTurns",checked) }
                         }

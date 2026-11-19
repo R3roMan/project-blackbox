@@ -3,7 +3,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtCore
 import QtQuick.Dialogs
-import "../V0.1/kde/contents/ui" as Template
 import "game" as Game
 import "ui" as Ui
 import "game/Progress.js" as Progress
@@ -26,19 +25,15 @@ ApplicationWindow {
     readonly property bool software: Qt.application.arguments.indexOf("--software") >= 0
         || view.softwareBackend || graphicsFailed
     property bool graphicsFailed: false
+    property int initialDetail:1
     property string page: "home"
-    property bool sound: display.audioEnabled && !Qt.application.arguments.includes("--mute")
+    readonly property bool sound: display.audioMaster>0 && !Qt.application.arguments.includes("--mute")
     property bool motion: display.animationEnabled
-    onSoundChanged:if (!Qt.application.arguments.includes("--mute")) display.audioEnabled=sound
     onMotionChanged:display.animationEnabled=motion
     property bool tutorial:false
     property string pendingResume:""
     property string bookChapter:""
     property string bookEntry:""
-    property int recordIndex:0
-    readonly property var reports: [careerVault.state.best,careerVault.state.last].concat(careerVault.state.archive).filter(function(report,index,list) {
-        return report && list.findIndex(function(other) {return other?.id===report.id})===index
-    })
     readonly property bool bookVisible:bookChapter.length>0
 
     function openBook(chapter,id) {
@@ -49,15 +44,18 @@ ApplicationWindow {
     readonly property var known: readCodex(codex.entries)
     readonly property var profile: Progress.withGrades(Progress.read(codex.career),careerVault.state)
     readonly property var unlocks: Progress.unlocked(profile,codex.unlockAchievements)
-    readonly property var continuedRun:page==="home" ? SaveData.savedChoice(codex.savedRun,codex.previousRun,unlocks) : null
+    readonly property var continuedRun:page==="home" ? SaveData.savedChoice(codex.savedRun,codex.previousRun,unlocks,careerVault.state) : null
     readonly property string continueSummary: !continuedRun ? "No saved run" : continuedRun.training ? "Tutorial checkpoint"
-        : "Wave "+continuedRun.wave+" · "+continuedRun.difficulty+(continuedRun.debug || careerVault.state.settled[continuedRun.attemptId] ? " · Practice" : "")
+        : "Wave "+continuedRun.wave+" · "+continuedRun.difficulty+(continuedRun.debug ? " · Practice" : "")
             +(continuedRun.restored ? " · Recovered save" : "")
 
     function saveRun(data) {
-        if (!SaveData.decodeRun(data,unlocks)) return false
-        if (codex.savedRun && SaveData.decodeRun(codex.savedRun,unlocks))
+        const run=SaveData.decodeRun(data,unlocks)
+        if (!run || SaveData.isClosed(run,careerVault.state)) return false
+        if (SaveData.closesCheckpoint(codex.savedRun,run.attemptId,run.seed) && SaveData.decodeRun(codex.savedRun,unlocks))
             codex.previousRun=codex.savedRun
+        else if (!SaveData.closesCheckpoint(codex.previousRun,run.attemptId,run.seed))
+            codex.previousRun=""
         codex.savedRun=data
         codex.sync()
         return codex.savedRun===data
@@ -79,6 +77,7 @@ ApplicationWindow {
         id: display
         location: codex.location
         category: "Display"
+        property var backgroundFiles: ({})
         property string framing: "fill"
         property int quality: 0
         property real zoom: 1
@@ -88,11 +87,23 @@ ApplicationWindow {
         property int detail:1
         property string transitionStyle:"cinematic"
         property real transitionStrength:1
+        property real hudScale:1
         property real textScale:1
         property bool autoSave:true
         property bool audioEnabled:true
+        property real audioMaster:audioEnabled ? 1 : 0
+        property real audioMusic:1
+        property real audioEffects:1
+        property real audioAmbience:1
+        property real audioInterface:1
         property bool animationEnabled:true
     }
+    Binding {target:Ui.SoundMix;property:"master";value:display.audioMaster}
+    Binding {target:Ui.SoundMix;property:"music";value:display.audioMusic}
+    Binding {target:Ui.SoundMix;property:"effects";value:display.audioEffects}
+    Binding {target:Ui.SoundMix;property:"ambience";value:display.audioAmbience}
+    Binding {target:Ui.SoundMix;property:"interfaceGain";value:display.audioInterface}
+    Binding { target:Ui.UiMetrics; property:"hudScale"; value:display.hudScale }
     Binding { target:Ui.UiMetrics; property:"textScale"; value:display.textScale }
 
     Shortcut {
@@ -135,14 +146,16 @@ ApplicationWindow {
         tutorial=false
         const saved = continuing ? continuedRun : null
         if (continuing && !saved) return
+        if (menuSound.item) menuSound.item.play(saved ? "continue-game" : "new-game",.72)
         pendingResume = saved ? saved.data : ""
         page = "play"
     }
 
     function displayValues() {
-        return {framing:display.framing,quality:display.quality,zoom:display.zoom,mouseTurns:display.mouseTurns,
+        return {backgroundFiles:display.backgroundFiles,framing:display.framing,quality:display.quality,zoom:display.zoom,mouseTurns:display.mouseTurns,
             frameLimit:display.frameLimit,showTimer:display.showTimer,detail:display.detail,transitionStyle:display.transitionStyle,transitionStrength:display.transitionStrength,
-            textScale:display.textScale,autoSave:display.autoSave}
+            hudScale:display.hudScale,textScale:display.textScale,autoSave:display.autoSave,
+            audioMaster:display.audioMaster,audioMusic:display.audioMusic,audioEffects:display.audioEffects,audioAmbience:display.audioAmbience,audioInterface:display.audioInterface}
     }
 
     function changeDisplay(key,value) {
@@ -153,7 +166,7 @@ ApplicationWindow {
         const store = backupStore.createObject(window,{location:file})
         careerVault.reload()
         const payload = SaveData.bundle(profile,known,codex.unlockAchievements,displayValues(),sound,motion,
-            SaveData.savedChoice(codex.savedRun,codex.previousRun,unlocks)?.data || "",careerVault.state)
+            SaveData.savedChoice(codex.savedRun,codex.previousRun,unlocks,careerVault.state)?.data || "",careerVault.state)
         store.setValue("payload",payload)
         store.sync()
         store.destroy()
@@ -174,14 +187,14 @@ ApplicationWindow {
         // Keep recovery data for the imported run independent of the previous profile.
         codex.previousRun = ""
         codex.savedRun = incoming.runSave
-        if (incoming.vault) careerVault.replace(incoming.vault)
+        careerVault.importLedger(incoming.vault || Meta.fresh())
+        if (codex.savedRun && !SaveData.savedChoice(codex.savedRun,"",unlocks,careerVault.state)) codex.savedRun=""
         for (const key of Object.keys(incoming.display))
             display[key] = incoming.display[key]
-        sound = incoming.sound
         motion = incoming.motion
         codex.sync()
         display.sync()
-        settingsStatus = "Progress imported. Continue opens the saved run."
+        settingsStatus = codex.savedRun ? "Progress imported. Continue opens the saved run." : "Progress imported."
         return true
     }
 
@@ -216,9 +229,8 @@ ApplicationWindow {
         id: view
         anchors.fill: parent
         readonly property bool softwareBackend: GraphicsInfo.api === GraphicsInfo.Software
-        sourceComponent: window.page === "play" ? playPage : window.page === "xd" ? xdPage
+        sourceComponent: window.page === "play" ? playPage
             : window.page === "home" ? homePage : window.page === "settings" ? settingsPage
-            : window.page === "achievements" ? achievementsPage
             : window.page === "witch" ? witchPage : window.page === "record" ? recordPage
             : window.page === "controls" || window.page === "codex" ? referencePage : galleryPage
     }
@@ -229,6 +241,7 @@ ApplicationWindow {
         z:30
         active:window.page==="play" && window.bookVisible
         sourceComponent:Ui.ReferencePage {
+            sound:window.sound && window.activeHome
             artDirectory:window.art
             firstTab:window.bookChapter || "enemies"
             firstEntry:window.bookEntry
@@ -247,19 +260,26 @@ ApplicationWindow {
 
     readonly property Game.PlayScene currentPlay: page === "play" && view.item && view.item.objectName === "playScene" ? view.item as Game.PlayScene : null
     Component.onCompleted: {
+        window.initialDetail=display.detail
         if (Screen.width * Screen.devicePixelRatio >= 3840 && Screen.height * Screen.devicePixelRatio >= 2000)
             showMaximized()
     }
 
     Loader {
-        active: window.sound
+        id:menuSound
+        active:window.visible && window.sound
+        sourceComponent:Game.CuePlayer {allowed:window.activeHome;capacity:9}
+    }
+
+    Loader {
+        active: window.visible && window.sound
         sourceComponent: Game.Music {
             enabledSound: window.sound
             activeWindow: window.activeHome
             track: window.bookVisible ? "book" : window.currentPlay ? window.currentPlay.musicTrack
-                : window.page === "witch" ? "book"
-                : window.page === "home" || window.page === "record" || window.page === "controls" || window.page === "codex" || window.page === "achievements"
-                    ? (window.page==="codex" || window.page==="achievements" ? "book" : "home") : ""
+                : window.page === "witch" ? "witch"
+                : window.page === "home" || window.page === "record" || window.page === "controls" || window.page === "codex"
+                    ? (window.page==="codex" ? "book" : "home") : ""
             quiet: !window.bookVisible && window.currentPlay ? window.currentPlay.paused : false
             variation: !window.bookVisible && window.currentPlay ? window.currentPlay.musicVariation : ""
         }
@@ -269,147 +289,144 @@ ApplicationWindow {
         id: homePage
 
         Item {
+            id:home
             Image {
-                anchors.fill: parent
-                source: String(window.art) + "shrine.png"
-                fillMode: Image.PreserveAspectCrop
+                anchors.fill:parent
+                source:String(window.art)+"shrine.png"
+                fillMode:Image.PreserveAspectCrop
             }
             Rectangle {
-                anchors.fill: parent
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0; color: "#f40e0b15" }
-                    GradientStop { position: 0.43; color: "#d9120c17" }
-                    GradientStop { position: 1; color: "#11100d16" }
+                anchors.fill:parent
+                gradient:Gradient {
+                    orientation:Gradient.Horizontal
+                    GradientStop {position:0;color:"#f7110b16"}
+                    GradientStop {position:.40;color:"#d1110c17"}
+                    GradientStop {position:.79;color:"#3b100a15"}
+                    GradientStop {position:1;color:"#0f160b19"}
                 }
             }
             Rectangle {
-                anchors.bottom: parent.bottom
-                width: parent.width
-                height: parent.height * 0.35
-                gradient: Gradient {
-                    GradientStop { position: 0; color: "#00110d18" }
-                    GradientStop { position: 1; color: "#f6110d18" }
+                anchors.bottom:parent.bottom
+                width:parent.width;height:parent.height*.28
+                gradient:Gradient {
+                    GradientStop {position:0;color:"#00120e18"}
+                    GradientStop {position:1;color:"#eb120e18"}
                 }
             }
+            Ui.HomeSparks {anchors.fill:parent;animate:window.motion;exposed:window.activeHome}
             Column {
-                anchors.verticalCenter: parent.verticalCenter
-                x: Math.max(34, parent.width * 0.069)
-                width: Math.min(parent.width - x - 28, 602)
-                spacing: 12
+                id:homeMenu
+                x:Math.max(27,parent.width*.074)
+                anchors.verticalCenter:parent.verticalCenter
+                width:Math.min(parent.width-x-24,550)
+                spacing:home.height<600 ? 9 : 13
 
                 Text {
-                    text: "HOME SHRINE"
-                    color: "#ffc295"
-                    font.family: "IBM Plex Mono"
-                    font.pixelSize: Ui.UiMetrics.text(14)
-                    font.letterSpacing: 4
+                    text:"PROJECT"
+                    color:"#ffbe94"
+                    font.family:"IBM Plex Mono"
+                    font.pixelSize:Ui.UiMetrics.text(13)
+                    font.letterSpacing:5
                 }
                 Text {
-                    width: parent.width
-                    text: "BLACKBOX"
-                    color: "#fff1e6"
-                    font.family: "Archivo Black"
-                    font.weight: Font.Black
-                    font.pixelSize: Math.min(78, parent.width / 5.4)
-                    font.letterSpacing: -2
+                    text:"BLACKBOX"
+                    color:"#fff4e7"
+                    font.family:"Archivo Black"
+                    font.weight:Font.Black
+                    font.letterSpacing:-1
+                    font.pixelSize:Math.min(home.height*.125,homeMenu.width*.155,84)
                 }
-                Text {
-                    width: Math.min(parent.width, 340)
-                    text: "Hold the Shrine against waves from five fronts."
-                    color: "#f1d8d2"
-                    wrapMode: Text.WordWrap
-                    font.family: "Inter"
-                    font.pixelSize: Ui.UiMetrics.text(18)
-                }
-                Text {
-                    objectName: "bestWaveRecord"
-                    text: "BEST WAVE   " + (window.profile.bestWave || "—")
-                    color: "#f3bc94"
-                    font.family: "IBM Plex Mono"
-                    font.pixelSize: Ui.UiMetrics.text(13)
-                }
+                Rectangle {width:Math.min(parent.width,420);height:1;color:"#90614f"}
                 Row {
-                    spacing:8
+                    spacing:10
+                    Ui.ActionButton {
+                        objectName:"openPlay"
+                        text:"New game"
+                        primary:!window.continuedRun
+                        implicitWidth:Math.max(170,implicitContentWidth+35)
+                        implicitHeight:Math.max(49,Ui.UiMetrics.text(16)+22)
+                        onClicked:window.beginGame(false)
+                    }
                     Ui.ActionButton {
                         objectName:"continueRun"
                         enabled:!!window.continuedRun
                         Accessible.description:window.continueSummary
                         text:"Continue"
-                        primary:true
-                        implicitWidth:Math.max(144,implicitContentWidth+24)
-                        implicitHeight:Math.max(47,Ui.UiMetrics.text(16)+22)
+                        primary:!!window.continuedRun
+                        implicitWidth:Math.max(145,implicitContentWidth+35)
+                        implicitHeight:Math.max(49,Ui.UiMetrics.text(16)+22)
                         onClicked:window.beginGame(true)
-                    }
-                    Ui.ActionButton {
-                        objectName:"openPlay"
-                        text:"New game"
-                        primary:!window.continuedRun
-                        implicitWidth:Math.max(174,implicitContentWidth+24)
-                        implicitHeight:Math.max(47,Ui.UiMetrics.text(16)+22)
-                        onClicked:window.beginGame(false)
                     }
                 }
                 Text {
-                    text:window.continueSummary
-                    color:window.continuedRun ? "#efd2b5" : "#beb0c1"
-                    font.family:"Inter"
-                    font.pixelSize:Ui.UiMetrics.text(13)
+                    objectName:"bestWaveRecord"
+                    text:(window.continuedRun ? window.continueSummary+"  ·  " : "")+"Best wave "+(window.profile.bestWave || "—")
+                    color:"#e7c5ab"
+                    font.family:"IBM Plex Mono"
+                    font.pixelSize:Ui.UiMetrics.text(12)
                 }
-                Flow {
-                    width:parent.width
-                    spacing:8
+                Grid {
+                    columns:2
+                    spacing:6
+                    readonly property real controlWidth:Math.min((homeMenu.width-6)*.5,210)
                     Ui.ActionButton {
                         objectName:"openWitchShop"
-                        text:"Witch’s Vault · ◆ "+careerVault.state.gems
+                        width:parent.controlWidth
+                        text:"◆  Witch’s Vault · "+careerVault.state.gems
                         accent:"#d09be9"
                         onClicked:{careerVault.reload();window.page="witch"}
                     }
                     Ui.ActionButton {
+                        objectName:"openCodex"
+                        width:parent.controlWidth
+                        text:"▣  Grimoire"
+                        onClicked:window.page="codex"
+                    }
+                    Ui.ActionButton {
                         objectName:"openRunRecord"
-                        text:"Expedition record · "+(careerVault.state.best?.grades.overall || "—")
-                        enabled:window.reports.length>0
-                        onClicked:{window.recordIndex=0;window.page="record"}
+                        width:parent.controlWidth
+                        text:"✦  Expedition records"
+                        onClicked:window.page="record"
+                    }
+                    Ui.ActionButton {
+                        objectName:"openTutorial"
+                        width:parent.controlWidth
+                        text:"▷  Tutorial battle"
+                        onClicked:{
+                            if (menuSound.item) menuSound.item.play("new-game",.72)
+                            window.tutorial=true
+                            window.pendingResume=""
+                            window.page="play"
+                        }
                     }
                 }
-                Flow {
-                    width:parent.width
-                    spacing:8
-                    Ui.ActionButton {objectName:"openTutorial";text:"Tutorial battle";onClicked:{window.tutorial=true;window.pendingResume="";window.page="play"}}
-                    Ui.ActionButton { objectName: "openControls"; text: "Controls"; onClicked: window.page = "controls" }
-                    Ui.ActionButton { objectName: "openCodex"; text: "Grimoire"; onClicked: window.page = "codex" }
-                    Ui.ActionButton { objectName: "openAchievements"; text: "Achievements"; onClicked: window.page = "achievements" }
-                    Ui.ActionButton {objectName:"openSettings"; text:"Settings"; onClicked:window.page="settings"}
-                }
                 Row {
-                    spacing: 8
-                    Ui.ActionButton { text: "Idle"; onClicked: window.page = "idle" }
-                    Ui.ActionButton { text: "Performance"; onClicked: window.page = "performance" }
-                    Ui.ActionButton { text: "XD courtyard"; enabled: !window.software; onClicked: window.page = "xd" }
+                    spacing:6
+                    Ui.ActionButton {
+                        objectName:"openSettings"
+                        text:"⚙"
+                        Accessible.name:"Settings"
+                        hintText:"Settings"
+                        implicitWidth:42
+                        onClicked:window.page="settings"
+                    }
+                    Ui.ActionButton {
+                        objectName:"openIdle"
+                        text:"☽"
+                        Accessible.name:"Idle wallpaper"
+                        hintText:"Idle wallpaper"
+                        implicitWidth:42
+                        onClicked:window.page="idle"
+                    }
+                    Ui.ActionButton {
+                        objectName:"openControls"
+                        text:"?"
+                        Accessible.name:"Controls"
+                        hintText:"Controls"
+                        implicitWidth:42
+                        onClicked:window.page="controls"
+                    }
                 }
-            }
-            Row {
-                anchors.left: parent.left
-                anchors.bottom: parent.bottom
-                anchors.margins: 22
-                spacing: 8
-                Ui.ActionButton {
-                    text: window.sound ? "Mute" : "Sound"
-                    onClicked: window.sound = !window.sound
-                }
-                Ui.ActionButton {
-                    text: window.motion ? "Motion on" : "Motion off"
-                    onClicked: window.motion = !window.motion
-                }
-            }
-            Text {
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.margins: 25
-                text: window.software ? "Software playfield" : ""
-                color: "#ded0d7"
-                font.family: "IBM Plex Mono"
-                font.pixelSize: 12
             }
         }
     }
@@ -420,42 +437,27 @@ ApplicationWindow {
             ledger:careerVault.state
             motion:window.motion
             vaultOpened:window.profile.wave100Boss>0
-            onPurchaseRequested:function(id) {careerVault.purchase(id)}
-            onCardRequested:function(id) {careerVault.turnCard(id)}
+            onPurchaseRequested:function(id) {if (careerVault.purchase(id) && menuSound.item) menuSound.item.play("buy",.72)}
+            onRefundRequested:function(id) {if (careerVault.refund(id) && menuSound.item) menuSound.item.play("buy",.72)}
+            onPracticePurchase:if (menuSound.item) menuSound.item.play("buy",.72)
+            onCardRequested:function(id) {if (careerVault.turnCard(id) && menuSound.item) menuSound.item.play("book-flip",.66)}
             onBackRequested:window.goHome()
         }
     }
 
     Component {
         id:recordPage
-        Item {
-            ColumnLayout {
-                anchors.centerIn:parent
-                width:Math.min(parent.width-30,810)
-                height:Math.min(parent.height-26,580*Math.sqrt(Ui.UiMetrics.textScale))
-                ComboBox {
-                    objectName:"archivedAttempts"
-                    Layout.fillWidth:true
-                    model:window.reports.map(function(report,index) {
-                        return (index===0 ? "Best · " : "")+report.grades.overall+" · Wave "+report.wave+" · "+new Date(report.date*1000).toLocaleDateString(Qt.locale())
-                    })
-                    currentIndex:window.recordIndex
-                    onActivated:window.recordIndex=currentIndex
-                }
-                Ui.RunPostcard {
-                    Layout.fillWidth:true
-                    Layout.fillHeight:true
-                    reviewing:true
-                    report:window.reports[window.recordIndex] || null
-                    onExitRequested:window.goHome()
-                }
-            }
+        Ui.ExpeditionRecords {
+            best:careerVault.state.best
+            archived:careerVault.state.archive.slice().sort(function(a,b) { return b.date-a.date })
+            onCloseRequested:window.goHome()
         }
     }
 
     Component {
         id: referencePage
         Ui.ReferencePage {
+            sound:window.sound && window.activeHome
             artDirectory: window.art
             motion:window.motion
             firstTab: window.page === "controls" ? "controls" : "enemies"
@@ -470,30 +472,13 @@ ApplicationWindow {
     }
 
     Component {
-        id: achievementsPage
-        Ui.ReferencePage {
-            artDirectory:window.art
-            motion:window.motion
-            firstTab:"achievements"
-            known:window.known
-            unlocks:window.unlocks
-            career:window.profile
-            nextTerms:Meta.contract(careerVault.state)
-            achievementsUnlocked: codex.unlockAchievements
-            onUnlockToggleRequested: codex.unlockAchievements = !codex.unlockAchievements
-            onCloseRequested: window.goHome()
-        }
-    }
-
-    Component {
         id:settingsPage
         Ui.MainSettings {
             display:window.displayValues()
-            sound:window.sound
+            initialDetail:window.initialDetail
             motion:window.motion
             status:window.settingsStatus
             onDisplayRequested:function(key,value) {window.changeDisplay(key,value)}
-            onSoundRequested:window.sound=!window.sound
             onMotionRequested:window.motion=!window.motion
             onExportRequested:exportDialog.open()
             onImportRequested:importDialog.open()
@@ -523,19 +508,29 @@ ApplicationWindow {
             knownEnemies:window.known.enemies
             resumeState:window.pendingResume
             graphicsDetail:display.detail
+            initialDetail:window.initialDetail
             transitionStyle:display.transitionStyle
             transitionStrength:display.transitionStrength
             autoSave:display.autoSave
+            onCheckpointClosed:function(id,seed) {
+                if (SaveData.closesCheckpoint(codex.savedRun,id,seed)) {
+                    codex.savedRun=""
+                    codex.previousRun=""
+                } else if (SaveData.closesCheckpoint(codex.previousRun,id,seed)) codex.previousRun=""
+                codex.sync()
+            }
             onSaveRequested:function(data,automatic) {
                 const saved=window.saveRun(data)
                 if (!automatic || !saved)
                     play.saveNotice=saved ? "Saved · Wave "+(play.wave || play.upcomingStage.wave) : "Save failed"
             }
+            onHudScaleRequested:function(value) { display.hudScale=value }
             onTextScaleRequested:function(value) { display.textScale=value }
             onAutoSaveRequested:function(value) { display.autoSave=value }
             onDetailRequested:function(value) {display.detail=value}
             onTransitionStyleRequested:function(value) {display.transitionStyle=value}
             onTransitionStrengthRequested:function(value) {display.transitionStrength=value}
+            backgroundFiles: display.backgroundFiles || ({})
             wallpaperFit: display.framing
             wallpaperQuality: display.quality
             wallpaperZoom: display.zoom
@@ -545,7 +540,7 @@ ApplicationWindow {
             onQualityRequested: function(value) { display.quality = value }
             onZoomRequested: function(value) { display.zoom = value }
             onExitRequested: window.goHome()
-            onSoundRequested: window.sound = !window.sound
+            onAudioLevelRequested:function(key,value) {window.changeDisplay(key,value)}
             onMotionRequested: window.motion = !window.motion
             onGraphicsUnavailable: window.graphicsFailed = true
             onDiscovered: function(group, entry) { window.remember(group, entry) }
@@ -571,7 +566,7 @@ ApplicationWindow {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     x: 14
-                    text: gallery.performance ? "Performance" : "Idle"
+                    text:"Idle wallpaper"
                     color: "#ffdec7"
                     font.family: "Inter"
                     font.pixelSize: 15
@@ -585,8 +580,9 @@ ApplicationWindow {
                     onClicked: window.goHome()
                 }
             }
-            Template.Scene {
+            Game.AmbientGallery {
                 id: gallery
+                sceneryDetail:display.detail
                 anchors.top: galleryBar.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -594,7 +590,7 @@ ApplicationWindow {
                 preview: true
                 focus: true
                 exposed: window.activeHome
-                mode: window.page === "performance" ? "performance" : "wallpaper"
+                mode:"wallpaper"
                 motionAllowed: window.motion
             }
             Shortcut {
@@ -602,63 +598,6 @@ ApplicationWindow {
                 enabled: !gallery.drawerOpen && !gallery.clean
                 onActivated: window.goHome()
             }
-        }
-    }
-
-    Component {
-        id: xdPage
-        Item {
-            id: xd
-            property real orbit: 0
-            Loader {
-                id: courtyard
-                anchors.fill: parent
-                active: window.activeHome
-                sourceComponent: Component {
-                    Game.Shrine3D {
-                        motion: window.motion && window.activeHome
-                        orbit: xd.orbit
-                    }
-                }
-            }
-            Timer {
-                interval: 1500
-                running: courtyard.active
-                onTriggered: {
-                    const scene = courtyard.item as Game.Shrine3D
-                    if (scene && scene.effectiveTextureSize.width <= 0) {
-                        window.graphicsFailed = true
-                        window.goHome()
-                    }
-                }
-            }
-            DragHandler {
-                target: null
-                property real startOrbit: 0
-                onActiveChanged: if (active) startOrbit = xd.orbit
-                onActiveTranslationChanged: {
-                    if (active)
-                        xd.orbit = Math.max(-38, Math.min(38, startOrbit + activeTranslation.x * 0.17))
-                }
-            }
-            RowLayout {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.margins: 18
-                Text {
-                    Layout.fillWidth: true
-                    text: "XD courtyard · Drag to orbit"
-                    color: "#fff0df"
-                    font.family: "Inter"
-                    font.pixelSize: 17
-                    font.weight: Font.Bold
-                    style: Text.Outline
-                    styleColor: "#241727"
-                }
-                Ui.ActionButton { text: "Back to Home · Esc"; onClicked: window.goHome() }
-            }
-            Shortcut { sequence: "Escape"; onActivated: window.goHome() }
         }
     }
 }

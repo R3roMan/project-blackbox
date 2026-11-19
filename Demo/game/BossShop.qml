@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import "../ui" as Ui
 import "Loadout.js" as Gear
 import "Pets.js" as Pets
+import "Selection.js" as Draw
 
 ColumnLayout {
     id: shop
@@ -16,8 +17,12 @@ ColumnLayout {
     readonly property bool stacked: width < 590
     signal entryRequested(string chapter, string id)
     signal purchaseRequested(string offerId, int slot, string confirmed)
+    signal freezeRequested(string offerId)
+    signal refundRequested(string group,string id)
+    readonly property var refundable:{revision;return Gear.refundableAbilities(run)}
+    property bool refundsOpen:false
 
-    readonly property int balance: { revision; return run.gold }
+    readonly property real balance: { revision; return Gear.availableGold(run) }
     readonly property var cards: { revision; return Gear.shopCards(run) }
     readonly property var expansion:{revision;return Gear.counterOffer(run)}
     readonly property int edition: { revision; return run.shopEdition }
@@ -49,6 +54,13 @@ ColumnLayout {
         if (offer.action === "upgrade" && run.slots[offer.group][offer.index].item)
             return Gear.catalogs[offer.group][run.slots[offer.group][offer.index].item.id]
         return Object.assign({shopItem:true},offer)
+    }
+
+    function compared(offer) {
+        if (!offer || offer.group!=="weapon" || !offer.gearId) return []
+        const owned=Gear.ownedItem(run,"weapon",offer.gearId)
+        const level=offer.action==="upgrade" ? offer.level : owned ? Math.min(3,owned.level+1) : 0
+        return Gear.weaponComparison(run,Gear.current(run),{id:offer.gearId,level:level})
     }
 
     function details(offer) {
@@ -84,7 +96,7 @@ ColumnLayout {
 
     ShopBench {
         Layout.fillWidth: true
-        Layout.preferredHeight: shop.compact ? 95 : 149
+        Layout.preferredHeight:shop.compact ? 106 : 165
         nativeScene: shop.nativeScene
         motion: shop.motion
         cards: shop.cards
@@ -93,7 +105,7 @@ ColumnLayout {
 
     RowLayout {
         Layout.fillWidth:true
-        spacing:6
+        spacing:8
         Text {
             Layout.fillWidth:true
             text:{ shop.revision;return shop.run.shopCapacity+" / 8 listings open  ·  Stock quality "+(shop.run.shopQuality || 0)+"/3" }
@@ -104,6 +116,7 @@ ColumnLayout {
             wrapMode:Text.WordWrap
         }
         Ui.ActionButton {
+            accent:"#d0a46e"
             visible:!!shop.expansion
             objectName:"expandShopCounter"
             text:shop.expansion ? shop.expansion.title+" · "+shop.expansion.cost+" gold" : ""
@@ -113,6 +126,14 @@ ColumnLayout {
             enabled:!!shop.expansion && shop.balance>=shop.expansion.cost
             onEntryRequested:function(chapter,id) {shop.entryRequested(chapter,id)}
             onClicked:shop.purchaseRequested("expand-counter",-1,"")
+        }
+        Ui.ActionButton {
+            accent:"#d0a46e"
+            visible:shop.refundable.length>0
+            objectName:"showRefunds"
+            text:"Refund ranks"
+            primary:shop.refundsOpen
+            onClicked:shop.refundsOpen=!shop.refundsOpen
         }
         Ui.ActionButton {
             objectName:"shopLedger"
@@ -138,6 +159,24 @@ ColumnLayout {
         }
     }
 
+    Flow {
+        Layout.fillWidth:true
+        visible:shop.refundsOpen && shop.refundable.length>0
+        spacing:5
+        Repeater {
+            model:shop.refundable
+            Ui.ActionButton {
+                required property var modelData
+                text:modelData.title+" · +"+modelData.amount+" gold"
+                hintText:"Refund the last paid rank."
+                onClicked:shop.refundRequested(modelData.group,modelData.id)
+                TapHandler {
+                    acceptedButtons:Qt.RightButton
+                    onTapped:shop.refundRequested(parent.modelData.group,parent.modelData.id)
+                }
+            }
+        }
+    }
     GridLayout {
         Layout.fillWidth: true
         columns:shop.stacked ? 1 : 2
@@ -171,7 +210,8 @@ ColumnLayout {
                     required property var modelData
                     objectName: "shop-" + modelData.id
                     Layout.fillWidth: true
-                    implicitHeight: Math.max(shop.compact ? 43 : 49,Ui.UiMetrics.text(28)+11)
+                    implicitHeight:Math.max(shop.compact ? 45 : 57,Ui.UiMetrics.text(28)+11)
+                    opacity:modelData.sold && !primary ? .73 : 1
                     leftPadding: 6
                     rightPadding: 6
                     text: modelData.title
@@ -181,20 +221,39 @@ ColumnLayout {
                     hintEnabled: hovered
                     hintDelay: 420
                     readonly property var shown: shop.displayItem(modelData)
+                    readonly property int refund:{shop.revision;return Gear.refundableRank(shop.run,modelData.group,modelData.gearId)}
+                    TapHandler {
+                        acceptedButtons:Qt.RightButton
+                        enabled:listing.refund>0
+                        onTapped:shop.refundRequested(listing.modelData.group,listing.modelData.gearId)
+                    }
                     entryChapter:modelData.action==="gear" ? (modelData.group==="weapon" ? "weapons" : "abilities") : "shop"
                     entryId:modelData.action==="gear" ? modelData.gearId : Gear.shopEntryId(modelData)
                     onEntryRequested:function(chapter,id) { shop.entryRequested(chapter,id) }
+                    hintStats:{shop.revision;return shop.compared(modelData)}
                     hintText: modelData.title + "\n" + shop.details(modelData) +
                         (modelData.sold ? "\nPurchased" : modelData.paid ? "\nPaid · choose a destination" : "\n" + modelData.cost + " gold")
+                        +(refund ? "\nRight-click to refund one rank · "+refund+" gold" : "")
                     onClicked: {
                         shop.selectedId = modelData.id
                         shop.selectedSlot = -1
                     }
 
+                    background:Rectangle {
+                        radius:7
+                        color:listing.primary ? "#dfaa79" : listing.hovered ? "#392633" : "#e9271e2b"
+                        border.color:listing.visualFocus ? "#ffe5d3" : listing.primary ? "#f4c38e" : "#785466"
+                        Rectangle {
+                            width:3;height:parent.height-10;x:4;y:5;radius:1
+                            color:listing.primary ? "#6e3b48" : listing.modelData.color || "#b09490"
+                            opacity:listing.modelData.sold ? .36 : .9
+                        }
+                    }
                     contentItem: RowLayout {
+                        anchors.leftMargin:4
                         Ui.GalleryPortrait {
-                            Layout.preferredWidth: shop.compact ? 24 : 29
-                            Layout.preferredHeight: 23
+                            Layout.preferredWidth:shop.compact ? 29 : 37
+                            Layout.preferredHeight:shop.compact ? 27 : 33
                             entry: listing.shown
                             tint: listing.modelData.rarity === "unique" ? Pets.uniqueColor :
                                 listing.modelData.rarity ? Gear.rarities[listing.modelData.rarity].color : "#a9bedb"
@@ -205,7 +264,7 @@ ColumnLayout {
                             Text {
                                 Layout.fillWidth:true
                                 text:listing.text
-                                color:listing.primary ? "#161d2e" : listing.modelData.sold ? "#a1adbf" : "#edf0fc"
+                                color:listing.primary ? "#271922" : listing.modelData.sold ? "#ac9a9c" : "#f7e9dc"
                                 font.family:"Inter"
                                 font.bold:true
                                 font.pixelSize:Ui.UiMetrics.text(13)
@@ -221,7 +280,8 @@ ColumnLayout {
                             }
                         }
                         Text {
-                            text: listing.modelData.sold ? "Sold" : listing.modelData.paid ? "Claim" : listing.modelData.cost
+                            text: {shop.revision;return listing.modelData.sold ? "Sold" : listing.modelData.paid ? "Claim"
+                                : (Draw.isFrozen(shop.run,listing.modelData) ? "❄ " : "")+listing.modelData.cost}
                             color: listing.primary ? "#29364d" : listing.modelData.sold ? "#a1adbf" : "#ffdf93"
                             font.family: "IBM Plex Mono"
                             font.pixelSize: Ui.UiMetrics.text(13)
@@ -237,9 +297,13 @@ ColumnLayout {
             Layout.preferredWidth: 380
             Layout.minimumHeight: info.implicitHeight + 22
             radius: 6
-            color: "#202738"
-            border.color: "#425370"
-            Ui.PanelPlating { anchors.fill: parent; tone: "#657fa0"; blood: .31 }
+            color:"#201823"
+            gradient:Gradient {
+                GradientStop {position:0;color:"#352632"}
+                GradientStop {position:1;color:"#211924"}
+            }
+            border.color:"#946879"
+            Ui.PanelPlating {anchors.fill:parent;tone:"#b49078";blood:.35}
 
             ColumnLayout {
                 id: info
@@ -248,11 +312,29 @@ ColumnLayout {
                 spacing: 7
                 Text {
                     objectName: "shopBalance"
-                    text: shop.balance + " GOLD"
+                    text: (Number.isFinite(shop.balance) ? shop.balance : "∞") + " GOLD"
                     color: "#ffe094"
                     font.family: "IBM Plex Mono"
                     font.weight: Font.Bold
                     font.pixelSize: Ui.UiMetrics.text(14)
+                }
+                RowLayout {
+                    Layout.fillWidth:true
+                    visible:!!shop.selected
+                    Ui.GalleryPortrait {
+                        Layout.preferredWidth:shop.compact ? 49 : 70
+                        Layout.preferredHeight:shop.compact ? 35 : 48
+                        entry:shop.selected ? shop.displayItem(shop.selected) : {shopItem:true,id:"counter"}
+                        tint:shop.rarityTone
+                    }
+                    Text {
+                        Layout.fillWidth:true
+                        text:shop.selected ? Gear.shopCategory(shop.selected.action) : ""
+                        color:"#dfc1b7"
+                        font.family:"IBM Plex Mono"
+                        font.pixelSize:Ui.UiMetrics.text(12)
+                        wrapMode:Text.WordWrap
+                    }
                 }
                 Text {
                     Layout.fillWidth: true
@@ -270,8 +352,10 @@ ColumnLayout {
                         available: shop.pickSlot
                     }
                 }
-                RowLayout {
-                    visible: !!shop.selected && !shop.pendingReplacement
+                Flow {
+                    Layout.fillWidth:true
+                    spacing:5
+                    visible:!!shop.selected && !shop.pendingReplacement
                     Ui.ActionButton {
                         visible: shop.canStash && !shop.selected.sold
                         text: shop.selectedSlot === Gear.inventoryDestination ? "Use slot" : "Store instead"
@@ -282,7 +366,7 @@ ColumnLayout {
                         enabled: !!shop.selected && !shop.selected.sold && shop.balance >= shop.selected.cost
                             && (!shop.pickSlot || shop.selectedSlot >= 0 || shop.storing)
                         primary: true
-                        accent: "#a8bded"
+                        accent:"#ecb587"
                         text: {
                             if (!shop.selected) return "Buy"
                             if (shop.selected.sold) return "Purchased"
@@ -290,6 +374,17 @@ ColumnLayout {
                             return (shop.selected.action === "mystery" ? "Unwrap · " : "Buy · ") + shop.selected.cost + " gold"
                         }
                         onClicked: shop.purchase("")
+                    }
+                    Ui.ActionButton {
+                        objectName:"freezeShopOffer"
+                        visible:{shop.revision;return !!shop.selected && Draw.canFreeze(shop.run)}
+                        enabled:{shop.revision;return !!Draw.freezable(shop.run,"shop",shop.selected)}
+                        readonly property bool frozen:{shop.revision;return Draw.isFrozen(shop.run,shop.selected)}
+                        primary:frozen
+                        accent:"#a5d6f0"
+                        text:frozen ? "❄ Frozen" : "Freeze"
+                        hintText:"Save this listing for the next boss shop."
+                        onClicked:shop.freezeRequested(shop.selected.id)
                     }
                 }
                 Flow {
@@ -351,6 +446,10 @@ ColumnLayout {
                     color: "#d5e0f0"
                     font.family: "Inter"
                     font.pixelSize: Ui.UiMetrics.text(13)
+                }
+                Ui.StatComparison {
+                    Layout.fillWidth:true
+                    rows:{shop.revision;return shop.compared(shop.selected)}
                 }
                 Item { Layout.fillHeight: true }
             }

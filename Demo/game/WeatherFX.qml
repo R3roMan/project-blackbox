@@ -6,6 +6,7 @@ Item {
     required property string condition
     required property real time
     required property bool motion
+    property bool ultra:false
     property bool sky:false
     readonly property bool redNight:condition==="bloodMoon"
 
@@ -35,6 +36,7 @@ Item {
     Rectangle {
         anchors.fill:parent
         visible:!weatherFx.sky && weatherFx.condition==="fog"
+        opacity:weatherFx.ultra ? .74 : 1
         gradient:Gradient {
             GradientStop {position:0;color:"#3d777e89"}
             GradientStop {position:.46;color:"#978c929b"}
@@ -54,12 +56,97 @@ Item {
             function onTimeChanged() { if (rain.visible && weatherFx.motion) rain.requestPaint() }
             function onConditionChanged() { if (rain.visible) rain.requestPaint() }
             function onGustChanged() { if (rain.visible) rain.requestPaint() }
+            function onUltraChanged() { if (rain.visible) rain.requestPaint() }
+            function onMotionChanged() { if (rain.visible) rain.requestPaint() }
         }
+
+        function layeredFog(ctx, time) {
+            for (let layer=0; layer<3; ++layer) {
+                const bankY = height*(.39+layer*.20)
+                const thickness = height*(.13+layer*.045)
+                for (let plume=0; plume<5; ++plume) {
+                    const drift = ((plume*.297+time*(.010+layer*.009)+layer*.371)%1.51)-.25
+                    const x = width*drift
+                    const wave = Math.sin(time*(.21+layer*.08)+plume*2.8)
+                    const y = bankY + thickness*(wave*.48+(plume%3-1)*.44)
+                    const breadth = width*(.31+layer*.033+plume%3*.07)
+                    const flattening = thickness/breadth*(.62+plume%3*.13)
+                    ctx.save()
+                    ctx.translate(x,y)
+                    ctx.scale(1,flattening)
+                    const vapor = ctx.createRadialGradient(0,0,0,0,0,breadth)
+                    vapor.addColorStop(0,layer === 0 ? "#84bac6cf" : layer === 1 ? "#788996a6" : "#72636679")
+                    vapor.addColorStop(.40,layer === 0 ? "#4f9eafbe" : layer === 1 ? "#5babb6c1" : "#498a92a2")
+                    vapor.addColorStop(.73,layer === 0 ? "#259bacbb" : "#357d889c")
+                    vapor.addColorStop(1,"transparent")
+                    ctx.globalAlpha = .68+wave*.17
+                    ctx.fillStyle = vapor
+                    ctx.fillRect(-breadth,-breadth,breadth*2,breadth*2)
+                    ctx.restore()
+                }
+            }
+        }
+
+        function layeredRain(ctx, time, storm) {
+            const scale = Math.max(.65,Math.min(1.7,height/800))
+            const wind = storm ? .31 : .20
+            const wrapX = width+180, wrapY = height+130
+            ctx.lineCap = "round"
+            for (let layer=0; layer<3; ++layer) {
+                const count = (storm ? 69 : 52)-layer*15
+                const speed = (240+layer*395)*scale
+                ctx.beginPath()
+                for (let i=0; i<count; ++i) {
+                    const index = i+layer*59
+                    const fall = time*speed*(.81+i%9*.044)
+                    const x = ((index*173.31-fall*wind)%wrapX+wrapX)%wrapX-80
+                    const y = (index*103.23+fall)%wrapY-75
+                    const tail = (11+layer*14+i%7*(2+layer))*scale*(storm ? 1.30 : 1)
+                    ctx.moveTo(x,y)
+                    ctx.lineTo(x-tail*wind,y+tail)
+                }
+                ctx.strokeStyle = ["#3883a8d3", "#679bbde2", "#84c0ddef"][layer]
+                ctx.lineWidth = scale*(.78+layer*.63)
+                ctx.stroke()
+                if (layer === 2) {
+                    ctx.strokeStyle = "#425b83b1"
+                    ctx.lineWidth *= 2.8
+                    ctx.stroke()
+                }
+            }
+            for (let i=0; i<(storm ? 19 : 12); ++i) {
+                const age = (time*(.98+i%3*.48)+i*.713)%1
+                if (age >= .44)
+                    continue
+                const depth = .61+(i*.873%1)*.39
+                const x = width*((i*.618+Math.floor(time*(.98+i%3*.48)+i*.713)*.127)%1)
+                const size = (.9+age*13)*(depth-.45)*scale
+                const y = height*depth
+                ctx.globalAlpha = (1-age/.44)*.80
+                ctx.strokeStyle = "#b9dcec"
+                ctx.lineWidth = Math.max(.7,scale*.80)
+                ctx.beginPath()
+                ctx.ellipse(x-size,y-size*.24,size*2,size*.48)
+                ctx.moveTo(x,y)
+                ctx.lineTo(x-size*.58,y-size*.98)
+                ctx.moveTo(x+size*.31,y)
+                ctx.lineTo(x+size*.78,y-size*.65)
+                ctx.stroke()
+            }
+            ctx.globalAlpha = 1
+        }
+
         onPaint: {
             const ctx = beginPaint()
             ctx.clearRect(0, 0, width, height)
+            if (width <= 0 || height <= 0)
+                return
             const time = weatherFx.motion ? weatherFx.time : 0
             if (weatherFx.condition === "fog") {
+                if (weatherFx.ultra) {
+                    layeredFog(ctx,time)
+                    return
+                }
                 for (let bank=0;bank<6;bank++) {
                     const y=(.22+bank*.13+Math.sin(time*.063+bank)*.033)*height
                     const thick=(.14+bank%3*.035)*height
@@ -191,6 +278,10 @@ Item {
             }
             if (weatherFx.condition!=="rain" && weatherFx.condition!=="thunder") return
             const storm=weatherFx.condition==="thunder"
+            if (weatherFx.ultra) {
+                layeredRain(ctx,time,storm)
+                return
+            }
             for (let i = 0; i < (storm ? 158 : 101); i += 1) {
                 const speed = 385 + (i % 5) * 125
                 const x = ((i * 123.31 - time * speed * .19) % width + width) % width

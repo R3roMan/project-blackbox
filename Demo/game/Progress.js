@@ -1,5 +1,6 @@
 .pragma library
 .import "GradeGear.js" as Grades
+.import "Meta.js" as Meta
 .import "WeatherGear.js" as Weather
 
 // The rewards are real catalogue IDs. Multiple achievements can progress during one run.
@@ -57,7 +58,8 @@ var achievements = [
     {id:"moneyMoves",title:"Money moves",metric:"bestRunSpent",target:5000,requirement:"Spend 5,000 gold in one run, including weapon and ability costs.",group:"passive",reward:"liquidAssets"},
     {id:"scarletDawn",title:"Scarlet dawn",metric:"bloodMoonClears",target:1,requirement:"Survive your first Blood Moon Night.",group:"passive",reward:"bloodPact"},
     {id:"threeRedNights",title:"Three red nights",metric:"bloodMoonNights",target:3,requirement:"Witness three Blood Moon Nights in regular play.",group:"weapon",reward:"veinDrinker"},
-    {id:"redOverlord",title:"Moon over the Overlord",metric:"bloodMoonBosses",target:1,requirement:"Defeat an Overlord during a Blood Moon Night.",group:"active",reward:"bloodLibation"},
+    {id:"redOverlord",title:"Untouched by the Moon",metric:"bloodMoonFlawless",legacyMetric:"bloodMoonBosses",target:1,
+        requirement:"Clear a Blood Moon wave without getting hurt.",group:"active",reward:"bloodLibation"},
     {id:"lastCustomer",title:"The last customer",metric:"completeShops",target:1,requirement:"Buy and claim every listing during a single shop visit.",group:"active",reward:"liquidation"}
 ].concat(Grades.achievements,Weather.achievements)
 
@@ -88,7 +90,7 @@ function keepsBest(key) {
 function withGrades(profile, ledger) {
     const awarded={}
     for (const grade of Object.values(ledger.settled)) {
-        const key="grade"+grade
+        const key="grade"+Meta.familyOf(grade)
         awarded[key]=(awarded[key] || 0)+1
     }
     awarded.vaultBuys=ledger.purchases || 0
@@ -99,7 +101,7 @@ function withGrades(profile, ledger) {
 }
 
 function complete(profile, achievement) {
-    return (profile[achievement.metric] || 0) >= achievement.target
+    return Math.max(profile[achievement.metric] || 0,profile[achievement.legacyMetric] || 0)>=achievement.target
 }
 
 function unlocked(profile, override) {

@@ -11,7 +11,7 @@ var weapons = {
         description:"An engraved golden handgun. Spend 4 gold to fire a heavy coin. When broke, it fires ordinary rounds for 22% damage."}
 }
 var actives = {
-    oathWard:{id:"oathWard",title:"Oath interval",category:"Active",rarity:"legendary",cooldown:48,duration:1.2,
+    oathWard:{id:"oathWard",title:"Oath interval",category:"Active",rarity:"legendary",cooldown:24,duration:1.2,
         description:"Evade incoming strikes for 1.2 seconds. Burn and other ongoing damage keep working. Upgrades extend the window and shorten recovery."},
     liquidation:{id:"liquidation",title:"Liquidation",category:"Active",rarity:"epic",cooldown:43,
         description:"Spend up to 80 gold for a screen-wide blast. Needs 20 gold. Spending at least 50 also Weakens survivors at level 2."}

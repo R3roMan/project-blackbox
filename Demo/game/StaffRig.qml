@@ -4,6 +4,7 @@ import QtQuick3D
 
 Node {
     id: staff
+    property var surfaces:null
     required property string kind
     required property color tint
     property real charge: 0
@@ -12,9 +13,9 @@ Node {
     property real clock: 0
     readonly property var spectrum: ["#8afad6","#ff7849","#99e6ff","#d684ff","#e4a365","#cc8dff"]
 
-    PrincipledMaterial { id: iron; baseColor: "#25232b"; metalness: .81; roughness: .42 }
-    PrincipledMaterial { id: metal; baseColor: "#767381"; metalness: .84; roughness: .35 }
-    PrincipledMaterial { id: leather; baseColor: "#422631"; roughness: .96 }
+    LitSurface { surfaces:staff.surfaces; finish:"steel"; id:iron; baseColor: "#25232b"; metalness: .81; roughness: .42 }
+    LitSurface { surfaces:staff.surfaces; finish:"steel"; id:metal; baseColor: "#767381"; metalness: .84; roughness: .35 }
+    LitSurface { surfaces:staff.surfaces; finish:"weave"; id:leather; baseColor: "#422631"; roughness: .96 }
     PrincipledMaterial {
         id: rune
         baseColor: Qt.lighter(staff.tint, 1 + Math.max(staff.charge,Math.sin(staff.cast*Math.PI))*.85)
