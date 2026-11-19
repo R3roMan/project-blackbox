@@ -21,7 +21,7 @@ Choose **New game**, choose a difficulty, then pick a companion and a starting w
 | W / ↑ and S / ↓ | From the Shrine, look up into Star Sky or down into the Abyss. Reverse the direction to return. |
 | 1 / 2 or mouse wheel | Switch weapons. Each gun has its own magazine. |
 | R or right click | Reload, perform a melee trick, cast a charged staff spell, or thrust the Demonic trident. Firing with an empty magazine also reloads. |
-| Hold Space | Keep the field shield raised. Release it to fire. A standard shield recharges for 4.5 seconds after a block or a release. |
+| Hold Space | Raise the shield at 20% charge or higher. Release it to recharge and fire. A timed parry refills the meter. |
 | Q / E | Use an active ability. The two side tiles show each ability's own cooldown. |
 | Hold F | Look into the Abyss and hold for fourteen seconds to seal the rift for this wave. Progress stays when you look away. |
 | T | Pause and open the combined Loadout. Inspect gear at any time in Pause and move it between waves. |
@@ -95,7 +95,8 @@ Turn on **Debug** at run setup to practise from a tenth wave, up to wave 150. Ch
 - **Sticky** coats the screen green and locks your view for 1.6, 2.3 or 3.3 seconds by level. Keep aiming and firing while the countdown runs. The Legendary **Tarpit** pins enemies on one wallpaper. Its level 2 equipment upgrade raises Sticky to level 3. Status-immune enemies take 85% of a corresponding elemental shot's damage and resist its attached status.
 - Gendoustagus curses its killer for the wave. A player curse increases damage taken by 20% and gives an eligible shot a 13% chance to misfire. Misfires leave the round in the magazine. Further curses leave the penalty at the same strength.
 - Enemies with **Dodge** react when you hold aim close to them. Higher tiers react and recover sooner. Shots still hit if you track their movement.
-- Hold **Space** to raise the field shield. The blue HUD bar shows remaining blocks or time to recharge. Fleet shell and Perfect guard spend their charge on release or expiry, and a timed parry rewards the first 0.2 seconds of a Perfect guard. Bulwark adds a block with heavier turns and longer recovery. Jester ward varies the benefit and cooldown on its first block. Shops sometimes sell shield upgrades, and abilities can use stored impact, add a block or speed up recovery. Guard lining can soften area damage such as beams and ground blasts. The first equipped shield transformation in slot order controls the shield's form.
+- Hold **Space** to raise the field shield. The notch marks the 20% minimum to raise it. Raising it spends 10%, holding it up drains the meter, and ordinary hits spend additional charge. It drops when empty and recharges while lowered. Raise it just before impact for a parry and an immediate full refill. Shield transformations and equipment alter drain, recovery and block costs.
+- Land a shot directly on a demon’s eye to guarantee a critical hit against that demon. An enemy’s critical resistance still applies. The ammunition dial shows individual bullets around the magazine, and switches to a charge ring for staffs or weapons with heat.
 - A barrier is the separate blue health filter. Temporary barriers come from gear or supplies. The shop also sells a core with up to four charges per installation. Any barrier absorbs the whole hit that breaks it. Surviving charges carry through turns and waves while the timer or core lasts. Buy another rank or use a barrier-granting ability to get fresh protection.
 - Weapon attacks start with a 5% critical chance at ×2 damage. Precision weapons and equipment can increase those values. Critical hits against you can be blocked with the field shield. Block five across one run to unlock Soft landing.
 - Shoot gifts before they fade. Five out of six ordinary gifts help. Cursed gifts can reverse turn inputs for six seconds, tax cooldowns or weaken a combat stat. Mega gifts are larger purple and gold crates with a bright rim. They can grant gold, a refresh, a temporary pet, infinite ammo, upgraded weapons, a blast or a few dark gems. Every regular campaign boss drops one to four dark gems. Field gems enter the Vault immediately.
@@ -176,7 +177,7 @@ The last defeat leaves time for the enemy to fall before **WIN**. After fatal da
 
 Pause between waves and choose **Retire** when you want to end the expedition and get graded. SSS requires retirement after clearing at least 120 waves with every wave flawless. End with at least eight bosses, 420 kills, 350 weapon attacks at perfect accuracy, eight seals, 28 shield blocks, eight parries and ten field-shop purchases. Take zero damage and zero unblocked hits. The required scores are 90 Skill, 80 Finance, 98 Survival and 91 Overall. Every grade from F through S can carry a minus or plus. All three variants count toward the same grade kit. SSS unlocks the Legendary blade Zero Hour. **Expedition records** shows personal best above the saved attempts. Click a record to inspect it. Defeat and retirement close the expedition and invalidate its checkpoints. Graded expeditions pay once. Debug and tutorial runs do not pay dark gems.
 
-The tutorial teaches the perfect parry and has you wait through its shortened recharge. Watch the blue shield bar after the bite.
+The tutorial teaches the perfect parry and when you have enough charge to raise the shield again. Watch the blue shield bar after the bite.
 
 ### Tarot, deals and weather equipment
 

@@ -3,7 +3,7 @@
         "Id": "org.projectblackbox.visibility",
         "Name": "Blackbox desktop visibility",
         "Description": "Pause Blackbox whenever another application takes focus",
-        "Version": "0.4.4",
+        "Version": "0.4.5",
         "Authors": [
             {
                 "Name": "Project Blackbox"

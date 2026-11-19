@@ -11,6 +11,7 @@ PlasmoidItem {
     Plasmoid.title:"Blackbox"
     preferredRepresentation:compactRepresentation
     compactRepresentation:RowLayout {
+        id:panelControls
         spacing:3
         Button {text:Native.Desktop.state.wave ? "BB · "+Native.Desktop.state.wave : "BLACKBOX";onClicked:applet.expanded=!applet.expanded}
         Repeater {
@@ -20,8 +21,9 @@ PlasmoidItem {
                 required property var modelData
                 text:(index ? "E" : "Q")+(modelData.cooldown>0 ? " "+Math.ceil(modelData.cooldown) : "")
                 enabled:!!modelData.id && Native.Desktop.atHome && Native.Desktop.state.phase==="combat" && !Native.Desktop.state.paused && modelData.cooldown<=0
-                implicitWidth:43
-                implicitHeight:43
+                implicitWidth:34
+                implicitHeight:26
+                Layout.maximumHeight:Math.max(16,panelControls.height)
                 contentItem:Item {
                     Ui.GalleryPortrait {anchors.fill:parent;visible:!!modelData.id;entry:Gear.activeAbilities[modelData.id] || Gear.activeAbilities.shock;tint:Gear.rarities[Gear.activeAbilities[modelData.id]?.rarity || "common"].color}
                     Text {anchors.left:parent.left;anchors.top:parent.top;text:index ? "E" : "Q";color:"white";font.pixelSize:11;font.bold:true;style:Text.Outline;styleColor:"black"}
@@ -37,7 +39,9 @@ PlasmoidItem {
     fullRepresentation:ColumnLayout {
         Layout.minimumWidth:350;Layout.preferredWidth:440;Layout.minimumHeight:380
         Text {text:"PROJECT BLACKBOX";color:"#f0cdac";font.pixelSize:22;font.bold:true}
-        Label {Layout.fillWidth:true;text:Native.Desktop.visibilityReady ? (Native.Desktop.atHome ? "Desktop active" : "Paused while using another app") : "Enable Blackbox visibility in KWin Scripts";wrapMode:Text.WordWrap}
+        Label {Layout.fillWidth:true;text:Native.Desktop.sessionLocked ? "Session locked" : Native.Desktop.visibilityReady
+            ? (Native.Desktop.atHome ? "Desktop active" : Native.Desktop.config.backgroundPlay ? "Background play enabled" : "Paused while using another app")
+            : "Enable Blackbox visibility in KWin Scripts";wrapMode:Text.WordWrap}
         Label {text:"Wave "+(Native.Desktop.state.wave || 0)+" · "+(Native.Desktop.state.hp || 200)+" / "+(Native.Desktop.state.maxHp || 200)+" HP"}
         Label {text:Native.Desktop.state.renderer || ""; visible:text.length>0}
         ComboBox {Layout.fillWidth:true;model:["Idle","Play"];currentIndex:Native.Desktop.config.mode==="play" ? 1 : 0;onActivated:Native.Desktop.setOption("mode",currentIndex ? "play" : "idle")}

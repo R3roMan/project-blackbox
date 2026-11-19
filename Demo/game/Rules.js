@@ -2284,7 +2284,8 @@ function explode(run, grenade) {
         wound(run, enemy, grenade.damage * (1 + (enemy.barrier ? effect.breachBonus || 0 : 0)),
             grenade.kind === "staff" ? "ability" : "grenade", effect.element, effect.elementLevel,
             { arcReach:effect.spell === "electric" && Gear.hasKit(run,"thunderKit") ? 45 : 0,
-                critical:effect.critical,ranged:grenade.kind === "launcher",breakBarrier:grenade.kind === "nullgrenade",
+                critical:enemy.id === grenade.targetId ? (effect.directCritical ?? effect.critical) : effect.critical,
+                ranged:grenade.kind === "launcher",breakBarrier:grenade.kind === "nullgrenade",
                 attackRolled:effect.attackRolled,scoped:effect.scoped && enemy.id===grenade.targetId,
                 explosion:!effect.spell,weaponId:effect.weaponId,durationScale:effect.durationScale })
         if (effect.spell && effect.element === "freeze" && exposed && !statusImmune(enemy,"freeze"))
@@ -3152,7 +3153,8 @@ function shoot(run, hits, view, aim, continuation) {
         throwGrenade(run, frontId, primary, Object.assign({ x:.5, y:.5 }, aim, { kind:"launcher" }),
             (stats.damage + rank(run, "booster") * .78 + (power.damage || 0) + (run.giftDamage > 0 ? 2 : 0)) * outgoing(run),
             weapon.blast * (1 + Gear.perk(run, "blastRadius")), primary ? .28 : .55, 0,
-            Object.assign({}, stats, { breachBonus:breachRoundsBonus, critical:criticalAt(primary), attackRolled:true,scoped:scoped,weaponId:weapon.id }))
+            Object.assign({}, stats, { breachBonus:breachRoundsBonus, critical:critical,
+                directCritical:criticalAt(primary),attackRolled:true,scoped:scoped,weaponId:weapon.id }))
         announce(run, "", "shot")
         return true
     }

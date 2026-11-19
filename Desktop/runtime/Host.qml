@@ -183,7 +183,7 @@ Item {
             backgroundPlay:host.options.backgroundPlay
             autoLimit:Autoplay.waveLimit(host.availableRecords,careerVault.state)
             onBackgroundPlayRequested:function(value) {Native.Desktop.setOption("backgroundPlay",value)}
-            bookVisible:host.bookOpen || host.vaultOpen
+            bookVisible:host.bookOpen || host.vaultOpen || settingsDrawer.visible
             enabled:!bookVisible
             onCodexRequested:function(chapter,id) { host.openBook(chapter,id) }
             software:GraphicsInfo.api===GraphicsInfo.Software
@@ -257,7 +257,8 @@ Item {
                     Native.Desktop.setOption("mode","play")
                     game.restoreRun(SaveData.decodeRun(saved.data,unlocks))
                 }
-            } else if(name==="pause" || name==="settings" || name==="loadout") game.pauseRun(name==="settings" ? "settings" : "build")
+            } else if(name==="settings") settingsDrawer.open()
+            else if(name==="pause" || name==="loadout") game.pauseRun("build")
             else if(name==="begin" && !host.bookOpen && host.home) {
                 Native.Desktop.setOption("mode","play")
                 game.startWave()
@@ -333,11 +334,18 @@ Item {
         Repeater {model:Native.Desktop.bands
             Rectangle {required property var modelData;width:12;height:4+modelData*60;anchors.bottom:parent.bottom;color:"#c788ed";opacity:.65}}
     }
+    Item {
+        id:desktopControls
+        anchors.fill:parent
+        anchors.leftMargin:host.areaLeft; anchors.rightMargin:host.areaRight
+        anchors.topMargin:host.areaTop; anchors.bottomMargin:host.areaBottom
+        z:80
+    }
     Drawer {id:settingsDrawer
         popupType:Popup.Item
-        y:host.areaTop
-        width:Math.min(620,host.width-host.areaLeft-host.areaRight)
-        height:host.height-host.areaTop-host.areaBottom
+        parent:desktopControls
+        width:Math.min(620,desktopControls.width)
+        height:desktopControls.height
         edge:Qt.RightEdge;z:80
         DesktopOptions {anchors.fill:parent;anchors.margins:16}}
 }

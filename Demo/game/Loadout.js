@@ -943,7 +943,7 @@ function shopEntries() {
         {id:"loaded-dice",title:"Loaded dice",action:"scramble",description:"Replace equipped gear with matching-rarity gear at Lv 0. Inventory and slot effects remain.",price:"560 gold"},
         {id:"expand-inventory",title:"Expand inventory",action:"inventory",description:"One extra bag space for this run, up to ten.",price:"310 gold"},
         {id:"pet-token",title:"Pet upgrade token",action:"pet",description:"Train your current companion up to three times. Each rank increases its damage and duty time and shortens rest.",price:"360 / 500 / 640 gold"},
-        {id:"shield-upgrade",title:"Shield upgrade",action:"shield-upgrade",description:"Each purchase cuts shield recovery by 0.65 seconds. Rank II adds one block per raise.",price:"390 / 575 / 760 gold"},
+        {id:"shield-upgrade",title:"Shield upgrade",action:"shield-upgrade",description:"Each rank cuts 0.65 seconds from the time to fully recharge. Rank II also reduces the charge spent per block.",price:"390 / 575 / 760 gold"},
         {id:"barrier-core",title:"Barrier core",action:"barrier-core",description:"Install a fresh Barrier with two, three or four charges. A broken Barrier needs another purchase.",price:"375 / 560 / 745 gold"},
         {id:"equipment-rank",title:"Equipment rank",action:"upgrade",description:"Improve one equipped item. Its item-specific upgrade is shown on the listing.",price:"170 / 270 / 370 gold"},
         {id:"slot-work",title:"Slot effects",action:"power",description:"Buy a slot effect to engrave that slot. It stays there when you replace the equipped item. Some effects require a particular item type or a complete kit. Replace a previous effect only after confirming.",

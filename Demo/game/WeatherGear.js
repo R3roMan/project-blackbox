@@ -35,7 +35,7 @@ var actives={
     blueHour:{title:"Blue hour",rarity:"epic",cooldown:24,form:"nightVeil",value:9.4,element:"blind",elementLevel:2,affinity:"night",affinityBonus:.60,
         description:"Drape the four nearest enemies in Blindness II. Direct damage increases by 60% in Night or Blood Moon."},
     lastStar:{title:"Last star",rarity:"legendary",environment:"night",cooldown:32,form:"lunarWard",value:0,
-        description:"By moonlight, gain one barrier hit for six seconds and recover two seconds of field shield cooldown."}
+        description:"By moonlight, raise a barrier or restore two seconds of field shield charge."}
 }
 
 var passives={
