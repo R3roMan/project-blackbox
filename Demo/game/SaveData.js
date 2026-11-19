@@ -289,6 +289,12 @@ function decodeBundle(text) {
     if (d.textScale!==undefined && ![1,1.15,1.3,1.45].includes(d.textScale)) return null
     if (d.autoSave!==undefined && typeof d.autoSave!=="boolean") return null
     if (d.backgroundPlay!==undefined && typeof d.backgroundPlay!=="boolean") return null
+    if (d.fieldStyle!==undefined) {
+        const style=d.fieldStyle
+        if (!plain(style) || !["hudColor","petGlow","aimColor"].every(key=>typeof style[key]==="string" && /^#[0-9a-f]{6}$/i.test(style[key]))
+            || !["Weapon","Ring","Cross","Dot"].includes(style.aimShape)
+            || !Number.isFinite(style.aimSpeed) || style.aimSpeed<.4 || style.aimSpeed>1.6) return null
+    }
     if (data.runSave !== "" && !decodeRun(data.runSave,[]))
         return null
     if (data.vault!==undefined && !Meta.decode(data.vault)) return null

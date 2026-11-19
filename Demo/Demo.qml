@@ -161,6 +161,8 @@ ApplicationWindow {
             wheelSwitch:display.wheelSwitch,showEnemyPreview:display.showEnemyPreview,controlBindings:display.controlBindings,
             frameLimit:display.frameLimit,showTimer:display.showTimer,detail:display.detail,transitionStyle:display.transitionStyle,transitionStrength:display.transitionStrength,
             hudScale:display.hudScale,textScale:display.textScale,autoSave:display.autoSave,backgroundPlay:display.backgroundPlay,
+            fieldStyle:{hudColor:String(Ui.FieldStyle.hudColor),petGlow:String(Ui.FieldStyle.petGlow),aimColor:String(Ui.FieldStyle.aimColor),
+                aimShape:Ui.FieldStyle.aimShape,aimSpeed:Ui.FieldStyle.aimSpeed},
             audioMaster:display.audioMaster,audioMusic:display.audioMusic,audioEffects:display.audioEffects,audioAmbience:display.audioAmbience,audioInterface:display.audioInterface}
     }
 
@@ -195,8 +197,13 @@ ApplicationWindow {
         codex.savedRun = incoming.runSave
         careerVault.importLedger(incoming.vault || Meta.fresh())
         if (codex.savedRun && !SaveData.savedChoice(codex.savedRun,"",unlocks,careerVault.state)) codex.savedRun=""
-        for (const key of Object.keys(incoming.display))
-            display[key] = incoming.display[key]
+        for (const key of Object.keys(incoming.display)) {
+            if (key==="fieldStyle") {
+                for (const part of ["hudColor","petGlow","aimColor","aimShape","aimSpeed"])
+                    Ui.FieldStyle[part]=incoming.display.fieldStyle[part]
+                Ui.FieldStyle.sync()
+            } else display[key] = incoming.display[key]
+        }
         motion = incoming.motion
         codex.sync()
         display.sync()
