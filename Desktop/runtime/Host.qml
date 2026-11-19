@@ -113,7 +113,6 @@ FocusScope {
     }
 
     Keys.onPressed:function(event) {
-        console.warn("IDLE-KEY-P",event.key,event.modifiers,event.isAutoRepeat,idleKeys,ctrlDown)
         if (!idleKeys) return
         if (event.isAutoRepeat) {
             if (event.key===Qt.Key_Space && ctrlDown) event.accepted=true
@@ -133,7 +132,6 @@ FocusScope {
         }
     }
     Keys.onReleased:function(event) {
-        console.warn("IDLE-KEY-R",event.key,event.modifiers,event.isAutoRepeat,idleKeys,ctrlDown)
         if (event.isAutoRepeat) return
         if (event.key===Qt.Key_Space) quickHold.stop()
         if (event.key!==Qt.Key_Control) return
@@ -145,6 +143,25 @@ FocusScope {
         }
         ctrlAlone=false
     }
+    TapHandler {
+        enabled:host.idleKeys && host.idleOpacity<.95 && !host.quickCount
+        acceptedButtons:Qt.LeftButton
+        gesturePolicy:TapHandler.DragThreshold
+        onTapped:{
+            host.Window.window?.requestActivate()
+            galleryLoader.item?.forceActiveFocus(Qt.MouseFocusReason)
+        }
+    }
+    Shortcut {
+        sequence:"Ctrl+Space";context:Qt.WindowShortcut
+        enabled:host.idleKeys && !host.quickCount
+        autoRepeat:false
+        onActivated:{
+            host.ctrlAlone=false
+            galleryLoader.item?.forceActiveFocus()
+            quickHold.restart()
+        }
+    }
     Shortcut {
         sequence:"Escape";context:Qt.WindowShortcut
         enabled:host.idleKeys && host.quickCount>0
@@ -153,7 +170,6 @@ FocusScope {
     Timer {
         id:quickHold;interval:420
         onTriggered:if (host.idleKeys && battle.item) {
-            console.warn("IDLE-HOLD TIMER")
             host.quickCount=3
             menuSound.item?.play("takeover-tick",.69)
             quickStart.start()
