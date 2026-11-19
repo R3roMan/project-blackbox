@@ -48,7 +48,7 @@ FocusScope {
     property real autoDecisionAt:0
     property int autoShopEdition:-1
     property var autoPlan:({})
-    readonly property bool autoEligible:!run.training && !run.rehearsal && wave>0 && wave<=autoLimit
+    readonly property bool autoEligible:!run.training && !run.rehearsal && wave>0 && (run.debug || wave<=autoLimit)
     signal timerRequested(bool value)
     signal frameLimitRequested(int value)
     readonly property bool trainingBlocked:{revision;return Tutorial.frozen(run)}
@@ -1136,7 +1136,7 @@ FocusScope {
         repeat:true
         onTriggered:{
             if (play.phase==="between") {
-                if (play.wave>=play.autoLimit) play.stopAuto()
+                if (!play.run.debug && play.wave>=play.autoLimit) play.stopAuto()
                 else play.startWave()
             } else if (Autoplay.select(play.run,play.autoShopEdition===play.run.shopEdition)) {
                 if (play.run.phase==="shop") play.autoShopEdition=play.run.shopEdition
@@ -2250,7 +2250,8 @@ FocusScope {
                 objectName:"autoPlayButton"
                 visible:!play.run.training
                 text:play.autoPlaying ? "Auto on" : "Auto"
-                hintText:play.autoLimit ? "Auto through Wave "+play.autoLimit+" · Using it reduces the expedition’s crystal payout." : "Clear a wave to unlock Auto"
+                hintText:play.run.debug ? "Auto plays Debug waves until you stop it or lose."
+                    : play.autoLimit ? "Auto through Wave "+play.autoLimit+" · Using it reduces the expedition’s crystal payout." : "Clear a wave to unlock Auto"
                 Accessible.name:play.autoPlaying ? "Turn Auto off" : "Turn Auto on"
                 enabled:play.interactive && (play.autoPlaying || play.autoEligible)
                 primary:play.autoPlaying

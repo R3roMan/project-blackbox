@@ -85,7 +85,7 @@ Template.Scene {
                 return files
             }
             phase:gallery.forecast.phase;weather:gallery.forecast.weather
-            clock:gallery.frames/Math.max(1,gallery.ambientFps)
+            clock:gallery.ambientSeconds
             solarTime:gallery.forecast.solarTime; motion:gallery.ambient
             windy:gallery.forecast.windy;cloudy:gallery.forecast.cloudy;swarm:gallery.forecast.swarm
             detail:gallery.performance ? 0 : gallery.sceneryDetail
@@ -98,7 +98,7 @@ Template.Scene {
         Item {
             id:litRoom
             readonly property string front:Scenery.rooms[parent.sceneRoom] || ""
-            readonly property real clock:gallery.frames/Math.max(1,gallery.ambientFps)
+            readonly property real clock:gallery.ambientSeconds
             RoomAtmosphere {
                 anchors.fill:parent
                 front:litRoom.front;custom:litRoom.parent.customImage

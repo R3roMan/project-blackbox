@@ -8,6 +8,7 @@ Item {
     required property bool motion
     property bool ultra:false
     property bool sky:false
+    property int particleResolution:1600
     property real fogDensity:1
     property real nearVisibility:.38
     readonly property bool redNight:condition==="bloodMoon"
@@ -49,6 +50,7 @@ Item {
     }
     EffectCanvas {
         id: rain
+        textureLimit:weatherFx.particleResolution
         anchors.fill: parent
         visible: !weatherFx.sky && ["rain","thunder","fog","meteor","inferno","winter","incursion","windy","glitch"].includes(weatherFx.condition)
         onVisibleChanged: if (visible) requestPaint()

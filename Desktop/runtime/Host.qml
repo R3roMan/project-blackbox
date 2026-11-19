@@ -181,6 +181,7 @@ FocusScope {
         report()
     }
     TapHandler {
+        parent:idleInput
         enabled:host.idleActionsAvailable
         acceptedButtons:Qt.LeftButton
         acceptedModifiers:Qt.NoModifier
@@ -196,12 +197,13 @@ FocusScope {
         readonly property point origin:parent.mapFromItem(host,0,0)
         x:origin.x;y:origin.y;width:host.width;height:host.height
         z:2
-        visible:host.idleActionsAvailable
+        visible:host.mode==="idle" && host.home && host.claimed
         MouseArea {
             objectName:"idleQuickPointer"
             x:host.areaLeft;y:host.areaTop
             width:parent.width-host.areaLeft-host.areaRight
             height:parent.height-host.areaTop-host.areaBottom
+            enabled:host.idleActionsAvailable
             acceptedButtons:host.quickPointer.button
             preventStealing:true
             onPressed:function(mouse) {
@@ -326,14 +328,15 @@ FocusScope {
             turnArea:Qt.rect(host.areaLeft,host.areaTop,width-host.areaLeft-host.areaRight,height-host.areaTop-host.areaBottom)
             escapeBack:!host.quickCount
             externalChrome:true
+            chromeSurface:idleInput
             chromeBottom:host.areaBottom
             chromeOpacity:host.idleOverlay || host.quickCount ? 0 : host.idleOpacity
             controlBindings:host.options.controlBindings
             phaseMinutes:host.options.idlePhaseMinutes
             cycleOrigin:host.idleClockOrigin
-            ambientFps:Math.min(24,host.options.frameLimit)
+            ambientFps:Math.min(host.options.idleFps,host.options.frameLimit)
             sceneryDetail:host.options.detail
-            motionAllowed:host.options.motion
+            motionAllowed:host.options.motion && !host.options.safeRendering
             editsJson: {
                 const map={front:"shrine",left:"media",right:"lab",up:"sky",down:"abyss"},edits={}
                 for(const key of Object.keys(host.backgrounds)) edits[map[key]]={image:host.backgrounds[key]}
@@ -383,7 +386,7 @@ FocusScope {
             bookVisible:host.bookOpen || host.vaultOpen || settingsDrawer.visible
             enabled:!bookVisible
             onCodexRequested:function(chapter,id) { host.openBook(chapter,id) }
-            software:GraphicsInfo.api===GraphicsInfo.Software
+            software:host.options.safeRendering || GraphicsInfo.api===GraphicsInfo.Software
             autoSave:host.options.autoSave
             sound:host.options.audioMaster>0
             motion:host.options.motion
@@ -514,6 +517,7 @@ FocusScope {
     }
     Row {
         id:idleQuickBar
+        parent:idleInput
         objectName:"idleQuickBar"
         anchors.right:parent.right;anchors.top:parent.top;anchors.rightMargin:host.areaRight+14;anchors.topMargin:host.areaTop+70;spacing:6;z:60
         opacity:host.idleOpacity

@@ -41,6 +41,7 @@ FocusScope {
     readonly property bool returningFromAbyss:transitionKind==="rise"
     property real progress: 0
     property int frames: 0
+    property real ambientSeconds:0
     property int phase: 0
     property int abyssVariant: 0
     property int selectedStar: -1
@@ -48,6 +49,7 @@ FocusScope {
     property bool drawerOpen: false
     property bool clean: false
     property bool externalChrome:false
+    property Item chromeSurface:null
     property real chromeOpacity:1
     property real chromeBottom:0
     property bool buildsOpen:false
@@ -200,6 +202,7 @@ FocusScope {
         running: root.ambient && (root.roomLighting || !root.clean && !root.moving && (root.audioDemo || ["sky","abyss","lab"].includes(root.room)))
         onTriggered: {
             root.frames += 1
+            root.ambientSeconds += interval/1000
             root.phase = (root.phase + 1) % 1680
         }
     }
@@ -387,6 +390,7 @@ FocusScope {
     }
 
     Item {
+        parent:root.chromeSurface || root
         anchors.fill:parent
         z:1
         opacity:root.chromeOpacity

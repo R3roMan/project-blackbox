@@ -96,7 +96,7 @@ Item {
                 Loader {
                     anchors.centerIn:parent
                     width:wall.paintedWidth;height:wall.paintedHeight
-                    active:wall.status===Image.Ready
+                    active:wall.status===Image.Ready && (!backdrop.continuousWeather || panel.inView)
                     sourceComponent:RoomAtmosphere {
                         front:panel.modelData;phase:backdrop.phase;weather:backdrop.weather
                         lightingWeather:backdrop.lightingWeather
@@ -118,6 +118,7 @@ Item {
         sourceComponent:WeatherFX {
             condition:backdrop.lightingWeather
             time:backdrop.clock;motion:backdrop.motion;ultra:backdrop.detail===3
+            particleResolution:backdrop.detail===3 ? 1320 : 920
             fogDensity:backdrop.weatherAcross(Scenery.fogDensity)
             nearVisibility:backdrop.weatherAcross(Scenery.fogNearVisibility)
             opacity:condition==="fog" ? 1 : backdrop.weatherAcross(front=>Scenery.roomWeather(condition,front)==="clear" ? 0 : front==="right" ? .45 : 1)
@@ -128,6 +129,7 @@ Item {
         active:backdrop.rotating
         direction:backdrop.direction;progress:backdrop.progress
         lightingKey:backdrop.phase+"/"+backdrop.lightingWeather
+        seamTint:backdrop.continuousWeather && backdrop.lightingWeather==="fog" ? "#a6acb4" : "transparent"
         outgoing:active ? panels.itemAt(panels.model.indexOf(backdrop.previousFront))?.surface || null : null
     }
     Gallery.DescentShade {

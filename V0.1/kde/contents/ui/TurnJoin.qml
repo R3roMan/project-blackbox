@@ -11,6 +11,7 @@ Item {
     required property string direction
     required property real progress
     property string lightingKey:""
+    property color seamTint:"transparent"
     property var snapshot:null
     property int capture:0
     readonly property bool horizontal:direction==="left" || direction==="right"
@@ -36,9 +37,10 @@ Item {
         strip.source=snapshot ? String(snapshot.url) : ""
         if (strip.source) strip.loadImage(strip.source)
     }
-    visible:active && strip.loaded && feather>1
+    visible:active && (strip.loaded || seamTint.a>0) && feather>1
     Canvas {
         id:strip
+        visible:loaded
         property string source:""
         property bool loaded:false
         x:join.horizontal ? join.boundary-(join.positive ? 0 : join.feather) : 0
@@ -77,6 +79,22 @@ Item {
             c.fillStyle=fade
             c.fillRect(0,0,width,height)
             loaded=true
+        }
+    }
+    Rectangle {
+        visible:join.seamTint.a>0
+        x:join.horizontal ? join.boundary-join.feather : 0
+        y:join.horizontal ? 0 : join.boundary-join.feather
+        width:join.horizontal ? join.feather*2 : join.width
+        height:join.horizontal ? join.height : join.feather*2
+        opacity:.84*Math.sin(join.progress*Math.PI)
+        gradient:Gradient {
+            orientation:join.horizontal ? Gradient.Horizontal : Gradient.Vertical
+            GradientStop {position:0;color:"transparent"}
+            GradientStop {position:.23;color:Qt.alpha(join.seamTint,.24)}
+            GradientStop {position:.5;color:join.seamTint}
+            GradientStop {position:.77;color:Qt.alpha(join.seamTint,.24)}
+            GradientStop {position:1;color:"transparent"}
         }
     }
 }
