@@ -35,6 +35,16 @@ Item {
             cloudy:room.cloudy;windy:room.windy;motion:room.motion;clock:room.clock
         }
     }
+    Rectangle {
+        anchors.fill:parent
+        visible:room.front==="down"
+        gradient:Gradient {
+            GradientStop {position:0; color:"#a1080913"}
+            GradientStop {position:.33; color:"#950e0a1a"}
+            GradientStop {position:.67; color:"#65090411"}
+            GradientStop {position:1; color:"#8c05050d"}
+        }
+    }
     Loader {
         anchors.fill:parent
         active:room.front==="down" || room.front==="up" && Conditions.isNight(room.phase)

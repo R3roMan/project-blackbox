@@ -9,7 +9,7 @@ var entries = {
     sunset:{id:"sunset",title:"Sunset",glyph:"◓",tint:"#ff9876",
         description:"A copper-red sky with distant lightning. A moving warm light catches the edges of weapons and creatures."},
     night:{id:"night",title:"Night",glyph:"☾",tint:"#b8b2ff",
-        description:"Enemies gain 5% health, damage, barrier strength, speed and attack cadence. You have Blindness I."},
+        description:"Enemies gain 5% health, damage, barrier strength, speed and attack cadence. Darkness reduces visibility around the edges."},
     bloodMoon:{id:"bloodMoon",title:"Blood Moon Night",glyph:"●",tint:"#ff625e",
         description:"About one in twenty night waves turns red. Kills pay 25% more gold. Demons deal 15% more damage, move 20% faster and attack 10% faster. You have Blindness II. One Blandromedus always joins the roster."},
     cloudy:{id:"cloudy",title:"Cloudy",glyph:"☁",tint:"#b2c6d9",

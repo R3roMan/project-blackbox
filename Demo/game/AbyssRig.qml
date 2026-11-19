@@ -45,7 +45,12 @@ Node {
         metalness: beast.crystal ? .69 : .12
     }
     LitSurface { surfaces:beast.surfaces; finish:"hide"; id:voidSkin; baseColor: "#100915"; roughness: .68 }
-    LitSurface { surfaces:beast.surfaces; finish:"hide"; id:pale; baseColor: "#d6c0ab"; roughness: .38 }
+    LitSurface {
+        surfaces:beast.surfaces; finish:"bone"; id:pale
+        baseColor:beast.skull ? "#e1cbb1" : "#d6c0ab"
+        roughness:beast.skull ? .30 : .52
+        specularAmount:beast.skull ? .82 : .55
+    }
     PrincipledMaterial { id: glow; baseColor: beast.spec.accent; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: blue; baseColor: "#54bfe8"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: gold; baseColor: "#f3dd83"; roughness: .28; metalness: .63 }
@@ -437,7 +442,8 @@ Node {
     Loader3D {
         active:beast.halfAngel
         sourceComponent:Node {
-            SickleHornGeometry {id:horn}
+            SickleHornGeometry {id:horn; textured:!!beast.surfaces?.detailed}
+            LitSurface {id:keratin; surfaces:beast.surfaces; finish:"horn"; baseColor:beast.spec.skin; roughness:.57}
             Repeater3D {
                 model:[-1,1]
                 Model {
@@ -445,7 +451,7 @@ Node {
                     geometry:horn
                     x:modelData*24; y:23; z:19
                     scale:Qt.vector3d(modelData*.61,.70,.67)
-                    materials:[skin]
+                    materials:[keratin]
                 }
             }
             Repeater3D {

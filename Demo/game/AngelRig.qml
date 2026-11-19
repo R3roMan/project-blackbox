@@ -20,16 +20,16 @@ Node {
 
     LitSurface { surfaces:figure.surfaces; finish:"weave"; id:robe; baseColor: figure.skin; roughness: .82 }
     LitSurface { surfaces:figure.surfaces; finish:"weave"; id:seam; baseColor: figure.fallenBoss ? "#efa962" : "#c9c6c9"; roughness: .56; metalness: figure.fallenBoss ? .64 : 0 }
-    PrincipledMaterial { id: carbon; baseColor: "#15121c"; roughness: .52 }
+    LitSurface { surfaces:figure.surfaces; finish:"bone"; id:carbon; baseColor:"#15121c"; roughness:.68 }
     PrincipledMaterial { id: gleam; baseColor: figure.glow; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: bloodlight; baseColor: "#fb446c"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: tears; baseColor: "#86b2cc"; metalness: .27; roughness: .20 }
     PrincipledMaterial { id: haloEdge; baseColor: figure.fallenBoss ? "#ce785d" : "#8e83a1"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: haloBlack; baseColor: "#171019"; lighting: PrincipledMaterial.NoLighting }
-    SickleHornGeometry {id:horn}
-    ScallopedWingGeometry {id:wing}
-    LitSurface { surfaces:figure.surfaces; finish:"weave"; id:membrane; baseColor:figure.fallenBoss ? "#631d32" : "#362d41"; roughness:.72; cullMode:Material.NoCulling }
-    LitSurface { surfaces:figure.surfaces; finish:"hide"; id:ivory; baseColor:figure.fallenBoss ? "#cd6143" : "#a29ba6"; roughness:.65; cullMode:Material.NoCulling }
+    SickleHornGeometry {id:horn; textured:!!figure.surfaces?.detailed}
+    ScallopedWingGeometry {id:wing; textured:!!figure.surfaces?.detailed}
+    LitSurface { surfaces:figure.surfaces; finish:"wing"; id:membrane; baseColor:figure.fallenBoss ? "#631d32" : "#362d41"; roughness:.72; cullMode:Material.NoCulling }
+    LitSurface { surfaces:figure.surfaces; finish:"horn"; id:ivory; baseColor:figure.fallenBoss ? "#cd6143" : "#a29ba6"; roughness:.61; cullMode:Material.NoCulling }
 
     Model {
         objectName: String(figure.targetId)

@@ -34,7 +34,8 @@ View3D {
     property int goodSamples:0
     property int dynamicCap:2160
     readonly property bool ultra:detail===3
-    readonly property bool busy:hypnotised || voidIncursion || actors.length+bolts.length>18
+    readonly property bool crowded:hypnotised || actors.length+bolts.length>18
+    readonly property bool busy:crowded || voidIncursion
     readonly property bool cinematicEffects:ultra && !busy && (quality>0 || dynamicCap>=1440)
     SurfaceSet {id:worldSurfaces;detailed:world.ultra}
     Timer {
@@ -47,7 +48,7 @@ View3D {
             world.lowSamples=slow ? world.lowSamples+1 : 0
             world.goodSamples=!slow && !world.busy && world.renderStats.fps>=target*.93 ? world.goodSamples+1 : 0
             if (world.lowSamples>=3) {
-                world.dynamicCap=world.dynamicCap>1440 ? 1440 : 1080
+                world.dynamicCap=world.autoHeight>1440 ? 1440 : 1080
                 world.lowSamples=0
             } else if (world.goodSamples>=14) {
                 world.dynamicCap=world.dynamicCap<1440 ? 1440 : 2160
@@ -232,7 +233,7 @@ View3D {
                 effect:casts.records[actorId]
                 revision:world.revision
                 aspect:world.width/Math.max(1,world.height)
-                detail:world.detail
+                detail:world.ultra && world.busy ? 2 : world.detail
                 motion:world.motion
             }
         }
@@ -266,8 +267,8 @@ View3D {
         eulerRotation: Qt.vector3d(-14-world.sunHeight*68,world.sunYaw,-6)
         color:world.sunColor
         ambientColor:world.darkSky>.6 ? "#655681" : "#70617e"
-        brightness:1.02*world.abyssDepth+(1-world.abyssDepth)*((world.detail>=2 ? 2.05 : 1.8)+world.warmSky*.58-world.darkSky*.45)
-        castsShadow:world.detail>=2
+        brightness:.91*world.abyssDepth+(1-world.abyssDepth)*((world.detail>=2 ? 2.05 : 1.8)+world.warmSky*.58-world.darkSky*.45)
+        castsShadow:world.detail>=2 && (!world.crowded || !!world.quality)
         shadowMapQuality:world.cinematicEffects ? Light.ShadowMapQualityVeryHigh : Light.ShadowMapQualityHigh
         shadowFactor:world.darkSky>.6 ? 56 : 78
         shadowMapFar:3800
@@ -276,12 +277,12 @@ View3D {
     DirectionalLight {
         eulerRotation: Qt.vector3d(38, 130, 0)
         color: "#91b2ff"
-        brightness: 1.2
+        brightness: 1.2-.24*world.abyssDepth
     }
     DirectionalLight {
         eulerRotation: Qt.vector3d(12, 100, 0)
         color: "#f6a168"
-        brightness: 0.85
+        brightness: .85-.53*world.abyssDepth
     }
     Loader3D {
         parent:frontFrame
@@ -516,6 +517,11 @@ View3D {
                     viewedFront: world.frontId
                     grabId: world.grabId
                     surfaces:world.ultra ? worldSurfaces : null
+                    simplified:{
+                        world.revision
+                        return !world.quality && world.crowded && actorNode.enemy.depth>790
+                            && Rules.enemyTypes[actorNode.enemy.type].role!=="boss"
+                    }
                 }
             }
             Component {

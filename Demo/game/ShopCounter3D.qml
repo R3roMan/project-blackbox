@@ -9,15 +9,19 @@ View3D {
     required property var cards
     required property string selectedId
     property bool motion: true
+    property int detail:1
     property real dustTime: 0
     NumberAnimation on dustTime { from:0; to:1; duration:2850; loops:Animation.Infinite; running:counter.motion && counter.visible }
     renderMode: View3D.Offscreen
     explicitTextureWidth: Math.max(1,Math.round(Math.min(1550,width*Screen.devicePixelRatio)))
     explicitTextureHeight: Math.max(1,Math.round(explicitTextureWidth*height/Math.max(1,width)))
+    SurfaceSet {id:shopSurface; detailed:counter.detail===3; organic:false; bone:true; timber:true}
     environment: SceneEnvironment {
         backgroundMode: SceneEnvironment.Transparent
         antialiasingMode: SceneEnvironment.MSAA
         antialiasingQuality: SceneEnvironment.Medium
+        lightProbe:shopSurface.detailed ? shopSurface.lightProbe : null
+        probeExposure:.44
     }
     PerspectiveCamera {
         z: 724
@@ -27,16 +31,16 @@ View3D {
     }
     DirectionalLight { eulerRotation: Qt.vector3d(-34,18,-12); color:"#ffddb2"; brightness:2.1; ambientColor:"#765e75" }
     DirectionalLight { eulerRotation: Qt.vector3d(-7,-100,15); color:"#83baff"; brightness:1.53 }
-    PrincipledMaterial { id: oak; baseColor:"#5a3028"; roughness:.76 }
-    PrincipledMaterial { id: edge; baseColor:"#97724e"; roughness:.68 }
-    PrincipledMaterial { id: rust; baseColor:"#44404a"; metalness:.62; roughness:.65 }
-    PrincipledMaterial { id: bone; baseColor:"#c5ac8d"; roughness:.77 }
+    LitSurface {surfaces:shopSurface; finish:"wood"; id:oak; baseColor:"#5a3028"; roughness:.76}
+    LitSurface {surfaces:shopSurface; finish:"wood"; id:edge; baseColor:"#97724e"; roughness:.68}
+    LitSurface {surfaces:shopSurface; finish:"steel"; id:rust; baseColor:"#44404a"; metalness:.62; roughness:.65}
+    LitSurface {surfaces:shopSurface; finish:"bone"; id:bone; baseColor:"#c5ac8d"; roughness:.77}
     PrincipledMaterial { id: socket; baseColor:"#12090f"; lighting:PrincipledMaterial.NoLighting }
-    PrincipledMaterial { id: jacket; baseColor:"#322733"; roughness:.93 }
+    LitSurface {surfaces:shopSurface; finish:"weave"; id:jacket; baseColor:"#322733"; roughness:.93}
     PrincipledMaterial { id: blood; baseColor:"#731328"; roughness:.28 }
     PrincipledMaterial { id: bottle; baseColor:"#42673c"; metalness:.25; roughness:.22 }
-    PrincipledMaterial { id: paper; baseColor:"#ceac67"; roughness:.85 }
-    PrincipledMaterial { id: brass; baseColor:"#cb9b60"; roughness:.33; metalness:.72 }
+    LitSurface {surfaces:shopSurface; finish:"weave"; id:paper; baseColor:"#ceac67"; roughness:.85}
+    LitSurface {surfaces:shopSurface; finish:"steel"; id:brass; baseColor:"#cb9b60"; roughness:.33; metalness:.72}
 
     Node {
         y: -47
@@ -185,7 +189,7 @@ View3D {
             z: 49-index%2*22
             eulerRotation.y: 26+index%3*7
             Behavior on y { NumberAnimation { duration: counter.motion ? 140 : 0; easing.type:Easing.OutQuad } }
-            PrincipledMaterial { id: enamel; baseColor:merchandise.tag; roughness:.43; metalness:.39 }
+            LitSurface {surfaces:shopSurface; finish:"steel"; id:enamel; baseColor:merchandise.tag; roughness:.43; metalness:.39}
             Model {
                 source: merchandise.weapon ? "#Cube" : merchandise.modelData.action === "mystery" ? "#Cube" : merchandise.index%2 ? "#Cylinder" : "#Sphere"
                 scale: merchandise.weapon ? Qt.vector3d(.44,.14,.18) : Qt.vector3d(.31,.25,.24)

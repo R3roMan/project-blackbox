@@ -8,11 +8,12 @@ Node {
     required property real clock
     required property real bite
     property int style:0
+    property bool simplified:false
     objectName:"bellyMaw"
     readonly property real wide:style===2 ? 44 : style===1 ? 42 : 43
     readonly property real tall:(style===2 ? 27 : style===1 ? 39 : 34)+bite*12
     readonly property real flex:Math.sin(clock*6.1)*.66
-    readonly property int teeth:style===1 ? 27 : 23
+    readonly property int teeth:simplified ? 11 : style===1 ? 27 : 23
 
     PrincipledMaterial {
         id:gum

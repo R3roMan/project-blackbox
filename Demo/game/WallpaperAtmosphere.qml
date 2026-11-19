@@ -36,6 +36,22 @@ EffectCanvas {
                 }
             }
         } else if (front==="down") {
+            const banks=detail>0 ? 3 : 2
+            for (let i=0;i<banks;i++) {
+                const x=width*(.24+i*.26+Math.sin(time*.13+i*2.3)*.12)
+                const y=height*(.37+i*.15+Math.cos(time*.10+i)*.045)
+                const radius=Math.max(1,width*(.34+i*.11))
+                c.save()
+                c.translate(x,y)
+                c.scale(1,.19+i*.04)
+                const mist=c.createRadialGradient(0,0,0,0,0,radius)
+                mist.addColorStop(0,i%2 ? "#55312643" : "#7a1b1930")
+                mist.addColorStop(.48,"#30231832")
+                mist.addColorStop(1,"transparent")
+                c.fillStyle=mist
+                c.fillRect(-radius,-radius,2*radius,2*radius)
+                c.restore()
+            }
             const count=[27,51,82,100][detail] || 51
             for (let i=0;i<count;i++) {
                 const age=((i*.61803399+time*(.034+i%4*.013))%1)

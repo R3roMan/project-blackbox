@@ -335,6 +335,59 @@ far_cry("distant-cry", 2.7, 257)
 far_cry("distant-echo", 2.4, 103)
 
 
+def demon_voice(name, seed, pulses, formants, echoes):
+    """Shape a voiced or whispered breath, then add a short room reflection."""
+    if SELECTED and name not in SELECTED:
+        return
+    rng = Random(seed)
+    tail = max(delay for delay, _ in echoes) if echoes else 0
+    duration = max(start + length for start, length, *_ in pulses) + tail
+    dry = [0.0] * round(duration * RATE)
+    for start, length, pitch, glide, air in pulses:
+        offset = round(start * RATE)
+        count = round(length * RATE)
+        low = rasp = 0.0
+        harmonics = []
+        if pitch:
+            for harmonic in range(1, min(24, round(3150 / pitch))):
+                hz = harmonic * pitch
+                resonance = sum(exp(-((hz - frequency) / width) ** 2)
+                                for frequency, width in formants)
+                harmonics.append((harmonic, (.13 + resonance) / harmonic**.75))
+            normal = sum(weight for _, weight in harmonics)
+            harmonics = [(h, weight / normal) for h, weight in harmonics]
+        for i in range(count):
+            t = i / RATE
+            phase = i / count
+            raw = rng.uniform(-1, 1)
+            low += .046 * (raw - low)
+            rasp += .37 * (raw - rasp)
+            cycle = pitch * t + glide * t * phase / 2 + .14 * tone(5.7, t) + .07 * tone(17.4, t)
+            voice = sum(weight * tone(h, cycle) for h, weight in harmonics)
+            flutter = .84 + .16 * tone(21.7, t)
+            envelope = sin(pi * phase) ** 1.15 * min(1, t * 64) * (1 - .23 * phase)
+            dry[offset + i] += envelope * (voice * flutter * (1 - air) + (low * 2.4 + (rasp - low)*.81)*air)
+    taps = [(round(delay * RATE), gain) for delay, gain in echoes]
+    mixes = [sample + sum(dry[i-offset] * gain for offset, gain in taps if i >= offset)
+             for i, sample in enumerate(dry)]
+    gain = .72 / max(.01, max(abs(sample) for sample in mixes))
+    write(name, len(mixes) / RATE, lambda t: mixes[round(t * RATE)] * gain)
+
+
+demon_voice("distant-snigger", 191, [(0,.19,152,-24,.32), (.18,.21,167,-30,.34),
+            (.38,.20,179,-47,.40), (.60,.35,153,-55,.55)], [(520,185),(1130,280)],
+            [(.095,.26),(.23,.16),(.41,.07)])
+demon_voice("distant-laugh", 511, [(0,.31,227,61,.24), (.30,.27,232,-58,.27),
+            (.59,.33,196,-65,.31), (.98,.56,151,-64,.44)], [(710,265),(1240,370)],
+            [(.114,.35),(.262,.23),(.49,.11)])
+demon_voice("distant-breath", 922, [(0,.68,0,0,1), (.74,.89,0,0,1)],
+            [], [(.091,.18),(.24,.10)])
+demon_voice("demon-groan", 1121, [(0,.72,117,-64,.25), (.54,.42,73,-24,.62)],
+            [(325,145),(840,220)], [(.048,.15)])
+demon_voice("demon-rasp", 1381, [(0,.43,172,-78,.46), (.38,.34,87,-33,.73)],
+            [(490,165),(970,240)], [(.060,.13)])
+
+
 def rain_loop():
     rng = Random(7961)
     rolling = 0
@@ -392,7 +445,6 @@ def bed(name, pulse_count, hot=False):
     write(name, duration, sample)
 
 
-bed("combat-loop", 3)
 bed("inferno-loop", 5, hot=True)
 
 for event in (

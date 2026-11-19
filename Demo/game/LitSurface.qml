@@ -4,13 +4,14 @@ PrincipledMaterial {
     property var surfaces:null
     property string finish:"hide"
     readonly property bool detailed:!!surfaces?.detailed
+    baseColorMap:detailed ? surfaces[finish+"Color"] ?? null : null
     normalMap:detailed ? surfaces[finish+"Normal"] : null
-    normalStrength:finish==="hide" ? .82 : finish==="steel" ? .55 : .46
+    normalStrength:({hide:.50,steel:.55,wing:.66,horn:.62,bone:.33,wood:.57})[finish] ?? .46
     roughnessMap:detailed ? surfaces[finish+"Finish"] : null
     roughnessChannel:Material.G
     occlusionMap:roughnessMap
     occlusionChannel:Material.R
     occlusionAmount:.67
-    clearcoatAmount:detailed && finish==="steel" ? .40 : 0
-    clearcoatRoughnessAmount:.29
+    clearcoatAmount:detailed ? ({steel:.40,wing:.19,horn:.21,bone:.34,wood:.12})[finish] ?? 0 : 0
+    clearcoatRoughnessAmount:finish==="bone" ? .21 : .29
 }

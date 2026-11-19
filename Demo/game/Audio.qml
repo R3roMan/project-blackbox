@@ -1,5 +1,4 @@
 import QtQuick
-import QtMultimedia
 import "../ui" as Ui
 
 Item {
@@ -14,6 +13,9 @@ Item {
     property bool flooded:false
     property string weather: "clear"
     property bool windy: weather==="windy"
+    property bool inAbyss:false
+    readonly property bool surfaceWeather:allowed && inBattle && !inAbyss
+    readonly property real ambience:Ui.SoundMix.gain("ambience")
     visible: false
     property bool alternate: false
 
@@ -39,6 +41,8 @@ Item {
         "summon-hasasasa":"summon-hasasasa", "summon-stinkaturumus":"summon-stinkaturumus",
         goreHit:"gore-hit", goreKill:"gore-kill", goreHeavy:"gore-heavy", deathCoin:"death-coin",
         distantCry:"distant-cry", distantEcho:"distant-echo", distantMetal:"distant-metal",
+        distantSnigger:"distant-snigger", distantLaugh:"distant-laugh", distantBreath:"distant-breath",
+        deathGroan:"demon-groan", deathRasp:"demon-rasp",
         fieldGuard:"field-guard", fieldBlock:"field-block", fieldCritical:"field-critical",
         landedCritical:"critical-landed", magnetFire:"magnet-fire", snakeBolt:"snake-bolt",
         sniperShift:"sniper-shift", sniperFire:"sniper-fire", feedBite:"feeding-bite", feedWindup:"feeding-windup",
@@ -67,15 +71,15 @@ Item {
         harvesterCry:"harvester-cry",soulRelease:"soul-release",crufiWeep:"crufi-weep",crufiScream:"crufi-scream",
         hurtHellborne:"hurt-hellborne",hurtSpace:"hurt-space",hurtVoid:"hurt-void",tutorialGood:"tutorial-good",tutorialRewind:"tutorial-rewind",tutorialMolt:"tutorial-molt",spray:"spray",cough:"cough","summon-oblogabgalus":"summon-oblogabgalus"
     })
-    CuePlayer {id:oneShots;allowed:audio.allowed;defaultBus:"effects";capacity:44}
+    CuePlayer {id:oneShots;allowed:audio.allowed;defaultBus:"effects"}
 
     function warmWeapon() {
         if (!weaponId || !allowed) return
         if (!sustainWeapon) {
-            oneShots.warm("fire-"+weaponId,.78,"a")
-            oneShots.warm("fire-"+weaponId,.78,"b")
+            oneShots.warm("fire-"+weaponId,"a")
+            oneShots.warm("fire-"+weaponId,"b")
         }
-        oneShots.warm("reload-"+weaponId,.63)
+        oneShots.warm("reload-"+weaponId)
     }
 
     function play(cue) {
@@ -92,7 +96,8 @@ Item {
         } else {
             const file=cues[cue]
             if (!file) return
-            oneShots.play(file,file.startsWith("distant-") ? .24
+            oneShots.play(file,file.startsWith("distant-") ? (inAbyss ? .52 : .42)
+                : file.startsWith("demon-") ? .46
                 : ["arrive","pet","gore-hit","coin-arrival"].includes(file) ? .24
                 : file.startsWith("summon-") || file.startsWith("death-") || ["clear","loss","takeover-warn","player-death"].includes(file) ? .76 : .53,
                 "",file.startsWith("distant-") || ["rain-arrival","night-arrival","wind-arrival"].includes(file)
@@ -105,112 +110,38 @@ Item {
     onSustainWeaponChanged:warmWeapon()
     Component.onCompleted:warmWeapon()
 
-    function syncLoop(voice, active) {
-        if (allowed && active && voice.status === SoundEffect.Ready) {
-            if (!voice.playing)
-                voice.play()
-        } else if (voice.playing) {
-            voice.stop()
-        }
-    }
+    onContinuousChanged:if (continuous && weaponId !== "chainsaw") play("beamStart")
+    onAllowedChanged:if (allowed) warmWeapon()
 
-    function syncWeather() {
-        syncLoop(battle,inBattle)
-        syncLoop(rain,inBattle && (weather === "rain" || weather === "thunder"))
-        syncLoop(fireWeather,inBattle && weather === "inferno")
-        syncLoop(winter,inBattle && weather === "winter")
-        syncLoop(incursion,inBattle && flooded)
-        syncLoop(wind,inBattle && windy)
-        syncLoop(glitch,inBattle && weather === "glitch")
-        syncLoop(siren,bossWarning)
-        syncLoop(souls,soulDrain)
+    LoopPlayback {
+        clip:"harvester-loop"; active:audio.allowed && audio.soulDrain; gain:.37*audio.ambience
     }
-
-    onContinuousChanged: {
-        syncLoop(stream,continuous)
-        if (continuous && weaponId !== "chainsaw")
-            play("beamStart")
+    LoopPlayback {
+        clip:"wind-loop"; active:audio.surfaceWeather && audio.windy; gain:.37*audio.ambience
     }
-    onWeatherChanged: syncWeather()
-    onWindyChanged: syncWeather()
-    onInBattleChanged: syncWeather()
-    onBossWarningChanged: syncWeather()
-    onSoulDrainChanged:syncWeather()
-    onFloodedChanged:syncWeather()
-    onAllowedChanged: {
-        syncLoop(stream,continuous)
-        syncWeather()
-        if (allowed) warmWeapon()
+    LoopPlayback {
+        clip:"glitch-loop"; active:audio.allowed && audio.inBattle && audio.weather==="glitch"; gain:.28*audio.ambience
     }
-
-    SoundEffect {
-        id:souls
-        source:Qt.resolvedUrl("../audio/harvester-loop.wav")
-        loops:SoundEffect.Infinite
-        volume: .37*Ui.SoundMix.gain("ambience")
-        onStatusChanged:audio.syncLoop(souls,audio.soulDrain)
+    LoopPlayback {
+        clip:"fire-"+audio.weaponId
+        active:audio.allowed && audio.continuous && audio.sustainWeapon
+        gain:(audio.weaponId==="chainsaw" ? .57 : .49)*Ui.SoundMix.gain("effects")
     }
-    SoundEffect {
-        id: wind
-        source: Qt.resolvedUrl("../audio/wind-loop.wav")
-        loops: SoundEffect.Infinite
-        volume: .37*Ui.SoundMix.gain("ambience")
-        onStatusChanged: audio.syncLoop(wind,audio.inBattle && audio.windy)
+    LoopPlayback {
+        clip:"rain-loop"
+        active:audio.surfaceWeather && (audio.weather==="rain" || audio.weather==="thunder")
+        gain:.25*audio.ambience
     }
-    SoundEffect {
-        id: glitch
-        source: Qt.resolvedUrl("../audio/glitch-loop.wav")
-        loops: SoundEffect.Infinite
-        volume: .28*Ui.SoundMix.gain("ambience")
-        onStatusChanged: audio.syncLoop(glitch,audio.inBattle && audio.weather === "glitch")
+    LoopPlayback {
+        clip:"inferno-loop"; active:audio.surfaceWeather && audio.weather==="inferno"; gain:.45*audio.ambience
     }
-    SoundEffect {
-        id: stream
-        source:audio.sustainWeapon ? Qt.resolvedUrl("../audio/fire-"+audio.weaponId+".wav") : ""
-        loops: SoundEffect.Infinite
-        volume: (audio.weaponId === "chainsaw" ? .57 : .49)*Ui.SoundMix.gain("effects")
-        onStatusChanged: audio.syncLoop(stream,audio.continuous)
+    LoopPlayback {
+        clip:"winter-loop"; active:audio.surfaceWeather && audio.weather==="winter"; gain:.29*audio.ambience
     }
-    SoundEffect {
-        id: rain
-        source: Qt.resolvedUrl("../audio/rain-loop.wav")
-        loops: SoundEffect.Infinite
-        volume: .25*Ui.SoundMix.gain("ambience")
-        onStatusChanged: audio.syncLoop(rain,audio.inBattle && (audio.weather==="rain" || audio.weather==="thunder"))
+    LoopPlayback {
+        clip:"abyss-bubble-loop"; active:audio.allowed && audio.inBattle && audio.flooded; gain:.37*audio.ambience
     }
-    SoundEffect {
-        id: fireWeather
-        source: Qt.resolvedUrl("../audio/inferno-loop.wav")
-        loops: SoundEffect.Infinite
-        volume: .45*Ui.SoundMix.gain("ambience")
-        onStatusChanged: audio.syncLoop(fireWeather,audio.inBattle && audio.weather === "inferno")
-    }
-    SoundEffect {
-        id: winter
-        source: Qt.resolvedUrl("../audio/winter-loop.wav")
-        loops: SoundEffect.Infinite
-        volume: .29*Ui.SoundMix.gain("ambience")
-        onStatusChanged: audio.syncLoop(winter,audio.inBattle && audio.weather === "winter")
-    }
-    SoundEffect {
-        id: incursion
-        source:Qt.resolvedUrl("../audio/abyss-bubble-loop.wav")
-        loops: SoundEffect.Infinite
-        volume: .37*Ui.SoundMix.gain("ambience")
-        onStatusChanged: audio.syncLoop(incursion,audio.inBattle && audio.flooded)
-    }
-    SoundEffect {
-        id: siren
-        source: Qt.resolvedUrl("../audio/boss-siren-loop.wav")
-        loops: SoundEffect.Infinite
-        volume: .27*Ui.SoundMix.gain("ambience")
-        onStatusChanged: audio.syncLoop(siren,audio.bossWarning)
-    }
-    SoundEffect {
-        id: battle
-        source: Qt.resolvedUrl("../audio/combat-loop.wav")
-        loops: SoundEffect.Infinite
-        volume: .22*Ui.SoundMix.gain("ambience")
-        onStatusChanged: audio.syncLoop(battle,audio.inBattle)
+    LoopPlayback {
+        clip:"boss-siren-loop"; active:audio.allowed && audio.bossWarning; gain:.27*audio.ambience
     }
 }

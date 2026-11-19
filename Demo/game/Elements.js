@@ -7,7 +7,7 @@ var kinds = {
     electric: { title:"Electric", color:"#d2a3ff", passes:[0,1,2,4], retain:[0,.50,.58,.66], radius:[0,185,200,215] },
     weaken: { title:"Weaken", color:"#e5a3ff", penalty:[0,.18,.30,.44], duration:[0,4,5,6] },
     stun: { title:"Stun", color:"#ffde91", duration:[0,1,1.45,1.9] },
-    blind: { title:"Blindness", color:"#b6afc5", intensity:[0,.48,.68,.88], duration:[0,3.5,4.5,6], miss:[0,.08,.17,.30] },
+    blind: { title:"Blindness", color:"#b6afc5", intensity:[0,.48,.68,.88], duration:[0,3.5,4.5,6], miss:[0,.03,.08,.15] },
     poison: { title:"Poison", color:"#a8ed6a", rate:[0,.01,.02,.03], duration:[0,6.5,7.5,8.5] },
     sticky: { title:"Sticky", color:"#dcfa70", duration:[0,1.6,2.3,3.3] },
     wind: { title:"Wind knockback", color:"#abffda", push:[0,110,190,270] }

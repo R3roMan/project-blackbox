@@ -26,7 +26,7 @@ Item {
     // Grade the photographic foreground; the separately matted sky stays luminous.
     Rectangle {
         anchors.fill:parent
-        color:land.front==="down" ? "#23080810" : land.night ? (land.phase==="bloodMoon" ? "#be210a19" : "#c006152e")
+        color:land.front==="down" ? "transparent" : land.night ? (land.phase==="bloodMoon" ? "#be210a19" : "#c006152e")
             : land.dusk ? "#6649384d" : land.dawn ? "#48445470" : land.frozen ? "#363f7fa5"
             : land.hot ? "#3dc07d3c" : land.cloudy ? "#44405261" : "transparent"
     }

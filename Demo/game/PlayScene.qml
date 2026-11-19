@@ -2678,6 +2678,7 @@ FocusScope {
                     revision: play.revision
                     compact: play.compactLayout
                     nativeScene: !play.projectedMode
+                    detail:play.graphicsDetail
                     motion: play.motion
                     onRefundRequested:function(group,id) {
                         if (play.allowed && Rules.refundAbility(play.run,group,id)) {
@@ -2969,6 +2970,7 @@ FocusScope {
             sustainWeapon:!!audio.gameplay.weapon.sustain
             flooded:audio.gameplay.takeover
             inBattle:audio.gameplay.fighting
+            inAbyss:audio.gameplay.frontId==="down"
             windy:audio.gameplay.windy
             weather:audio.gameplay.weather
             bossWarning:audio.gameplay.fighting && audio.gameplay.bossDirection.length>0

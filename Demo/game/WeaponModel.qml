@@ -56,6 +56,7 @@ View3D {
         id:surfaces
         detailed:view.detail===3
         organic:false
+        timber:view.handWeapon || view.staff
     }
     explicitTextureWidth: Math.max(1, Math.round(Math.min(view.detail===3 ? 1920 : 960, width * Screen.devicePixelRatio)))
     explicitTextureHeight: Math.max(1, Math.round(explicitTextureWidth * height / Math.max(1, width)))

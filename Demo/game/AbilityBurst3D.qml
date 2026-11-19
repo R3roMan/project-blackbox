@@ -20,13 +20,23 @@ Node {
     readonly property bool bullets:kind==="reload" || kind==="coin"
     readonly property bool protection:kind==="guard"
     readonly property color pigment:effect.color
-    readonly property int count:detail===2 ? 7 : 5
+    readonly property int count:detail===3 ? 9 : detail===2 ? 7 : 5
     readonly property var points:{
-        if (effect.points?.length) return effect.points.slice(0,detail===2 ? 4 : 3)
+        if (effect.points?.length) return effect.points.slice(0,detail>=2 ? 4 : 3)
         const depth=effect.anchor==="self" ? 315 : 885
         return [{lane:(effect.x-.5)*depth*aspect*1.064,elevation:(.5-effect.y)*depth*1.064,depth:depth}]
     }
     opacity:opacityScale
+    AmethystGeometry {id:facet}
+    PrincipledMaterial {
+        id:frostCrystal
+        baseColor:Qt.lighter(burst.pigment,1.15)
+        metalness:.36
+        roughness:.27
+        clearcoatAmount:.64
+        clearcoatRoughnessAmount:.19
+        emissiveFactor:Qt.vector3d(.19,.23,.28)
+    }
     PrincipledMaterial {id:lit; baseColor:burst.pigment; lighting:PrincipledMaterial.NoLighting}
     PrincipledMaterial {id:flared; baseColor:Qt.lighter(burst.pigment,1.45); lighting:PrincipledMaterial.NoLighting}
     PrincipledMaterial {id:mist; baseColor:Qt.rgba(burst.pigment.r,burst.pigment.g,burst.pigment.b,.33); alphaMode:PrincipledMaterial.Blend; lighting:PrincipledMaterial.NoLighting; cullMode:Material.NoCulling}
@@ -61,8 +71,10 @@ Node {
                     readonly property real turn:index*2*Math.PI/burst.count+burst.phase*.43
                     eulerRotation.z:turn*180/Math.PI
                     Model {
-                        source:burst.crystal || burst.molten ? "#Cone" : burst.droplets ? "#Sphere"
-                            : burst.bullets ? "#Cylinder" : "#Cube"
+                        source:burst.crystal && burst.detail===3 ? "" : burst.crystal || burst.molten ? "#Cone"
+                            : burst.droplets ? "#Sphere" : burst.bullets ? "#Cylinder" : "#Cube"
+                        geometry:burst.crystal && burst.detail===3 ? facet : null
+                        castsShadows:false
                         x:spark.reach*(burst.droplets ? .56 : .78)
                         y:burst.molten ? burst.phase*19 : burst.lightning ? Math.sin(ray.index*9+burst.phase*17)*8 : 0
                         z:Math.sin(ray.index*4.1)*26
@@ -74,7 +86,7 @@ Node {
                             : burst.droplets ? Qt.vector3d(.13,.075,.14)
                             : burst.bullets ? Qt.vector3d(.068,.22,.072)
                             : Qt.vector3d(.27,.043,.060)
-                        materials:[ray.index%3===1 ? flared : lit]
+                        materials:[burst.crystal && burst.detail===3 ? frostCrystal : ray.index%3===1 ? flared : lit]
                     }
                     Model {
                         visible:burst.lightning

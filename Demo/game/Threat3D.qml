@@ -15,6 +15,7 @@ Node {
     property string viewedFront: "front"
     property int grabId: 0
     property var surfaces:null
+    property bool simplified:false
     readonly property var creature: Rules.enemyTypes[enemy.type]
     readonly property bool angel: creature.role === "angel" || !!creature.angel
     readonly property bool shade: enemy.type === "mystery"
@@ -84,7 +85,7 @@ Node {
         roughness:actor.boss && actor.surfaces?.detailed ? .49 : .76
     }
     LitSurface {
-        surfaces:actor.surfaces;finish:"hide"
+        surfaces:actor.surfaces;finish:"bone"
         id:bone; baseColor: actor.ghost ? "#a0a1a6" : Qt.lighter(actor.creature.skin, 1.45); roughness: 0.78 }
     LitSurface {
         surfaces:actor.surfaces;finish:"weave"
@@ -99,7 +100,7 @@ Node {
     }
     PrincipledMaterial { id: dark; baseColor: "#1e1322"; lighting: PrincipledMaterial.NoLighting }
     LitSurface {
-        surfaces:actor.surfaces;finish:"hide"
+        surfaces:actor.surfaces;finish:"bone"
         id:enamel; baseColor: actor.ghost ? "#acb0b5" : "#f1d7b7"; roughness: 0.65 }
     PrincipledMaterial {
         id: gateLight
@@ -148,19 +149,20 @@ Node {
                 active: actor.creature.origin === "Hellborne" && !actor.creature.vampire
                     && !actor.angel && actor.enemy.type!=="skorochiyus"
                 sourceComponent: Node {
-                    SickleHornGeometry { id: hornShape }
-                    ScallopedWingGeometry { id: wingShape }
+                    SickleHornGeometry {id:hornShape; textured:!!actor.surfaces?.detailed}
+                    ScallopedWingGeometry {id:wingShape; textured:!!actor.surfaces?.detailed}
                     LitSurface {
                         id:hornIvory
                         surfaces:actor.surfaces
+                        finish:"horn"
                         baseColor:Qt.lighter(actor.creature.skin,1.65)
-                        roughness:.65
+                        roughness:.58
                         cullMode:Material.NoCulling
                     }
                     LitSurface {
                         id:wingHide
                         surfaces:actor.surfaces
-                        finish:"weave"
+                        finish:"wing"
                         baseColor:Qt.darker(actor.creature.skin,1.35)
                         roughness:.72
                         cullMode:Material.NoCulling
@@ -320,11 +322,11 @@ Node {
                 }
             }
             Repeater3D {
-                model: actor.details ? actor.details[0] : 0
+                model:actor.details ? actor.simplified ? Math.ceil(actor.details[0]*.5) : actor.details[0] : 0
                 delegate: Model {
                     required property int index
                     readonly property var mark: actor.details
-                    readonly property real offset: index - (mark[0] - 1) * .5
+                    readonly property real offset:(actor.simplified ? index*2 : index)-(mark[0]-1)*.5
                     source: mark[4] === "rib" ? "#Cylinder" : mark[4] === "blade" ? "#Cone" : "#Cube"
                     x: offset * mark[1]
                     y: -20 - (mark[2] + mark[3]) * Math.abs(offset) * .20
@@ -428,7 +430,7 @@ Node {
                         materials: [dark]
                     }
                     Repeater3D {
-                        model: actor.creature.origin==="Hellborne" ? 4 : 0
+                        model:actor.creature.origin==="Hellborne" && !actor.simplified ? 4 : 0
                         Model {
                             required property int index
                             readonly property int side: index%2 ? 1 : -1
@@ -454,12 +456,12 @@ Node {
                             materials:[dark]
                         }
                         Repeater3D {
-                            model:actor.teeth ? 10 : 8
+                            model:actor.simplified ? 4 : actor.teeth ? 10 : 8
                             delegate:Model {
                                 required property int index
                                 readonly property int side:index%2 ? -1 : 1
                                 source:"#Cone"
-                                x:(index-(actor.teeth ? 4.5 : 3.5))*4.3
+                                x:actor.simplified ? (index-1.5)*7.5 : (index-(actor.teeth ? 4.5 : 3.5))*4.3
                                 y:side*(jawFace.gape*.61)
                                 z:8+side*.85
                                 eulerRotation.z:side>0 ? 180 : 0
@@ -488,6 +490,7 @@ Node {
                         clock:actor.animate ? actor.age : 0
                         bite:Math.min(1,actor.jawOpen*1.6)
                         style:actor.bellyStyle
+                        simplified:actor.simplified
                     }
                 }
                 Loader3D {

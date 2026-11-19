@@ -66,14 +66,16 @@ Item {
                 anchors.verticalCenterOffset:panel.descent.y
                 readonly property url fallback:backdrop.defaultFor(panel.modelData)
                 readonly property url requested:backdrop.sources[panel.modelData] || fallback
+                readonly property real distanceScale:panel.modelData==="down" && String(source)===String(fallback)
+                    ? Math.min(.75,1060/Math.max(1,width*backdrop.sampleScale*backdrop.zoom)) : 1
                 property bool failed:false
                 onRequestedChanged:failed=false
                 onStatusChanged:if(status===Image.Error && String(source)!==String(fallback))failed=true
                 source:panel.visible ? (failed ? fallback : requested) : ""
                 smooth:true;mipmap:true
                 scale:backdrop.zoom*panel.descent.scale
-                sourceSize:Qt.size(Math.max(1,Math.round(width*backdrop.sampleScale*backdrop.zoom)),
-                    Math.max(1,Math.round(height*backdrop.sampleScale*backdrop.zoom)))
+                sourceSize:Qt.size(Math.max(1,Math.round(width*backdrop.sampleScale*backdrop.zoom*distanceScale)),
+                    Math.max(1,Math.round(height*backdrop.sampleScale*backdrop.zoom*distanceScale)))
                 fillMode:backdrop.framing==="stretch" ? Image.Stretch : backdrop.framing==="fit" ? Image.PreserveAspectFit : Image.PreserveAspectCrop
                 Loader {
                     anchors.centerIn:parent

@@ -10,8 +10,8 @@ Node {
     required property real beam
     property real clock: 0
 
-    LitSurface { surfaces:rig.surfaces; finish:"hide"; id:bone; baseColor: "#aaa091"; metalness: .12; roughness: .86 }
-    PrincipledMaterial { id: tooth; baseColor: "#e3d3b5"; roughness: .67 }
+    LitSurface { surfaces:rig.surfaces; finish:"bone"; id:bone; baseColor:"#c6b6a0"; roughness:.49; specularAmount:.73 }
+    LitSurface { surfaces:rig.surfaces; finish:"bone"; id:tooth; baseColor:"#e3d3b5"; roughness:.61 }
     PrincipledMaterial { id: hollow; baseColor: "#29212a"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: gem; baseColor: rig.beam > .5 ? "#fff4bc" : "#ffdb52"; lighting: PrincipledMaterial.NoLighting }
     LitSurface { surfaces:rig.surfaces; finish:"steel"; id:filigree; baseColor: "#aa793e"; metalness: .66; roughness: .47 }

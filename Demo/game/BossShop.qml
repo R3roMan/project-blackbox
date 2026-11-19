@@ -13,6 +13,7 @@ ColumnLayout {
     required property int revision
     property bool compact: false
     property bool nativeScene: false
+    property int detail:1
     property bool motion: true
     readonly property bool stacked: width < 590
     signal entryRequested(string chapter, string id)
@@ -99,6 +100,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.preferredHeight:shop.compact ? 106 : 165
         nativeScene: shop.nativeScene
+        detail:shop.detail
         motion: shop.motion
         cards: shop.cards
         selectedId:shop.selected?.id || ""

@@ -4,6 +4,7 @@ Item {
     id: counter
     implicitHeight: 145
     property bool nativeScene: false
+    property int detail:1
     property bool motion: true
     property var cards: []
     property string selectedId: ""
@@ -190,6 +191,7 @@ Item {
             cards: counter.cards
             selectedId: counter.selectedId
             motion: counter.motion
+            detail:counter.detail
         }
     }
 

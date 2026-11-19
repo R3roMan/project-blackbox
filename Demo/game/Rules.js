@@ -89,7 +89,7 @@ function create(seed, unlocks) {
         dodgeWindow:0, turnEvadeUntil:0, dodgeReadyAt:0, dodgeFlash:0, bayonetTime:0,
         parry:0, counterTarget:0, meleeRush:0, honedHit:0, breachRounds:0, lockfeed:0, gore:[], splits:[], holes:[],
         deathCoins:0, coinsSent:0, nextCoin:0, aspect:1.6, guardFlash:0,
-        ambientAt:0, ambientRng:(seed >>> 0) ^ 0x7c159e37, splatterAt:0,
+        ambientAt:0, ambientRng:(seed >>> 0) ^ 0x7c159e37, splatterAt:0, deathVoiceAt:0,
         lunge:null, meleeImpact:0,soulReturns:[],
         shield:{ level:0,raised:false,held:false,age:0,limit:0,capacity:1,charges:0,cool:0,recovery:Defense.modes.standard.cooldown,
             mode:"standard",tint:"#65c8ff",credit:0,blocked:0,absorbed:0,flash:0,bolstered:false },
@@ -354,7 +354,7 @@ function sightLocked(run, id, view) {
 function closeAttackHits(run, contact) {
     if (!contact) return false
     const enemy = contact.enemy || contact.tube?.boss || contact.fang?.boss
-    return enemy?.sightMark > 0 || !attackMisses(run,blindRank(run),true)
+    return enemy?.sightMark > 0 || !attackMisses(run,attackBlindRank(run),true)
 }
 
 function criticalRoll(run, chance) {
@@ -635,8 +635,12 @@ function bloodMoon(run) {
     return run.skyPhase === "bloodMoon" || run.weatherEffect === "bloodMoon"
 }
 
+function attackBlindRank(run) {
+    return Math.max(run.elements.blind,bloodMoon(run) ? 2 : 0)
+}
+
 function blindRank(run) {
-    return Math.max(run.elements.blind,bloodMoon(run) ? 2 : night(run) ? 1 : 0)
+    return Math.max(attackBlindRank(run),night(run) ? 1 : 0)
 }
 
 function skyRanks(dark,red) {
@@ -972,8 +976,8 @@ function startWave(run) {
     run.salvoTime=run.sprayTime=run.vampireReady=0
     run.deathCoins = run.coinsSent = run.guardFlash = 0
     run.nextCoin = rank(run,"deathMint") ? .85 + random(run) * .76 : 0
-    run.ambientAt = 3.5 + ambientRandom(run) * 5
-    run.splatterAt = 0
+    run.ambientAt = 4.8 + ambientRandom(run) * 4.4
+    run.splatterAt = run.deathVoiceAt = 0
     run.bonusAmmo = run.nextAmmo
     run.nextAmmo = 0
     run.slots.weapon.forEach(function(slot, index) {
@@ -1907,6 +1911,13 @@ function blood(run, enemy, style, fatal) {
         run.splatterAt = run.time + .18
         announce(run, null, crystal ? "voidShatter" : boss && fatal ? "death-"+enemy.type : fatal ? "goreKill" : "goreHit")
     }
+    if (fatal && !crystal && !boss && enemy.front===run.playerFront && run.time>=run.deathVoiceAt) {
+        const chance=Conditions.roll(enemy.id,run.seed,0x27a9e581)
+        if (chance<.27) {
+            run.deathVoiceAt=run.time+1.9
+            announce(run,null,chance<.135 ? "deathGroan" : "deathRasp")
+        }
+    }
 }
 
 var sniperPerches = [[-735,312],[724,337],[-862,-244],[904,-175],[191,478]]
@@ -1984,7 +1995,7 @@ function wound(run, enemy, amount, source, element, level, impact) {
     if (element) enemy.lastElement=element
     if (spec.explosionImmune && (source === "explosion" || source === "hostileBlast" || impact?.explosion))
         return spec.title+" drinks the blast"
-    if ((source === "ability" || source === "grenade") && !impact?.attackRolled && !(enemy.sightMark > 0) && attackMisses(run,blindRank(run),true))
+    if ((source === "ability" || source === "grenade") && !impact?.attackRolled && !(enemy.sightMark > 0) && attackMisses(run,attackBlindRank(run),true))
         return ""
     if (element === "electric" && Conditions.isRain(run.weatherEffect) && source !== "electric")
         amount *= 2
@@ -3083,7 +3094,7 @@ function shoot(run, hits, view, aim, continuation) {
         if (gun.heat >= limit)
             coolWeapon(run, gun, weapon, stats)
     }
-    const blindness = blindRank(run)
+    const blindness = attackBlindRank(run)
     if (attackMisses(run,blindness,true)) {
         // One volley can cross both a marked enemy and an unmarked enemy.
         hits = hits.filter(function(id) { return sightLocked(run,id,frontId) || byId(run.gifts,id) })
@@ -5234,9 +5245,9 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         advanceSeal(run,dt*speed/Abyss.sealSeconds)
     }
     if (run.waveTime >= run.ambientAt) {
-        const ambience = ["distantCry","distantEcho","distantMetal"]
+        const ambience = ["distantSnigger","distantLaugh","distantBreath","distantCry","distantEcho","distantMetal"]
         announce(run, null, ambience[Math.floor(ambientRandom(run) * ambience.length)])
-        run.ambientAt = run.waveTime + 6.5 + ambientRandom(run)*8.8
+        run.ambientAt = run.waveTime + 7.4 + ambientRandom(run)*9.3
     }
     if (aim && aim.aspect > 0)
         run.aspect = aim.aspect

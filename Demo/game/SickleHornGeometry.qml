@@ -3,7 +3,7 @@ import QtQuick3D.Helpers
 
 // Geometry from Dev/models/sickleHorn.obj. Shared by both sides of the creature.
 ProceduralMesh {
-    positions: [
+    readonly property var vertices: [
         Qt.vector3d(7.06,-8.604,0), Qt.vector3d(4.992,-6.084,7.87), Qt.vector3d(0,-0,11.13),
         Qt.vector3d(-4.992,6.084,7.87), Qt.vector3d(-7.06,8.604,0), Qt.vector3d(-4.992,6.084,-7.87),
         Qt.vector3d(-0,0,-11.13), Qt.vector3d(4.992,-6.084,-7.87), Qt.vector3d(10.637,-2.382,0.099),
@@ -32,7 +32,7 @@ ProceduralMesh {
         Qt.vector3d(13.932,56.478,8.077), Qt.vector3d(13.901,56.469,8), Qt.vector3d(13.932,56.478,7.923),
         Qt.vector3d(14.005,56.5,7.891), Qt.vector3d(14.079,56.522,7.923)
     ]
-    normals: [
+    readonly property var vertexNormals: [
         Qt.vector3d(0.863,-0.494,0.109), Qt.vector3d(0.641,-0.225,0.734), Qt.vector3d(0.212,0.314,0.925),
         Qt.vector3d(-0.163,0.803,0.573), Qt.vector3d(-0.273,0.956,-0.107), Qt.vector3d(-0.063,0.688,-0.723),
         Qt.vector3d(0.356,0.153,-0.922), Qt.vector3d(0.743,-0.337,-0.578), Qt.vector3d(0.812,-0.583,-0.014),
@@ -61,24 +61,37 @@ ProceduralMesh {
         Qt.vector3d(-0.405,-0.151,0.902), Qt.vector3d(-0.924,-0.182,0.336), Qt.vector3d(-0.906,-0.032,-0.422),
         Qt.vector3d(-0.377,0.201,-0.904), Qt.vector3d(0.334,0.384,-0.861)
     ]
-    indexes: [
-        0,8,9,0,9,1,1,9,10,1,10,2,2,10,11,2,11,3,3,11,12,3,12,4,
-        4,12,13,4,13,5,5,13,14,5,14,6,6,14,15,6,15,7,7,15,8,7,8,0,
-        8,16,17,8,17,9,9,17,18,9,18,10,10,18,19,10,19,11,11,19,20,11,20,12,
-        12,20,21,12,21,13,13,21,22,13,22,14,14,22,23,14,23,15,15,23,16,15,16,8,
-        16,24,25,16,25,17,17,25,26,17,26,18,18,26,27,18,27,19,19,27,28,19,28,20,
-        20,28,29,20,29,21,21,29,30,21,30,22,22,30,31,22,31,23,23,31,24,23,24,16,
-        24,32,33,24,33,25,25,33,34,25,34,26,26,34,35,26,35,27,27,35,36,27,36,28,
-        28,36,37,28,37,29,29,37,38,29,38,30,30,38,39,30,39,31,31,39,32,31,32,24,
-        32,40,41,32,41,33,33,41,42,33,42,34,34,42,43,34,43,35,35,43,44,35,44,36,
-        36,44,45,36,45,37,37,45,46,37,46,38,38,46,47,38,47,39,39,47,40,39,40,32,
-        40,48,49,40,49,41,41,49,50,41,50,42,42,50,51,42,51,43,43,51,52,43,52,44,
-        44,52,53,44,53,45,45,53,54,45,54,46,46,54,55,46,55,47,47,55,48,47,48,40,
-        48,56,57,48,57,49,49,57,58,49,58,50,50,58,59,50,59,51,51,59,60,51,60,52,
-        52,60,61,52,61,53,53,61,62,53,62,54,54,62,63,54,63,55,55,63,56,55,56,48,
-        56,64,65,56,65,57,57,65,66,57,66,58,58,66,67,58,67,59,59,67,68,59,68,60,
-        60,68,69,60,69,61,61,69,70,61,70,62,62,70,71,62,71,63,63,71,64,63,64,56,
-        64,72,73,64,73,65,65,73,74,65,74,66,66,74,75,66,75,67,67,75,76,67,76,68,
-        68,76,77,68,77,69,69,77,78,69,78,70,70,78,79,70,79,71,71,79,72,71,72,64
-    ]
+    // The ninth vertex duplicates the first at the UV seam.
+    property bool textured:false
+    readonly property int sides:8
+    readonly property int rings:vertices.length/sides
+    readonly property int stride:sides+(textured ? 1 : 0)
+
+    function sourceIndex(index) {
+        return Math.floor(index/stride)*sides + index%stride%sides
+    }
+
+    positions:textured ? Array.from({length:rings*stride}, (_, index) => vertices[sourceIndex(index)]) : vertices
+    normals:textured ? Array.from({length:rings*stride}, (_, index) => vertexNormals[sourceIndex(index)]) : vertexNormals
+    uv0s:textured ? Array.from(positions, (_, index) =>
+        Qt.vector2d((index%stride)/sides, Math.floor(index/stride)/(rings-1))) : []
+    tangents:textured ? Array.from(normals, (normal, index) => {
+        const start=Math.floor(index/stride)*sides
+        const side=index%stride%sides
+        const tangent=vertices[start+(side+1)%sides].minus(vertices[start+(side+sides-1)%sides])
+        return tangent.minus(normal.times(tangent.dotProduct(normal))).normalized()
+    }) : []
+    binormals:textured ? Array.from(normals, (normal, index) => tangents[index].crossProduct(normal)) : []
+    indexes: {
+        const faces=[]
+        for (let ring=0; ring<rings-1; ++ring) {
+            const row=ring*stride
+            for (let side=0; side<sides; ++side) {
+                const a=row+side
+                const b=row+(side+1)%stride
+                faces.push(a,a+stride,b+stride,a,b+stride,b)
+            }
+        }
+        return faces
+    }
 }

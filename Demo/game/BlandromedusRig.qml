@@ -14,10 +14,10 @@ Node {
     readonly property real eyeSwing:Math.sin(clock*3.3)*7+strike*14
     readonly property real wingBeat:Math.sin(clock*4.2)*21-strike*14
 
-    LitSurface { surfaces:vampire.surfaces; finish:"hide"; id:bone; baseColor:"#eee1ce"; roughness:.67 }
+    LitSurface { surfaces:vampire.surfaces; finish:"bone"; id:bone; baseColor:"#eee1ce"; roughness:.67 }
     PrincipledMaterial { id:rib; baseColor:"#ba9e91"; roughness:.76 }
     LitSurface { surfaces:vampire.surfaces; finish:"weave"; id:cloak; baseColor:"#31153e"; roughness:.79; cullMode:Material.NoCulling }
-    LitSurface { surfaces:vampire.surfaces; finish:"hide"; id:membrane; baseColor:"#632c94"; roughness:.49; cullMode:Material.NoCulling }
+    LitSurface { surfaces:vampire.surfaces; finish:"wing"; id:membrane; baseColor:"#632c94"; roughness:.53; cullMode:Material.NoCulling }
     PrincipledMaterial { id:blood; baseColor:"#96152e"; roughness:.25 }
     PrincipledMaterial { id:cavity; baseColor:"#260e24"; roughness:.82 }
     PrincipledMaterial { id:eye; baseColor:"#ffe5d0"; roughness:.17 }
@@ -27,7 +27,7 @@ Node {
         emissiveFactor:Qt.vector3d(.33,.01,.025)
         roughness:.18
     }
-    ScallopedWingGeometry {id:wing}
+    ScallopedWingGeometry {id:wing; textured:!!vampire.surfaces?.detailed}
     Repeater3D {
         model:[-1,1]
         Node {

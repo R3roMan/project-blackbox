@@ -2,69 +2,95 @@ import QtQuick
 import QtMultimedia
 import "../ui" as Ui
 
-// Cold clips queue their first trigger. Frequently used clips stay decoded.
 Item {
     id: bank
     property bool allowed:true
-    property var clips:({})
-    property int sequence:0
-    property int capacity:36
+    property int capacity:12
     property string defaultBus:"interface"
+    property int sequence:0
     visible:false
 
-    function warm(name, volume, lane, bus) {
+    // Qt 6.12's SoundEffect backend can leave an invalid PipeWire notifier
+    // behind. Reuse a bounded set of MediaPlayers for both cold and warm cues.
+    function voiceFor(name, lane, interrupt) {
         const key=name+"|"+(lane || "")
-        let clip=clips[key]
-        if (clip) return clip
-        const keys=Object.keys(clips)
-        if (keys.length>=capacity) {
-            keys.sort(function(a,b) {return clips[a].lastUse-clips[b].lastUse})
-            const evict=keys.find(function(old) {return !clips[old].playing && !clips[old].queuedAt}) || keys[0]
-            clips[evict].destroy()
-            delete clips[evict]
+        let idle=null
+        let oldest=null
+        for (let i=0; i<voices.count; ++i) {
+            const voice=voices.itemAt(i)?.player
+            if (!voice) continue
+            if (voice.key===key) return voice
+            if (!voice.busy && (!idle || voice.lastUse<idle.lastUse)) idle=voice
+            if (!oldest || voice.lastUse<oldest.lastUse) oldest=voice
         }
-        clip=voice.createObject(bank,{file:name,lastUse:++sequence,gain:volume ?? .54,bus:bus || defaultBus})
-        clips[key]=clip
-        return clip
+        const voice=idle || (interrupt ? oldest : null)
+        if (voice) {
+            voice.cancel()
+            voice.key=key
+            voice.source=Qt.resolvedUrl("../audio/"+name+".wav")
+            voice.lastUse=++sequence
+        }
+        return voice
+    }
+
+    function warm(name, lane, bus) {
+        if (!allowed || !name || Ui.SoundMix.gain(bus || defaultBus)<=0) return
+        return voiceFor(name,lane,false)
     }
 
     function play(name, volume, lane, bus) {
-        if (!allowed || !name) return
-        const clip=warm(name,volume,lane,bus)
-        if (volume!==undefined) clip.gain=volume
-        if (bus) clip.bus=bus
-        clip.lastUse=++sequence
-        if (clip.status===SoundEffect.Ready) {
-            clip.queuedAt=0
-            clip.play()
-        } else if (clip.status!==SoundEffect.Error) {
-            clip.queuedAt=Date.now()
-        }
+        const route=bus || defaultBus
+        if (!allowed || !name || Ui.SoundMix.gain(route)<=0) return
+        const voice=voiceFor(name,lane,true)
+        if (!voice) return
+        voice.gain=volume ?? .54
+        voice.bus=route
+        voice.lastUse=++sequence
+        voice.pending=true
+        voice.startWhenLoaded()
     }
 
     onAllowedChanged:if (!allowed) {
-        for (const key of Object.keys(clips)) {
-            clips[key].queuedAt=0
-            clips[key].stop()
-        }
+        for (let i=0; i<voices.count; ++i) voices.itemAt(i)?.player.cancel()
     }
 
-    Component {
-        id: voice
-        SoundEffect {
-            id:sample
-            required property string file
-            property real gain:.54
-            property string bus:"interface"
-            volume:sample.gain*Ui.SoundMix.gain(sample.bus)
-            property real queuedAt:0
-            property int lastUse:0
-            source:Qt.resolvedUrl("../audio/"+file+".wav")
-            onStatusChanged:{
-                if (status===SoundEffect.Loading) return
-                const elapsed=Date.now()-queuedAt
-                if (status===SoundEffect.Ready && bank.allowed && queuedAt && elapsed<900) sample.play()
-                queuedAt=0
+    Repeater {
+        id:voices
+        model:bank.capacity
+        Item {
+            width:0
+            height:0
+            property alias player:sample
+            MediaPlayer {
+                id:sample
+                property string key:""
+                property real gain:.54
+                property string bus:bank.defaultBus
+                property int lastUse:0
+                property bool pending:false
+                readonly property bool busy:pending || playbackState===MediaPlayer.PlayingState
+                audioOutput:AudioOutput {volume:sample.gain*Ui.SoundMix.gain(sample.bus)}
+
+                function cancel() {
+                    pending=false
+                    if (playbackState!==MediaPlayer.StoppedState) stop()
+                }
+
+                function startWhenLoaded() {
+                    if (!pending) return
+                    if (mediaStatus===MediaPlayer.InvalidMedia || error!==MediaPlayer.NoError) {
+                        pending=false
+                    } else if (mediaStatus!==MediaPlayer.NoMedia && mediaStatus!==MediaPlayer.LoadingMedia) {
+                        pending=false
+                        if (bank.allowed && Ui.SoundMix.gain(bus)>0) {
+                            if (position>0) position=0
+                            play()
+                        }
+                    }
+                }
+
+                onMediaStatusChanged:startWhenLoaded()
+                onErrorOccurred:pending=false
             }
         }
     }

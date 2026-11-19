@@ -13,7 +13,7 @@ Node {
 
     LitSurface { surfaces:vessel.surfaces; finish:"steel"; id:hull; baseColor: "#171622"; metalness: .67; roughness: .39 }
     LitSurface { surfaces:vessel.surfaces; finish:"steel"; id:armour; baseColor: "#302131"; metalness: .63; roughness: .35 }
-    PrincipledMaterial { id: seam; baseColor: "#8d253d"; metalness: .43; roughness: .40 }
+    LitSurface { surfaces:vessel.surfaces; finish:"steel"; id:seam; baseColor:"#8d253d"; metalness:.43; roughness:.40 }
     PrincipledMaterial {
         id: hot
         baseColor: vessel.beaming ? "#fff3cc" : vessel.charging ? Qt.lighter("#ff3c54", 1.3 + .2 * Math.sin(vessel.clock * 27)) : "#ff3c54"

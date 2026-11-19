@@ -11,7 +11,7 @@ Node {
     readonly property bool carrier:enemy.type==="mothergalian"
     readonly property bool guard:enemy.type==="fizzalien"
     readonly property bool camouflaged:enemy.type==="veilskate"
-    SickleHornGeometry { id:horn }
+    SickleHornGeometry {id:horn; textured:!!ship.surfaces?.detailed}
     LitSurface {
         surfaces:ship.surfaces; finish:"steel"; id:hull; baseColor:ship.spec.skin
         metalness:ship.camouflaged ? .12 : .56; roughness:ship.camouflaged ? .88 : .33
@@ -23,9 +23,10 @@ Node {
         emissiveFactor:ship.camouflaged ? Qt.vector3d(.025,.033,.040) : Qt.vector3d(0,0,0)
     }
     LitSurface { surfaces:ship.surfaces; finish:"steel"; id:edge; baseColor:Qt.lighter(ship.spec.skin,1.58); metalness:.66; roughness:.38; cullMode:Material.NoCulling }
+    LitSurface { surfaces:ship.surfaces; finish:"horn"; id:prong; baseColor:Qt.lighter(ship.spec.skin,1.66); metalness:.46; roughness:.52; cullMode:Material.NoCulling }
     PrincipledMaterial { id:engine; baseColor:ship.spec.accent; lighting:PrincipledMaterial.NoLighting }
     PrincipledMaterial { id:windowGlass; baseColor:"#21162d"; metalness:.37; roughness:.13 }
-    PrincipledMaterial { id:mottle; baseColor:"#747c6d"; roughness:.84; emissiveFactor:Qt.vector3d(.14,.15,.11) }
+    LitSurface { surfaces:ship.surfaces; finish:"steel"; id:mottle; baseColor:"#747c6d"; roughness:.84; emissiveFactor:Qt.vector3d(.14,.15,.11) }
     Model {
         objectName:String(ship.enemy.id); pickable:ship.live
         source:"#Sphere"; scale:Qt.vector3d(ship.carrier ? 1.80 : 1.22,ship.camouflaged ? .38 : .49,ship.camouflaged ? .92 : 1.34); materials:[hull]
@@ -68,7 +69,7 @@ Node {
                 geometry:horn; x:ship.carrier ? 57 : 38; y:12; z:1
                 eulerRotation:Qt.vector3d(-25,36,-18)
                 scale:Qt.vector3d(.56,ship.guard ? .80 : .65,.55)
-                materials:[edge]
+                materials:[prong]
             }
             Model {
                 source:"#Cylinder"; x:ship.carrier ? 64 : 45; y:-9; z:14-ship.strike*12

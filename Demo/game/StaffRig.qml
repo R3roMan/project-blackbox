@@ -16,6 +16,7 @@ Node {
     LitSurface { surfaces:staff.surfaces; finish:"steel"; id:iron; baseColor: "#25232b"; metalness: .81; roughness: .42 }
     LitSurface { surfaces:staff.surfaces; finish:"steel"; id:metal; baseColor: "#767381"; metalness: .84; roughness: .35 }
     LitSurface { surfaces:staff.surfaces; finish:"weave"; id:leather; baseColor: "#422631"; roughness: .96 }
+    LitSurface { surfaces:staff.surfaces; finish:"wood"; id:wood; baseColor:"#5c3a38"; roughness:.64 }
     PrincipledMaterial {
         id: rune
         baseColor: Qt.lighter(staff.tint, 1 + Math.max(staff.charge,Math.sin(staff.cast*Math.PI))*.85)
@@ -40,7 +41,7 @@ Node {
         source: "#Cylinder"
         eulerRotation.x: 90
         scale: Qt.vector3d(.15, 2.76, .15)
-        materials: [iron]
+        materials: [staff.style==="twig" || staff.kind==="wind" || staff.kind==="stun" ? wood : iron]
     }
     Model {
         source: "#Cylinder"

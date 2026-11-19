@@ -29,17 +29,17 @@ Node {
         }
     }
 
-    LitSurface { surfaces:rig.surfaces; finish:"weave"; id:wood; baseColor: "#805334"; roughness: .73 }
+    LitSurface { surfaces:rig.surfaces; finish:"wood"; id:wood; baseColor: "#805334"; roughness: .73 }
     LitSurface { surfaces:rig.surfaces; finish:"steel"; id:steel; baseColor:"#9298a9"; roughness:rig.surfaces?.detailed ? .17 : .23; metalness:.81
         specularAmount:.86;clearcoatAmount:rig.surfaces?.detailed ? .55 : 0 }
     LitSurface { surfaces:rig.surfaces; finish:"steel"; id:edge; baseColor:"#e4effd"; roughness:rig.surfaces?.detailed ? .11 : .18; metalness:.74;
         specularAmount:.92;clearcoatAmount:rig.surfaces?.detailed ? .65 : 0; emissiveFactor: Qt.vector3d(.11,.13,.17) }
-    PrincipledMaterial { id: dark; baseColor: "#222532"; roughness: .52; metalness: .42 }
+    LitSurface { surfaces:rig.surfaces; finish:"steel"; id:dark; baseColor:"#222532"; roughness:.52; metalness:.42 }
     LitSurface { surfaces:rig.surfaces; finish:"weave"; id:wrap; baseColor: "#592439"; roughness: .92 }
     LitSurface { surfaces:rig.surfaces; finish:"steel"; id:brass; baseColor: "#b78154"; roughness: .37; metalness: .60 }
     PrincipledMaterial { id: glow; baseColor: rig.primed ? Qt.lighter(rig.accent, 1.35) : rig.accent; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: shadow; baseColor: "#130921"; lighting: PrincipledMaterial.NoLighting }
-    PrincipledMaterial { id: red; baseColor: "#9c342e"; roughness: .39; metalness: .52 }
+    LitSurface { surfaces:rig.surfaces; finish:"steel"; id:red; baseColor:"#9c342e"; roughness:.39; metalness:.52 }
 
     Loader3D {
         active: rig.weaponId === "katana"
