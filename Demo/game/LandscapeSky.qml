@@ -92,10 +92,19 @@ EffectCanvas {
             const rain=Conditions.isRain(weather)
             const span=overhead ? 1010 : 880
             const offset=(Scenery.cloudOffset(time,windy)+(front==="front" ? 490 : overhead ? 295 : 0))%span
-            c.globalAlpha=(cloudy ? (rain ? .79 : .63) : .25)*(night ? .48 : 1)
-            for (let x=offset-span;x<768;x+=span) {
-                const y=overhead ? 61 : -skyHeight*.48
-                c.drawImage(cloudTexture,x,y,span,skyHeight*1.12)
+            const opacity=(cloudy ? (rain ? .79 : .63) : .25)*(night ? .48 : 1)
+            const y=overhead ? 61 : -skyHeight*.48
+            const edge=144, scaled=span/(1024-edge), bands=8
+            for (let x=offset-2*span;x<768;x+=span) {
+                c.globalAlpha=opacity
+                c.drawImage(cloudTexture,edge,0,1024-2*edge,240,x+edge*scaled,y,(1024-2*edge)*scaled+.4,skyHeight*1.12)
+                for (let band=0;band<bands;++band) {
+                    const width=edge/bands, at=band*width, fraction=(band+.5)/bands
+                    c.globalAlpha=opacity*fraction
+                    c.drawImage(cloudTexture,at,0,width,240,x+at*scaled,y,width*scaled+.4,skyHeight*1.12)
+                    c.globalAlpha=opacity*(1-fraction)
+                    c.drawImage(cloudTexture,1024-edge+at,0,width,240,x+(1024-edge+at)*scaled,y,width*scaled+.4,skyHeight*1.12)
+                }
             }
             c.globalAlpha=1
             if (rain || night) {

@@ -212,8 +212,11 @@ Item {
                 onValueModified:settings.set("idleFps",value)
             }
             Toggle {text:"Safe rendering · use 2D combat and static Idle";checked:settings.options.safeRendering;onToggled:value=>settings.set("safeRendering",value)}
+            Toggle {text:"Roaming Idle pet";checked:settings.options.idlePet;onToggled:value=>settings.set("idlePet",value)}
+            Ui.ActionButton {Layout.fillWidth:true;text:"Pick another Idle pet";enabled:settings.options.idlePet;onClicked:Native.Desktop.command("idle-pet")}
             Title {text:"KDE workspace integration"}
             Toggle {text:"Link each wallpaper to a KDE virtual desktop";checked:settings.options.linkDesktops;onToggled:value=>settings.set("linkDesktops",value)}
+            Toggle {visible:settings.options.linkDesktops;text:"Use only the Blackbox turn animation while linked";checked:settings.options.singleWorkspaceTurn;onToggled:value=>settings.set("singleWorkspaceTurn",value)}
             Copy {text:"Blackbox uses your current KDE panels, apps and widgets. Add tray or panel widgets in KDE’s Edit Mode. Use KDE Activities for separate desktop widget layouts."}
             Ui.ActionButton {Layout.fillWidth:true;text:"KDE Night Light";onClicked:Native.Desktop.openDisplaySettings(false)}
             Ui.ActionButton {Layout.fillWidth:true;text:"KDE displays and HDR";onClicked:Native.Desktop.openDisplaySettings(true)}
@@ -244,6 +247,7 @@ Item {
         id:controlsPage
         Stack {
             Toggle {text:"Turn at mouse edges";checked:settings.options.mouseTurns;onToggled:value=>settings.set("mouseTurns",value)}
+            Ui.FieldStyleOptions {}
             Ui.ControlBindings {
                 Layout.fillWidth:true
                 value:settings.options.controlBindings

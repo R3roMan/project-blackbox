@@ -20,8 +20,11 @@ ColumnLayout {
     signal purchaseRequested(string offerId, int slot, string confirmed)
     signal freezeRequested(string offerId)
     signal refundRequested(string group,string id)
+    signal saleRequested(string key)
     readonly property var refundable:{revision;return Gear.refundableAbilities(run)}
     property bool refundsOpen:false
+    property bool sellOpen:false
+    readonly property var sales:{revision;return Gear.saleOffers(run)}
 
     readonly property real balance: { revision; return Gear.availableGold(run) }
     readonly property var cards: { revision; return Gear.shopCards(run).slice() }
@@ -135,6 +138,13 @@ ColumnLayout {
         }
         Ui.ActionButton {
             accent:"#d0a46e"
+            objectName:"showSales"
+            text:"Sell gear"
+            primary:shop.sellOpen
+            onClicked:shop.sellOpen=!shop.sellOpen
+        }
+        Ui.ActionButton {
+            accent:"#d0a46e"
             visible:shop.refundable.length>0
             objectName:"showRefunds"
             text:"Refund ranks"
@@ -145,6 +155,25 @@ ColumnLayout {
             objectName:"shopLedger"
             text:shop.compact ? "Ledger" : "Shop ledger"
             onClicked:shop.entryRequested("shop","counter")
+        }
+    }
+
+    RowLayout {
+        Layout.fillWidth:true
+        visible:shop.sellOpen
+        ComboBox {
+            id:saleChoice
+            objectName:"shopSaleChoice"
+            Layout.fillWidth:true;Layout.minimumWidth:100
+            model:shop.sales.map(sale=>({key:sale.key,label:sale.title+" · "+sale.location+" · +"+sale.value+" gold"}))
+            textRole:"label";valueRole:"key"
+            popup.popupType:Popup.Item
+        }
+        Ui.ActionButton {
+            objectName:"sellSelectedGear"
+            enabled:shop.sales.length>0 && saleChoice.currentIndex>=0
+            text:shop.sales.length ? "Sell selected" : "No gear to sell"
+            onClicked:shop.saleRequested(saleChoice.currentValue)
         }
     }
     RowLayout {

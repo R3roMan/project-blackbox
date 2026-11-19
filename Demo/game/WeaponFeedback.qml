@@ -20,6 +20,8 @@ Item {
     property bool chargedSlash: false
     property int combo: 0
     property bool scoped: false
+    property color cursorColor:"#eec3a4"
+    property string cursorShape:"Weapon"
     property color tracerColor: weapon.color
     property bool coinShot:false
     property real muzzleLife:0
@@ -248,10 +250,11 @@ Item {
         y: feedback.pointer.y - height / 2
         visible: feedback.aiming && !feedback.scoped
         opacity: feedback.turning ? .42 : 1
-        readonly property color ink: feedback.stunned ? "#fa819b" : feedback.weapon.color
+        readonly property color ink: feedback.stunned ? "#fa819b" : feedback.cursorColor
 
         Rectangle {
             anchors.fill: parent
+            visible:feedback.cursorShape==="Weapon" || feedback.cursorShape==="Ring"
             radius: width / 2
             color: "transparent"
             border.color: crosshair.ink
@@ -265,10 +268,10 @@ Item {
             color: "transparent"
             border.color: crosshair.ink
             opacity: .58
-            visible: feedback.beam || feedback.scatter || feedback.pulse
+            visible: feedback.cursorShape==="Weapon" && (feedback.beam || feedback.scatter || feedback.pulse)
         }
         Repeater {
-            model: feedback.carbine ? 4 : 0
+            model: feedback.cursorShape==="Cross" || feedback.cursorShape==="Weapon" && feedback.carbine ? 4 : 0
             delegate: Rectangle {
                 required property int index
                 width: index % 2 === 0 ? 2 : 6
@@ -277,6 +280,11 @@ Item {
                 y: crosshair.height / 2 - height / 2 - Math.cos(index * Math.PI / 2) * (crosshair.height / 2 - 1)
                 color: crosshair.ink
             }
+        }
+        Rectangle {
+            anchors.centerIn:parent;width:6;height:width;radius:width/2
+            color:crosshair.ink;border.color:"#3b1c2d"
+            visible:feedback.cursorShape==="Dot"
         }
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter

@@ -360,6 +360,7 @@ FocusScope {
         visible:host.mode==="play" && host.here
         sourceComponent:Game.PlayScene {
             id:game
+            desktopMode:true
             resumeState:Native.Desktop.parkedRun()
             vault:careerVault
             artDirectory:Qt.resolvedUrl("../V0.1/kde/contents/images/")
@@ -398,7 +399,11 @@ FocusScope {
             initialDetail:host.initialDetail
             graphicsRestartText:"Save the run and restart the preview or reload the wallpaper to fully apply this preset."
             graphicsDetail:host.gpuBudgetLimited ? Math.max(0,host.options.detail-1) : host.options.detail
-            wallpaperQuality:host.mode==="performance" ? 1080 : 0
+            wallpaperQuality:host.options.quality
+            wallpaperFit:host.options.framing
+            wallpaperZoom:host.options.zoom
+            transitionStyle:host.options.transitionStyle
+            transitionStrength:host.options.transitionStrength
             showTimer:host.options.showTimer
             unlockedGear:Progress.unlocked(host.availableRecords,host.options.achievementOverride)
             knownEnemies:host.discovered.enemies
@@ -409,6 +414,11 @@ FocusScope {
             onTextScaleRequested:function(value) { Native.Desktop.setOption("textScale",value) }
             onTimerRequested:function(value){Native.Desktop.setOption("showTimer",value)}
             onFrameLimitRequested:function(value){Native.Desktop.setOption("frameLimit",value)}
+            onQualityRequested:value=>Native.Desktop.setOption("quality",value)
+            onFitRequested:value=>Native.Desktop.setOption("framing",value)
+            onZoomRequested:value=>Native.Desktop.setOption("zoom",value)
+            onTransitionStyleRequested:value=>Native.Desktop.setOption("transitionStyle",value)
+            onTransitionStrengthRequested:value=>Native.Desktop.setOption("transitionStrength",value)
             onAudioLevelRequested:function(key,value) {Native.Desktop.setOption(key,value)}
             onMotionRequested:Native.Desktop.setOption("motion",!motion)
             onDetailRequested:function(value){Native.Desktop.setOption("detail",value)}
@@ -445,6 +455,7 @@ FocusScope {
             const game=battle.item
             if(name==="revert") host.returnToPlasma()
             else if(name==="grimoire") {if(host.home)host.openBook("enemies","")}
+            else if(name==="idle-pet") companionLoader.item?.reload()
             else if(name==="play") {
                 Native.Desktop.setOption("mode","play")
                 if(host.options.linkDesktops) Native.Desktop.switchWorkspace(game.frontId)
@@ -531,6 +542,19 @@ FocusScope {
         Ui.ActionButton {text:"Grimoire";onClicked:host.openBook("enemies","")}
         Ui.ActionButton {text:"Witch’s Vault";onClicked:{careerVault.reload();host.vaultOpen=true}}
         Ui.ActionButton {text:"Idle settings";onClicked:host.openIdleSettings()}
+    }
+    Loader {
+        id:companionLoader
+        parent:idleInput
+        anchors.fill:parent;z:6
+        active:host.claimed && host.options.idlePet && !host.options.safeRendering
+        visible:active && host.idleActionsAvailable
+        sourceComponent:Game.IdleCompanion {
+            front:galleryLoader.item?.liveFront || "front"
+            floorInset:host.areaBottom
+            roaming:companionLoader.visible
+            software:GraphicsInfo.api===GraphicsInfo.Software
+        }
     }
     Rectangle {
         anchors.horizontalCenter:parent.horizontalCenter;anchors.top:parent.top;anchors.topMargin:20

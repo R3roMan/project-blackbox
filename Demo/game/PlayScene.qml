@@ -30,6 +30,7 @@ FocusScope {
     required property bool allowed
     property bool interactive:allowed
     property bool backgroundPlay:false
+    property bool desktopMode:false
     signal backgroundPlayRequested(bool enabled)
     property bool tutorial:false
     property var backgroundFiles:({})
@@ -409,7 +410,11 @@ FocusScope {
     }
 
     function updateAim(x, y, dt) {
-        const progress = !aimInitialized || frost <= 0 ? 1 : Math.min(1, dt * (18 - frost * 21))
+        const response=Ui.FieldStyle.aimSpeed
+        const scoped=scopeHeld && gunSights
+        const rate=scoped ? 13*response : frost>0 ? Math.max(3,18-frost*21)*response : 27*response
+        const immediate=!scoped && frost<=0 && response>=1
+        const progress=!aimInitialized || immediate ? 1 : 1-Math.exp(-dt*rate)
         if (progress <= 0)
             return
         if (glitchInput) {
@@ -1897,7 +1902,7 @@ FocusScope {
         enabled: visible && play.interactive && !play.autoPlaying
         hoverEnabled: enabled
         acceptedButtons:play.shootButton | play.reloadButton
-        cursorShape:play.glitchInput ? Qt.BlankCursor : play.fighting ? Qt.CrossCursor : Qt.ArrowCursor
+        cursorShape:play.glitchInput || play.fieldHudVisible ? Qt.BlankCursor : play.fighting ? Qt.CrossCursor : Qt.ArrowCursor
         onPressed:function(mouse) {
             play.hudTapKey=0
             keyTarget.forceActiveFocus()
@@ -1940,6 +1945,8 @@ FocusScope {
         ultra:play.graphicsDetail===3
         clock:play.elapsed
         weapon: play.weapon
+        cursorColor:Ui.FieldStyle.aimColor
+        cursorShape:Ui.FieldStyle.aimShape
         coinShot: {play.revision; return play.weapon.id === "kingsRansom" && !!Gear.current(play.run).coinShot}
         tracerColor: {
             play.revision
@@ -1983,7 +1990,7 @@ FocusScope {
         anchors.fill: parent
         centre: play.pointer
         sight: play.sight
-        ink: play.weapon.color
+        ink: Ui.FieldStyle.aimColor
         magnification: play.fighting && play.gunSights ? play.magnification : 1
         readiness: play.shotReady
     }
@@ -2105,6 +2112,7 @@ FocusScope {
 
     Column {
         id: waveReadout
+        z:20
         objectName:"waveReadout"
         scale: play.hudZoom
         transformOrigin: Item.Top
@@ -2279,6 +2287,7 @@ FocusScope {
 
     Column {
         id: combatMessages
+        z:21
         anchors.top: parent.top
         anchors.topMargin:fieldHeader.height+12
         anchors.horizontalCenter: parent.horizontalCenter
@@ -2459,6 +2468,7 @@ FocusScope {
     }
     Item {
         id:leftHudPanel
+        z:20
         anchors.left:parent.left
         anchors.bottom:parent.bottom
         anchors.leftMargin:16
@@ -2575,6 +2585,7 @@ FocusScope {
     }
     Item {
         id:rightHudPanel
+        z:20
         anchors.right:parent.right
         anchors.bottom:parent.bottom
         anchors.rightMargin:16
@@ -2630,11 +2641,28 @@ FocusScope {
                 charge:play.desktopTelemetry.cpuMode ? play.desktopTelemetry.heat/100 : play.runeCost ? play.runes/play.runeCost
                     : play.weapon.sustain ? play.heat : play.shotReady
                 warning:play.desktopTelemetry.locked || !play.canShoot
+                tint:Ui.FieldStyle.hudColor
                 caption:play.desktopTelemetry.cpuMode ? "CPU HEAT" : play.runeCost ? "RUNES" : play.weapon.sustain ? "HEAT" : play.ammoWeapon ? "ROUNDS" : ""
                 readout:play.desktopTelemetry.cpuMode ? Math.round(play.desktopTelemetry.heat)+"%"
                     : play.runeCost ? play.runes+"/"+play.runeCost : play.weapon.sustain ? Math.round(play.heat*100)+"%"
                     : play.ammoWeapon ? (play.infiniteAmmo ? "∞" : play.rounds+"/"+Rules.magazine(play.run))
                     : play.weapon.melee ? (play.primed ? "CHARGED" : "MELEE") : play.weapon.throwing ? "AXE" : "READY"
+            }
+            Item {
+                visible:play.weapon.melee || play.weapon.staff
+                anchors.horizontalCenter:parent.horizontalCenter
+                width:84;height:44
+                readonly property real charge:play.runeCost ? play.runes/play.runeCost : play.shotReady
+                Ui.GalleryPortrait {
+                    anchors.fill:parent;entry:play.weapon;engraved:true
+                    opacity:.48+parent.charge*.52
+                    rotation:(1-parent.charge)*-13
+                }
+                Rectangle {
+                    anchors.left:parent.left;anchors.bottom:parent.bottom
+                    width:parent.width*parent.charge;height:3;radius:1
+                    color:Ui.FieldStyle.hudColor
+                }
             }
             Row {
                 anchors.horizontalCenter:parent.horizontalCenter
@@ -2675,7 +2703,7 @@ FocusScope {
                     width: parent.width * parent.progress
                     height: parent.height
                     radius: parent.radius
-                    color: "#ffc28b"
+                    color: Ui.FieldStyle.hudColor
                 }
             }
             Text {
@@ -2698,6 +2726,13 @@ FocusScope {
                 font.pixelSize: Ui.UiMetrics.text(10)
             }
         }
+    }
+
+    Ui.BugReport {
+        id:fieldBugReport
+        scene:battlefieldViewport
+        context:({host:play.desktopMode ? "Plasma" : "demo",wave:play.wave,phase:play.phase,
+            detail:play.graphicsDetail,renderer:play.projectedMode ? "2D" : "3D"})
     }
 
     }
@@ -2953,6 +2988,7 @@ FocusScope {
                 active: play.paused
                 visible: active
                 sourceComponent: RunOverview {
+                    onBugReportRequested:fieldBugReport.open()
                     onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
                     run: play.run
                     revision: play.revision
@@ -3016,6 +3052,13 @@ FocusScope {
                     motion: play.motion
                     onRefundRequested:function(group,id) {
                         if (play.allowed && Rules.refundAbility(play.run,group,id)) {
+                            play.publish()
+                            play.saveCheckpoint(true)
+                        }
+                    }
+                    onSaleRequested:function(key) {
+                        if (play.allowed && Rules.sellGear(play.run,key)) {
+                            if (audio.item) audio.item.play("buy")
                             play.publish()
                             play.saveCheckpoint(true)
                         }

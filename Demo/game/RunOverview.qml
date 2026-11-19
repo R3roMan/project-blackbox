@@ -25,6 +25,7 @@ ColumnLayout {
     signal inventoryRequested(int cell, string group, int slot)
     signal audioLevelRequested(string key,real value)
     signal motionRequested()
+    signal bugReportRequested()
     required property string wallpaperFit
     required property int wallpaperQuality
     required property real wallpaperZoom
@@ -175,6 +176,8 @@ ColumnLayout {
         onLevelRequested:function(key,value){overview.audioLevelRequested(key,value)}
     }
 
+    Ui.FieldStyleOptions {visible:overview.tab==="settings"}
+    Ui.ActionButton {visible:overview.tab==="settings";text:"Report a bug";onClicked:overview.bugReportRequested()}
     DisplaySettings {
         Layout.fillWidth: true
         visible: overview.tab === "settings"

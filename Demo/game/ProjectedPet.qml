@@ -6,6 +6,7 @@ Canvas {
     required property var helper
     required property real flap
     property bool resting: false
+    property color glowTint:"transparent"
     property bool motion: true
     property real strike: 0
     property real fold: resting ? 1 : 0
@@ -17,6 +18,7 @@ Canvas {
     onFoldChanged: requestPaint()
     onStrikeChanged: requestPaint()
     onHelperChanged: requestPaint()
+    onGlowTintChanged:requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
     onVisibleChanged: if (visible) requestPaint()
@@ -25,6 +27,10 @@ Canvas {
         const ctx = getContext("2d")
         ctx.reset()
         ctx.clearRect(0, 0, width, height)
+        if (glowTint.a>0) {
+            ctx.shadowColor=glowTint
+            ctx.shadowBlur=Math.min(10,width*.09)
+        }
         ctx.scale(width, height)
         ctx.fillStyle = Qt.lighter(pet.helper.skin, 1.35)
         ctx.strokeStyle = pet.helper.accent

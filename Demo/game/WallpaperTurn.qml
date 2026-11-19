@@ -96,14 +96,14 @@ Item {
                 Loader {
                     anchors.centerIn:parent
                     width:wall.paintedWidth;height:wall.paintedHeight
-                    active:wall.status===Image.Ready && (!backdrop.continuousWeather || panel.inView)
+                    active:wall.status===Image.Ready
                     sourceComponent:RoomAtmosphere {
                         front:panel.modelData;phase:backdrop.phase;weather:backdrop.weather
                         lightingWeather:backdrop.lightingWeather
                         custom:String(wall.source)!==String(wall.fallback)
                         cloudy:backdrop.cloudy;windy:backdrop.windy
-                        clock:panel.inView ? backdrop.clock : Math.floor(backdrop.clock/5)*5
-                        solarTime:panel.inView ? backdrop.solarTime : Math.floor(backdrop.solarTime/5)*5
+                        clock:panel.inView ? backdrop.clock : 0
+                        solarTime:panel.inView ? backdrop.solarTime : Math.floor(backdrop.solarTime/30)*30
                         motion:backdrop.motion && panel.inView
                         weatherParticles:backdrop.weatherParticles && !backdrop.continuousWeather && panel.inView
                         detail:backdrop.detail;swarm:backdrop.swarm;labAppearance:backdrop.labAppearance

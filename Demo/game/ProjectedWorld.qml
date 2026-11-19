@@ -7,6 +7,7 @@ import "CreatureLivery.js" as Livery
 import "Optics.js" as Optics
 import "AbyssPaint.js" as AbyssPaint
 import "Conditions.js" as Conditions
+import "../ui" as Ui
 
 Item {
     id: world
@@ -934,6 +935,7 @@ Item {
         opacity: 1 - world.blindness * .92
         ProjectedPet {
             id: pet
+            glowTint:Ui.FieldStyle.petGlow
             helper: Pets.spec(companion.model ? companion.model.id : "crow")
             motion: world.motion
             strike: { world.revision; return companion.model ? companion.model.flash : 0 }

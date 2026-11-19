@@ -238,8 +238,17 @@ Object.assign(activeAbilities, Extra.actives, Arsenal.actives, Defense.actives, 
 Object.assign(passives, Extra.passives, Arsenal.passives, Defense.passives, Deep.passives, Milestones.passives,Campaign.passives,Blood.passives,Grades.passives,Weather.passives)
 kits = kits.concat(Extra.kits, Arsenal.kits, Defense.kits, Deep.kits, Milestones.kits,Campaign.kits,Blood.kits,Grades.kits,Weather.kits, [
     { key:"starSet", weapon:"starDestroyer", active:"bloodbattery", passive:"sparebox", title:"Starlight kit",
-        bonus:"Star Destroyer charges 25% faster while Infinite Ammo is active." }
+        bonus:"Star Destroyer charges 25% faster while Infinite Ammo is active." },
+    {key:"pawnCounter",weapon:"pawnRifle",active:"giltRupture",passive:"marginNote",title:"Pawn counter kit",
+        stat:"damage",value:.08,scope:"pawnRifle",bonus:"The Pawnbroker deals another 8% damage."}
 ])
+weapons.pawnRifle={id:"pawnRifle",title:"Pawnbroker",category:"Weapon",rarity:"epic",effect:"ballistic",capacity:8,
+    damage:6.1,delay:.52,reload:1.40,aim:22,color:"#ffc67d",trace:3.2,afterglow:.17,handling:"reload",locked:true,
+    description:"Deals more damage as you earn gold from selling gear, up to 25% extra."}
+activeAbilities.giltRupture={id:"giltRupture",title:"Gilt rupture",category:"Active",rarity:"epic",cooldown:19,form:"edgeRing",value:7.5,locked:true,
+    description:"Damage every nearby demon on the current wallpaper with a golden shockwave."}
+passives.marginNote={id:"marginNote",title:"Margin note",category:"Passive",rarity:"rare",locked:true,
+    description:"Each sale adds 2% damage per rank, up to 14% per rank this run."}
 
 weapons.starDestroyer = {
     id:"starDestroyer", title:"Star Destroyer", category:"Weapon", rarity:"legendary", effect:"laser",
@@ -554,6 +563,7 @@ function weaponLevel(run, item) {
 function effectiveWeaponStats(run, item) {
     const stats=weaponStats(run.maxGearTime > 0 ? Object.assign({},item,{level:3}) : item)
     stats.damage*=Meta.benefits(run).weapon*affinity(run,weapons[item.id])
+    if (item.id==="pawnRifle") stats.damage*=1+Math.min(.25,(run.metrics.saleGold || 0)/1000)
     if (run.covenant && run.covenant.tarot) {
         const omen=Tarot.stats(run)
         stats.damage*=Tarot.weaponFactor(run,omen.hurtDamage || omen.direDamage ? maxHealth(run) : 1)
@@ -1167,6 +1177,23 @@ function refundableRank(run,group,id) {
     if (run.phase!=="shop" || !["active","passive"].includes(group)) return 0
     const item=ownedItem(run,group,id)
     return item?.paidRanks?.[item.level-1] || 0
+}
+
+function saleOffers(run) {
+    if (run.phase!=="shop" || run.shopStock.some(card=>card.paid && !card.sold)) return []
+    const offers=[]
+    const weaponCount=run.slots.weapon.filter(slot=>!!slot.item).length
+    function add(group,item,index,stored) {
+        const spec=catalogs[group][item.id]
+        if (!spec || spec.debugOnly) return
+        const base={common:9,rare:23,epic:58,legendary:145}[spec.rarity] || 9
+        offers.push({group,index,stored,rarity:spec.rarity,id:item.id,key:(stored ? "bag" : group)+":"+index+":"+item.id,
+            value:Math.round(base*(1+item.level*.16)),title:spec.title,location:stored ? "Inventory" : "Equipped"})
+    }
+    for (const group of Object.keys(catalogs))
+        run.slots[group].forEach((slot,index)=>{if (slot.item && (group!=="weapon" || weaponCount>1)) add(group,slot.item,index,false)})
+    run.inventory.forEach((entry,index)=>{if (entry) add(entry.group,entry.item,index,true)})
+    return offers
 }
 
 function refundableAbilities(run) {

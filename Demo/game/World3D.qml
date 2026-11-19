@@ -6,6 +6,7 @@ import "Pets.js" as Pets
 import "Optics.js" as Optics
 import "CutArt.js" as CutArt
 import "Conditions.js" as Conditions
+import "../ui" as Ui
 
 View3D {
     id: world
@@ -337,6 +338,13 @@ View3D {
             z:-petAnchor.flight.depth+petAnchor.gesture[3]
             eulerRotation:Qt.vector3d(petAnchor.gesture[0]+petAnchor.flight.pitch,
                 petAnchor.gesture[1]+petAnchor.flight.yaw,petAnchor.gesture[2]+petAnchor.flight.bank)
+        }
+        Model {
+            source:"#Sphere"
+            position:Qt.vector3d(petAnchor.flight.lane,petAnchor.flight.elevation-35,-petAnchor.flight.depth)
+            scale:Qt.vector3d(.55,.028,.36)
+            opacity:.54
+            materials:PrincipledMaterial {baseColor:Ui.FieldStyle.petGlow;lighting:PrincipledMaterial.NoLighting}
         }
         Repeater3D {
             model: petAnchor.helper.form === "bat" || petAnchor.helper.form === "chicken" ? 3 : 5

@@ -105,7 +105,7 @@ Template.Scene {
             windy:gallery.forecast.windy;cloudy:gallery.forecast.cloudy;swarm:gallery.forecast.swarm
             detail:gallery.performance ? 0 : gallery.sceneryDetail
             labAppearance:gallery.labAppearance
-            weatherParticles:true;continuousWeather:true;perspectiveSky:true
+            weatherParticles:true;continuousWeather:true
         }
     }
 

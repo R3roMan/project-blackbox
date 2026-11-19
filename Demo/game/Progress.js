@@ -60,7 +60,10 @@ var achievements = [
     {id:"threeRedNights",title:"Three red nights",metric:"bloodMoonNights",target:3,requirement:"Witness three Blood Moon Nights in regular play.",group:"weapon",reward:"veinDrinker"},
     {id:"redOverlord",title:"Untouched by the Moon",metric:"bloodMoonFlawless",legacyMetric:"bloodMoonBosses",target:1,
         requirement:"Clear a Blood Moon wave without getting hurt.",group:"active",reward:"bloodLibation"},
-    {id:"lastCustomer",title:"The last customer",metric:"completeShops",target:1,requirement:"Buy and claim every listing during a single shop visit.",group:"active",reward:"liquidation"}
+    {id:"lastCustomer",title:"The last customer",metric:"completeShops",target:1,requirement:"Buy and claim every listing during a single shop visit.",group:"active",reward:"liquidation"},
+    {id:"firstSale",title:"Small margin",metric:"gearSales",target:1,requirement:"Sell a piece of gear at a boss shop.",group:"passive",reward:"marginNote"},
+    {id:"pawnTrade",title:"Counter trade",metric:"gearSales",target:12,requirement:"Sell twelve items across regular runs.",group:"active",reward:"giltRupture"},
+    {id:"pawnWindfall",title:"Gold from the dead",metric:"saleGold",target:275,requirement:"Earn 275 gold from gear sales across regular runs.",group:"weapon",reward:"pawnRifle"}
 ].concat(Grades.achievements,Weather.achievements)
 
 function read(text) {

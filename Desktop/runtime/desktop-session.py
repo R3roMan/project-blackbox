@@ -117,6 +117,20 @@ def installed_wallpapers(layout):
             yield match[1]
 
 
+def restore_slide():
+    preferences = CONFIG / "project-blackbox-desktop.ini"
+    if not preferences.is_file() or "slidePausedByBlackbox=true" not in preferences.read_text(encoding="utf-8"):
+        return
+    effects = ["qdbus6", "org.kde.KWin", "/Effects", "org.kde.kwin.Effects."]
+    try:
+        subprocess.run(effects[:-1] + [effects[-1] + "loadEffect", "slide"], check=True, timeout=4, capture_output=True)
+        if subprocess.check_output(effects[:-1] + [effects[-1] + "isEffectLoaded", "slide"], text=True, timeout=4).strip() == "true":
+            subprocess.run(["kwriteconfig6", "--file", str(preferences), "--group", "General", "--delete",
+                            "--key", "slidePausedByBlackbox"], check=True, timeout=4)
+    except (OSError, subprocess.SubprocessError):
+        print("Plasma’s Slide effect can be restored in Desktop Effects.")
+
+
 def stop_shell():
     def wait_stopped(seconds):
         end = time.monotonic() + seconds
@@ -138,6 +152,7 @@ def stop_shell():
 def recover(state, restart_shell):
     try:
         restore_wallpapers(state, all_activities=True)
+        restore_slide()
         print("Restored the KDE wallpaper. Blackbox saves and application windows were kept.")
         return
     except (subprocess.SubprocessError, OSError, ValueError, RuntimeError):
@@ -164,6 +179,7 @@ def recover(state, restart_shell):
                             "--key", "wallpaperplugin", wallpaper], check=True, timeout=7)
         if list(installed_wallpapers(layout)):
             raise SystemExit("Blackbox is still active in the configuration. Review the saved layout before starting Plasma Shell.")
+    restore_slide()
     subprocess.run(SHELL + ["start", "--no-block", SERVICE], check=True, timeout=5)
     print("Started Plasma Shell with the restored wallpaper. Application windows and Blackbox saves were kept.")
 

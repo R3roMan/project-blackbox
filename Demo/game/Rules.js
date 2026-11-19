@@ -2334,8 +2334,9 @@ function outgoing(run) {
     const fragile = rank(run,"glassCannon")
     const risk = fragile ? Math.min(.72, .48 + .08 * (fragile - 1)) : 0
     const soulDamage = rank(run,"soulReaper") ? run.souls*(.012+Gear.perk(run,"soulStrength")) : 0
+    const saleDamage=Math.min(.14,(run.metrics.gearSales || 0)*.02)*rank(run,"marginNote")
     return (run.hexes.damage ? .69 : 1) * (1 + run.boons.damage) * (1+rank(run,"closingShift")*(run.wave>20 ? .12 : .03))
-        * (1 + hunger + risk + soulDamage + Gear.kitBonus(run,"damage",Gear.current(run).id)
+        * (1 + hunger + risk + soulDamage + saleDamage + Gear.kitBonus(run,"damage",Gear.current(run).id)
             + (run.health >= Gear.maxHealth(run)-.01 && rank(run,"oathglass") ? .12+.03*(rank(run,"oathglass")-1) : 0))
         * Elements.damageFactor(run.elements)
 }
@@ -6034,6 +6035,22 @@ function buy(run, id, slot, confirmed) {
         record(run,"completeShops")
     }
     recordKits(run)
+    return true
+}
+
+function sellGear(run,key) {
+    const offer=Gear.saleOffers(run).find(item=>item.key===key)
+    if (!offer) return false
+    if (offer.stored) run.inventory[offer.index]=null
+    else {
+        run.slots[offer.group][offer.index].item=null
+        if (offer.group==="weapon" && run.selectedWeapon===offer.index)
+            run.selectedWeapon=run.slots.weapon.findIndex(slot=>!!slot.item)
+    }
+    run.gold+=offer.value
+    record(run,"gearSales")
+    record(run,"saleGold",offer.value)
+    announce(run,"Sold "+offer.title+" · +"+offer.value+" gold","buy")
     return true
 }
 

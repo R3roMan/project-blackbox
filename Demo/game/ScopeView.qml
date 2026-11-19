@@ -16,6 +16,7 @@ Canvas {
     onCentreChanged: if (visible) requestPaint()
     onMagnificationChanged: if (visible) requestPaint()
     onSightChanged: if (visible) requestPaint()
+    onInkChanged: if (visible) requestPaint()
     onReadinessChanged: if (visible) requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
