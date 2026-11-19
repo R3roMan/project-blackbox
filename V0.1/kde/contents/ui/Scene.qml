@@ -13,6 +13,7 @@ FocusScope {
     property string mode: "wallpaper"
     property string editsJson: "{}"
     property int durationMs: 480
+    property bool showTransitionCaption:true
     property int ambientFps: 24
     property bool motionAllowed: true
     property var roomArtwork:({})
@@ -530,7 +531,7 @@ FocusScope {
 
         Text {
             anchors.centerIn: parent
-            visible: root.moving && !root.clean
+            visible: root.showTransitionCaption && root.moving && !root.clean
             text: root.transitionLabel
             color: "#f2f1fa"
             font.pixelSize: 16

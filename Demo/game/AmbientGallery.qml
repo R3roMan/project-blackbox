@@ -5,6 +5,8 @@ import "Controls.js" as Controls
 
 Template.Scene {
     id:gallery
+    durationMs:620
+    showTransitionCaption:false
     roomArtwork:({shrine:Scenery.asset("front"),media:Scenery.asset("left"),lab:Scenery.asset("right"),
         sky:Scenery.asset("up"),abyss:Scenery.asset("down")})
     property date localTime:new Date()
@@ -87,7 +89,8 @@ Template.Scene {
             solarTime:gallery.forecast.solarTime; motion:gallery.ambient
             windy:gallery.forecast.windy;cloudy:gallery.forecast.cloudy;swarm:gallery.forecast.swarm
             detail:gallery.performance ? 0 : gallery.sceneryDetail
-            labAppearance:gallery.labAppearance; weatherParticles:true
+            labAppearance:gallery.labAppearance
+            weatherParticles:true;continuousWeather:true;perspectiveSky:true
         }
     }
 

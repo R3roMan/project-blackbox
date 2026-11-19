@@ -23,6 +23,8 @@ Item {
     property bool motion:true
     property bool swarm:false
     property bool weatherParticles:false
+    property bool continuousWeather:false
+    property bool perspectiveSky:false
     property var labAppearance:({})
     property int detail:1
     property string framing:"fill"
@@ -35,10 +37,16 @@ Item {
     readonly property bool abyssTransition:moving && (activeFront==="down" || previousFront==="down")
     readonly property bool descending:abyssTransition && transitionStyle==="cinematic"
     readonly property bool skyTurn:moving && (activeFront==="up" || previousFront==="up")
-    readonly property bool rotating:moving && !abyssTransition && !skyTurn && transitionStyle==="cinematic"
+    readonly property bool rotating:moving && !abyssTransition && (!skyTurn || perspectiveSky) && transitionStyle==="cinematic"
     readonly property real sampleScale:Math.min(Math.max(1,Screen.devicePixelRatio),quality>0
         ? quality/Math.max(1,height) : 8192/Math.max(1,width))
     function defaultFor(front) {return Scenery.asset(front) || Qt.resolvedUrl(String(artDirectory)+Rules.front(front).art)}
+    function weatherAcross(fn) {
+        const current=fn(activeFront)
+        if (!moving) return current
+        const old=fn(previousFront)
+        return old+(current-old)*progress
+    }
     clip:true
     Repeater {
         id:panels
@@ -56,7 +64,7 @@ Item {
             opacity:!inView ? 0 : backdrop.moving && !backdrop.rotating && incoming ? backdrop.progress : 1
             readonly property real skyTravel:backdrop.skyTurn ? (incoming ? 1-backdrop.progress : backdrop.progress) : 0
             readonly property var descent:backdrop.descending ? ViewTurn.descent(height,backdrop.progress,incoming,
-                backdrop.previousFront==="down",backdrop.transitionStrength) : backdrop.skyTurn
+                backdrop.previousFront==="down",backdrop.transitionStrength) : backdrop.skyTurn && !backdrop.rotating
                 ? ({scale:1+skyTravel*.22,y:height*skyTravel*.085*(incoming===(backdrop.direction==="up") ? -1 : 1)})
                 : ({scale:1,y:0})
             transform:Matrix4x4 {
@@ -97,11 +105,22 @@ Item {
                         clock:panel.inView ? backdrop.clock : Math.floor(backdrop.clock/5)*5
                         solarTime:panel.inView ? backdrop.solarTime : Math.floor(backdrop.solarTime/5)*5
                         motion:backdrop.motion && panel.inView
-                        weatherParticles:backdrop.weatherParticles && panel.inView
+                        weatherParticles:backdrop.weatherParticles && !backdrop.continuousWeather && panel.inView
                         detail:backdrop.detail;swarm:backdrop.swarm;labAppearance:backdrop.labAppearance
                     }
                 }
             }
+        }
+    }
+    Loader {
+        anchors.fill:parent;z:3
+        active:backdrop.weatherParticles && backdrop.continuousWeather && backdrop.lightingWeather!=="clear"
+        sourceComponent:WeatherFX {
+            condition:backdrop.lightingWeather
+            time:backdrop.clock;motion:backdrop.motion;ultra:backdrop.detail===3
+            fogDensity:backdrop.weatherAcross(Scenery.fogDensity)
+            nearVisibility:backdrop.weatherAcross(Scenery.fogNearVisibility)
+            opacity:condition==="fog" ? 1 : backdrop.weatherAcross(front=>Scenery.roomWeather(condition,front)==="clear" ? 0 : front==="right" ? .45 : 1)
         }
     }
     Gallery.TurnJoin {

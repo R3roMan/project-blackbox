@@ -8,6 +8,8 @@ Item {
     required property bool motion
     property bool ultra:false
     property bool sky:false
+    property real fogDensity:1
+    property real nearVisibility:.38
     readonly property bool redNight:condition==="bloodMoon"
 
     property real gust: 0
@@ -18,7 +20,8 @@ Item {
         gradient: Gradient {
             GradientStop { position: 0; color: weatherFx.condition === "fog" ? "#65737d8b" : weatherFx.redNight ? "#ac731027" : weatherFx.condition === "inferno" ? "#75381821" : weatherFx.condition === "incursion" ? "#bb130a22" : weatherFx.condition === "night" ? "#ba0a193d" : "#54435a71" }
             GradientStop { position: .50; color: weatherFx.condition === "fog" ? "#d09da5ac" : weatherFx.redNight ? "#82501225" : weatherFx.condition === "inferno" ? "#30b64027" : weatherFx.condition === "incursion" ? "#8722143b" : weatherFx.condition === "night" ? "#74071138" : "#41353b59" }
-            GradientStop { position: 1; color: weatherFx.condition === "fog" ? "#9b68727b" : weatherFx.redNight ? "#9b2a0b1a" : weatherFx.condition === "inferno" ? "#a5d64614" : weatherFx.condition === "winter" ? "#77739cc5" : weatherFx.condition === "night" ? "#6a101a30" : "#46324958" }
+            GradientStop { position: 1; color: weatherFx.condition === "fog" ? Qt.rgba(.41,.45,.48,.83*(1-weatherFx.nearVisibility))
+                    : weatherFx.redNight ? "#9b2a0b1a" : weatherFx.condition === "inferno" ? "#a5d64614" : weatherFx.condition === "winter" ? "#77739cc5" : weatherFx.condition === "night" ? "#6a101a30" : "#46324958" }
         }
     }
     Rectangle {
@@ -38,10 +41,10 @@ Item {
         visible:!weatherFx.sky && weatherFx.condition==="fog"
         opacity:weatherFx.ultra ? .74 : 1
         gradient:Gradient {
-            GradientStop {position:0;color:"#3d777e89"}
-            GradientStop {position:.46;color:"#978c929b"}
-            GradientStop {position:.78;color:"#7d686e78"}
-            GradientStop {position:1;color:"#36464b58"}
+            GradientStop {position:0;color:Qt.rgba(.47,.50,.54,.24*weatherFx.fogDensity)}
+            GradientStop {position:.44;color:Qt.rgba(.55,.58,.62,Math.min(.89,.59*weatherFx.fogDensity))}
+            GradientStop {position:.72;color:Qt.rgba(.46,.49,.53,.67*weatherFx.fogDensity*(1-weatherFx.nearVisibility*.5))}
+            GradientStop {position:1;color:Qt.rgba(.34,.39,.43,.60*weatherFx.fogDensity*(1-weatherFx.nearVisibility))}
         }
     }
     EffectCanvas {

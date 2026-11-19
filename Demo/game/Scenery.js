@@ -35,6 +35,9 @@ function roomWeather(weather,front) {
     return weather
 }
 
+function fogDensity(front) {return front==="right" ? 1.48 : front==="left" ? 1.30 : 1}
+function fogNearVisibility(front) {return front==="left" ? .72 : front==="right" ? .18 : .38}
+
 var idlePhases=["daytime","sunset","night","sunrise"]
 
 function idleLighting(elapsedSeconds, minutes) {

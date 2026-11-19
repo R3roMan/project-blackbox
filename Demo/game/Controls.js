@@ -17,6 +17,7 @@ var keyboard = [
     {id:"pause",title:"Pause or go back",keys:[Qt.Key_Escape]},
     {id:"confirm",title:"Confirm or begin wave",keys:[Qt.Key_Return,Qt.Key_Enter]},
     {id:"timer",title:"Toggle wave timer",keys:[Qt.Key_Period]},
+    {id:"hud",title:"Show or hide battle HUD",keys:[Qt.Key_Control]},
     {id:"loadout",title:"Open loadout",keys:[Qt.Key_T]},
     {id:"grimoire",title:"Open Grimoire",keys:[Qt.Key_I]}
 ]

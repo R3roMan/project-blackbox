@@ -41,18 +41,6 @@ PlasmoidItem {
         enabled:applet.showing
         Behavior on opacity {NumberAnimation {duration:220}}
         spacing:3
-        PanelButton {
-            id:badge
-            objectName:"blackboxPanelBadge"
-            text:applet.activeWallpaper && Native.Desktop.config.mode==="play" && Native.Desktop.state.wave ? "BLACKBOX · "+Native.Desktop.state.wave : "BLACKBOX"
-            Accessible.name:"Project Blackbox"
-            onClicked:applet.expanded=!applet.expanded
-            contentItem:RowLayout {
-                spacing:4
-                Image {source:applet.blackboxIcon;Layout.preferredWidth:21;Layout.preferredHeight:21;fillMode:Image.PreserveAspectFit}
-                Text {text:badge.text;color:"#f2eaed";font.pixelSize:12;font.bold:true}
-            }
-        }
         Repeater {
             model:applet.activeWallpaper && Native.Desktop.config.mode==="play" ? Native.Desktop.state.actives || [] : []
             PanelButton {
@@ -78,6 +66,18 @@ PlasmoidItem {
             Accessible.name:"Pause Blackbox"
             visible:applet.activeWallpaper && Native.Desktop.config.mode==="play"
             onClicked:Native.Desktop.command("pause")
+        }
+        PanelButton {
+            id:badge
+            objectName:"blackboxPanelBadge"
+            text:"BX"
+            Accessible.name:"Project Blackbox"
+            onClicked:applet.expanded=!applet.expanded
+            contentItem:RowLayout {
+                spacing:4
+                Image {source:applet.blackboxIcon;Layout.preferredWidth:21;Layout.preferredHeight:21;fillMode:Image.PreserveAspectFit}
+                Text {text:badge.text;color:"#f2eaed";font.pixelSize:12;font.bold:true}
+            }
         }
     }
     fullRepresentation:ColumnLayout {
@@ -129,7 +129,14 @@ PlasmoidItem {
             text:Native.Desktop.panelStyleBusy ? "Changing Plasma style…" : Native.Desktop.darkPanel ? "Restore previous Plasma style" : "Use Blackbox dark panel style"
             onClicked:Native.Desktop.setDarkPanel(!Native.Desktop.darkPanel)
         }
-        Label {Layout.fillWidth:true;wrapMode:Text.WordWrap;text:Native.Desktop.panelStyleNotice || "Applies to Plasma panels and widgets. Your apps keep their own appearance."}
+        Button {
+            objectName:"darkAppColors"
+            Layout.fillWidth:true
+            enabled:!Native.Desktop.panelStyleBusy
+            text:Native.Desktop.darkApps ? "Restore previous KDE app colours" : "Use dark KDE app colours"
+            onClicked:Native.Desktop.setDarkApps(!Native.Desktop.darkApps)
+        }
+        Label {Layout.fillWidth:true;wrapMode:Text.WordWrap;text:Native.Desktop.panelStyleNotice || "Choose custom colours and Plasma styles in KDE System Settings."}
         Label {visible:applet.activeWallpaper;text:"CPU "+Math.round(Native.Desktop.cpu*100)+"% · GPU "+(Native.Desktop.gpu<0 ? "unavailable" : Math.round(Native.Desktop.gpu*100)+"%")}
         Label {visible:applet.activeWallpaper;text:Native.Desktop.audioStatus;wrapMode:Text.WordWrap;Layout.fillWidth:true}
         Item {Layout.fillHeight:true}

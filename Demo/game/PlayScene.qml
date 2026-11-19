@@ -84,6 +84,11 @@ FocusScope {
     signal autoSaveRequested(bool enabled)
     // Keep the centre firing lane open at small window sizes.
     readonly property real hudZoom: Math.min(Ui.UiMetrics.hudScale, Math.max(.8,(height - 88) / 390), Math.max(.85,width / 790))
+    property bool hudHidden:false
+    property int hudTapKey:0
+    property real hudFade:hudHidden ? 0 : 1
+    readonly property bool fieldHudVisible:fighting && hudFade>0
+    Behavior on hudFade {NumberAnimation {duration:play.motion ? 175 : 0}}
     signal hudScaleRequested(real scale)
     signal textScaleRequested(real value)
     signal detailRequested(int value)
@@ -1045,6 +1050,7 @@ FocusScope {
             Qt.callLater(giveMenuFocus)
     }
     onInteractiveChanged: if (!interactive) {
+        hudTapKey=0
         fireHeld=false
         heldShiftKeys=[]
         if (!autoPlaying) {
@@ -1087,6 +1093,7 @@ FocusScope {
     }
     onFightingChanged: {
         if (!fighting) {
+            hudTapKey=0
             keyboardFire=false
             queuedAbility=-1
             sealing = false
@@ -1100,6 +1107,7 @@ FocusScope {
         }
     }
     onControlBindingsChanged:if (run) {
+        hudTapKey=0
         keyboardFire=false
         fireHeld=false
         heldShiftKeys=[]
@@ -1108,6 +1116,7 @@ FocusScope {
     }
     onBookVisibleChanged: {
         if (bookVisible) {
+            hudTapKey=0
             keyboardFire=false
             fireHeld = false
             sealing = false
@@ -1220,7 +1229,10 @@ FocusScope {
 
     Keys.priority: Keys.BeforeItem
     Keys.onPressed:function(event) {
-        if (!fighting || bookVisible || !interactive || autoPlaying || trainingBlocked) return
+        if (!fighting || bookVisible || !interactive) return
+        if (!event.isAutoRepeat) hudTapKey=Controls.matches(bindings,"hud",event) ? event.key : 0
+        if (hudTapKey===event.key && !event.isAutoRepeat) {event.accepted=true;return}
+        if (autoPlaying || trainingBlocked) return
         const control=Controls.action(bindings,Controls.keyboard,event)?.id
         if (!control || ["pause","confirm","timer","loadout","grimoire"].includes(control)) return
         event.accepted=true
@@ -1241,6 +1253,10 @@ FocusScope {
     }
     Keys.onReleased:function(event) {
         if (event.isAutoRepeat) return
+        if (hudTapKey===event.key) {
+            hudTapKey=0
+            if (fighting && interactive && !bookVisible) {hudHidden=!hudHidden;event.accepted=true}
+        }
         if (Controls.releases(bindings,"aim",event.key)) {
             if (!Controls.binding(bindings,"aim").some(chord=>chord.key===event.key)) heldShiftKeys=[]
             else setShiftKey(event.nativeScanCode,false)
@@ -1535,7 +1551,11 @@ FocusScope {
         condition: play.fighting && (play.weather!=="incursion" || play.takeover)
             ? Scenery.roomWeather(play.weather,play.frontId) : "clear"
         gust: { play.revision; return play.run.gustLeft }
-        opacity:(condition==="fog" && play.frontId==="left" ? .62 : 1)*(1-play.blindness)
+        fogDensity:play.turning ? Scenery.fogDensity(play.previousFront)*(1-play.turnRatio)
+            +Scenery.fogDensity(play.frontId)*play.turnRatio : Scenery.fogDensity(play.frontId)
+        nearVisibility:play.turning ? Scenery.fogNearVisibility(play.previousFront)*(1-play.turnRatio)
+            +Scenery.fogNearVisibility(play.frontId)*play.turnRatio : Scenery.fogNearVisibility(play.frontId)
+        opacity:1-play.blindness
         time: play.elapsed
         motion: play.motion
     }
@@ -1644,7 +1664,8 @@ FocusScope {
         x:(play.width-width)*.5
         y:play.height*.585
         radius:7
-        visible:play.fighting && play.reloadTime>0 && !play.trainingDialogue
+        visible:play.fieldHudVisible && play.reloadTime>0 && !play.trainingDialogue
+        opacity:play.hudFade
         color:"#ed18121f"
         border.color:"#e8a27d"
         ColumnLayout {
@@ -1770,7 +1791,8 @@ FocusScope {
         revision: play.revision
         world: play.worldItem
         frontId: play.frontId
-        active: play.fighting
+        active: play.fieldHudVisible
+        opacity:play.hudFade
         turning: play.turning
         blindness: play.blindness
     }
@@ -1799,8 +1821,8 @@ FocusScope {
         objectName: "criticalReadout"
         anchors.horizontalCenter: parent.horizontalCenter
         y: Math.max(parent.height*.24,combatMessages.y+combatMessages.height+22) - (play.motion ? (1-play.criticalFlash/.60)*13 : 0)
-        visible: play.fighting && play.criticalFlash > 0
-        opacity: Math.min(1,play.criticalFlash*3.4)
+        visible: play.fieldHudVisible && play.criticalFlash > 0
+        opacity: play.hudFade*Math.min(1,play.criticalFlash*3.4)
         text: { play.revision; return "CRITICAL  " + play.run.criticalNumber.toFixed(1) }
         color: "#ffdc95"
         style: Text.Outline
@@ -1812,7 +1834,8 @@ FocusScope {
     Column {
         anchors.horizontalCenter: parent.horizontalCenter
         y: Math.max(parent.height*.29,combatMessages.y+combatMessages.height+45)
-        visible: play.fighting
+        visible: play.fieldHudVisible
+        opacity:play.hudFade
         spacing: 2
         Repeater {
             model: ["incomingCritical","hostileMiss"]
@@ -1871,6 +1894,7 @@ FocusScope {
         acceptedButtons:play.shootButton | play.reloadButton
         cursorShape:play.glitchInput ? Qt.BlankCursor : play.fighting ? Qt.CrossCursor : Qt.ArrowCursor
         onPressed:function(mouse) {
+            play.hudTapKey=0
             keyTarget.forceActiveFocus()
             if (mouse.button===play.reloadButton) {
                 play.fireHeld=false
@@ -1929,13 +1953,13 @@ FocusScope {
         pointer: play.pointer
         spreadMultiplier: { play.revision; return Rules.spread(play.run,play.aimingGun)*play.accuracy }
         muzzle: heldWeapon.muzzle
-        aiming: aim.containsMouse || play.autoPlaying
+        aiming: play.fieldHudVisible && (aim.containsMouse || play.autoPlaying)
         scoped: play.gunSights && play.magnification > 1.01
         cycling: (play.shotTime > 0 || play.prepTime > 0 || play.cooling > 0) && !play.reloadTime && play.canShoot && !play.stunned
         readiness: play.shotReady
         turning: play.turning
         stunned: play.stunned
-        sealProgress: play.sealing ? play.sealProgress : 0
+        sealProgress: play.fieldHudVisible && play.sealing ? play.sealProgress : 0
     }
     WalletFlight {
         id:lootLayer
@@ -1972,8 +1996,8 @@ FocusScope {
             x: modelData === "left" ? 26 : modelData === "right" ? play.width - width - 26 : (play.width - width) / 2
             y: modelData === "up" ? 112 : modelData === "down" ? play.height - 240 : play.height * .44
             rotation: modelData === "left" ? -90 : modelData === "right" ? 90 : modelData === "down" ? 180 : 0
-            visible: play.fighting && !play.hypnotised && (threat > 0 || bossAlert)
-            opacity: bossAlert || threat === 2 ? .96 : .69
+            visible: play.fieldHudVisible && !play.hypnotised && (threat > 0 || bossAlert)
+            opacity: play.hudFade*(bossAlert || threat === 2 ? .96 : .69)
             onThreatChanged: requestPaint()
             onBossAlertChanged: requestPaint()
             onWidthChanged: requestPaint()
@@ -2014,7 +2038,8 @@ FocusScope {
         radius: 5
         color: "#ec3a1b2d"
         border.color: "#fa819b"
-        visible: play.fighting && play.stunned
+        visible: play.fieldHudVisible && play.stunned
+        opacity:play.hudFade
         Text {
             id: stunNotice
             anchors.centerIn: parent
@@ -2030,7 +2055,7 @@ FocusScope {
         objectName:"fieldHeader"
         anchors.top: parent.top
         width: parent.width
-        visible:!play.outcomeKind
+        visible:!play.outcomeKind && !play.fighting
         height: play.fighting ? Math.max(88,fieldControls.y+fieldControls.height+8,
             waveReadout.y+waveReadout.height*play.hudZoom+6,fieldTitle.y+fieldTitle.height+8) : Math.max(76,fieldControls.y+fieldControls.height+8)
         color: "#d0161b28"
@@ -2045,7 +2070,8 @@ FocusScope {
     Column {
         id:fieldTitle
         objectName:"fieldTitle"
-        visible:!play.outcomeKind
+        visible:!play.outcomeKind && (!play.fighting || play.fieldHudVisible)
+        opacity:play.fighting ? play.hudFade : 1
         x: play.compactLayout ? 14 : 24
         y: 16
         width:play.fighting ? Math.max(60,(play.width-waveReadout.width*play.hudZoom)/2-x-12) : play.width*.53
@@ -2058,6 +2084,7 @@ FocusScope {
             font.family: "IBM Plex Mono"
             font.pixelSize: Ui.UiMetrics.text(12)
             font.letterSpacing: 2
+            style:Text.Outline;styleColor:"#211927"
         }
         Text {
             width:parent.width
@@ -2067,6 +2094,7 @@ FocusScope {
             font.family: "Inter"
             font.pixelSize: Ui.UiMetrics.text(25)
             font.weight: Font.Bold
+            style:Text.Outline;styleColor:"#211927"
         }
     }
 
@@ -2080,7 +2108,9 @@ FocusScope {
         anchors.topMargin: 18
         width: Math.max(136,Math.min(258,play.width*.36,(play.width-2*(fieldControls.width+22))/play.hudZoom))
         spacing: 7
-        visible: play.fighting
+        visible: play.fieldHudVisible
+        enabled:!play.hudHidden
+        opacity:play.hudFade
 
         Ui.ActionButton {
             objectName: "waveMenuButton"
@@ -2164,8 +2194,7 @@ FocusScope {
             width: parent.width
             height: 40
             radius: 5
-            color: "#e5311923"
-            border.color: "#b67759"
+            color: "transparent"
             Meter {
                 anchors.centerIn: parent
                 width: parent.width - 18
@@ -2185,7 +2214,9 @@ FocusScope {
         anchors.top:parent.top
         anchors.topMargin:14
         anchors.rightMargin:16
-        visible:!play.outcomeKind
+        visible:!play.outcomeKind && (!play.fighting || play.fieldHudVisible)
+        enabled:!play.fighting || !play.hudHidden
+        opacity:play.fighting ? play.hudFade : 1
         spacing:6
 
         Row {
@@ -2247,7 +2278,8 @@ FocusScope {
         anchors.horizontalCenter: parent.horizontalCenter
         width:Math.min(play.width-32,780)
         spacing: 6
-        visible: play.fighting
+        visible: play.fieldHudVisible
+        opacity:play.hudFade
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: { play.revision; return Gear.passiveRank(play.run,"deathMint") > 0 }
@@ -2405,7 +2437,9 @@ FocusScope {
         anchors.bottom: parent.bottom
         anchors.margins: 19
         spacing: 9
-        visible: play.fighting
+        visible: play.fieldHudVisible
+        enabled:!play.hudHidden
+        opacity:play.hudFade
         MiniMap {
             objectName: "combatMinimap"
             scale:play.hudZoom
@@ -2427,18 +2461,9 @@ FocusScope {
         height:leftHud.implicitHeight+16
         scale:play.hudZoom
         transformOrigin:Item.BottomLeft
-        visible:play.fighting
-        Rectangle {
-            anchors.fill:parent
-            color:"#e8151924"
-            border.color:play.healthRatio <= .35 ? "#ca6472" : "#746577"
-            radius:7
-            Ui.PanelPlating {
-                anchors.fill:parent
-                tone:play.healthRatio <= .35 ? "#f392a0" : "#9092a2"
-                blood:.24+(1-play.healthRatio)*.56
-            }
-        }
+        visible:play.fieldHudVisible
+        enabled:!play.hudHidden
+        opacity:play.hudFade
         Column {
             id:leftHud
             x:9; y:8
@@ -2547,18 +2572,9 @@ FocusScope {
         height:rightHud.implicitHeight+16
         scale:play.hudZoom
         transformOrigin:Item.BottomRight
-        visible:play.fighting
-        Rectangle {
-            anchors.fill:parent
-            color:"#e8151924"
-            border.color:"#746577"
-            radius:7
-            Ui.PanelPlating {
-                anchors.fill:parent
-                tone:"#9092a2"
-                blood:.24+(1-play.healthRatio)*.56
-            }
-        }
+        visible:play.fieldHudVisible
+        enabled:!play.hudHidden
+        opacity:play.hudFade
         Column {
             id:rightHud
             x:9; y:8
