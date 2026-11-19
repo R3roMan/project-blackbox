@@ -20,6 +20,13 @@ Popup {
     padding:16
     onOpened:description.forceActiveFocus()
 
+    function captureTo(path) {
+        if (!report.scene?.grabToImage(result=>{
+            if (result.saveToFile(path)) {report.screenshotPath=path;report.status=""}
+            else report.status="Could not save the screenshot. Try a different path."
+        })) report.status="The scene is unavailable for a screenshot."
+    }
+
     Settings {id:issues;location:report.ledger;category:"Reports"}
     background:Rectangle {color:"#1b171f";radius:8;border.color:"#785767"}
     contentItem:ColumnLayout {
@@ -58,6 +65,7 @@ Popup {
             ActionButton {text:"Close";onClicked:report.close()}
             Item {Layout.fillWidth:true}
             ActionButton {
+                objectName:"saveBugReport"
                 text:"Save report";primary:true;enabled:description.text.trim().length>0
                 onClicked:{
                     const now=new Date()
@@ -79,12 +87,6 @@ Popup {
         nameFilters:["PNG image (*.png)"]
         defaultSuffix:"png"
         currentFolder:StandardPaths.writableLocation(StandardPaths.PicturesLocation)
-        onAccepted:{
-            const path=decodeURIComponent(String(selectedFile).replace(/^file:\/\//,""))
-            if (!report.scene?.grabToImage(result=>{
-                if (result.saveToFile(path)) {report.screenshotPath=path;report.status=""}
-                else report.status="Could not save the screenshot. Try a different path."
-            })) report.status="The scene is unavailable for a screenshot."
-        }
+        onAccepted:report.captureTo(decodeURIComponent(String(selectedFile).replace(/^file:\/\//,"")))
     }
 }

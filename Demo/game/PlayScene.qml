@@ -2649,7 +2649,7 @@ FocusScope {
                     : play.weapon.melee ? (play.primed ? "CHARGED" : "MELEE") : play.weapon.throwing ? "AXE" : "READY"
             }
             Item {
-                visible:play.weapon.melee || play.weapon.staff
+                visible:!!play.weapon.melee || !!play.weapon.staff
                 anchors.horizontalCenter:parent.horizontalCenter
                 width:84;height:44
                 readonly property real charge:play.runeCost ? play.runes/play.runeCost : play.shotReady

@@ -217,6 +217,7 @@ Item {
                     readonly property var spec: Mission.enemyTypes[modelData.type]
                     readonly property color tone: Lore.origins[spec.origin].color
                     Loader {
+                        id:bodyPainting
                         anchors.fill: parent
                         anchors.margins:0
                         active:muster.software
@@ -248,7 +249,9 @@ Item {
                         hoverEnabled:muster.software
                         Accessible.name: Muster.tooltip(member.modelData,muster.discoveries)
                         EnemyHint {
-                            anchorItem:parent; hovered:muster.software ? parent.containsMouse : muster.hoveredMember===member.index
+                            anchorItem:parent
+                            hovered:muster.software ? parent.containsMouse && !!bodyPainting.item?.pickTarget(parent.mouseX,parent.mouseY)
+                                : muster.hoveredMember===member.index
                             pointerPosition:muster.software ? Qt.point(parent.mouseX,parent.mouseY)
                                 : anchorItem.mapFromItem(parade,paradeHover.mouseX,paradeHover.mouseY)
                             enemyType:member.modelData.type; discoveries:muster.discoveries
