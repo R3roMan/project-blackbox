@@ -204,6 +204,7 @@ FocusScope {
             width:parent.width-host.areaLeft-host.areaRight
             height:parent.height-host.areaTop-host.areaBottom
             enabled:host.idleActionsAvailable
+            hoverEnabled:enabled && host.options.mouseTurns
             acceptedButtons:host.quickPointer.button
             preventStealing:true
             onPressed:function(mouse) {
@@ -211,6 +212,8 @@ FocusScope {
                 if (mouse.accepted) host.idleToggleAlone=false
             }
             onClicked:host.requestQuickStart()
+            onPositionChanged:function(mouse) {galleryLoader.item?.trackEdge(Qt.point(x+mouse.x,y+mouse.y))}
+            onExited:galleryLoader.item?.leaveEdge()
         }
     }
     Shortcut {

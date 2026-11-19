@@ -2022,8 +2022,8 @@ function wound(run, enemy, amount, source, element, level, impact) {
         return spec.title+" drinks the blast"
     if ((source === "ability" || source === "grenade") && !impact?.attackRolled && !(enemy.sightMark > 0) && attackMisses(run,attackBlindRank(run),true))
         return ""
-    if (element === "electric" && Conditions.isRain(run.weatherEffect) && source !== "electric")
-        amount *= 2
+    if (element === "electric" && source !== "electric")
+        amount *= Conditions.electricScale(run.weatherEffect)
     const critical = !spec.critImmune && impact && impact.critical>1 ? impact.critical : 1
     if (enemy.type === "hasasasa") {
         if (source === "mega") {
@@ -2112,7 +2112,7 @@ function wound(run, enemy, amount, source, element, level, impact) {
             applyToEnemy(run, enemy, "stun", 1)
     } else if (element && dealt > 0) {
         applyToEnemy(run, enemy, element, level, impact?.durationScale ? {durationScale:impact.durationScale} : null)
-        if (element === "burn" && run.weatherEffect !== "rain")
+        if (element === "burn" && !Conditions.isRain(run.weatherEffect))
             enemy.infernoBurn = false
     }
     enemy.flash = .14
@@ -4431,8 +4431,8 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
         : payload && payload.element !== undefined ? payload : type === "gigafinterus" ? {element:"burn",elementLevel:3} : attacker
     if (burningTick && rain && !payload?.soulDrain)
         return
-    if (affected.element === "electric" && rain)
-        amount *= 2
+    if (affected.element === "electric")
+        amount *= Conditions.electricScale(run.weatherEffect)
     if (!burningTick && !payload?.mirror && !payload?.environment
         && attackMisses(run,payload?.blindAtFire ?? source?.elements.blind ?? 0)) {
         hostileMiss(run,attacker,payload?.blindAtFire ?? source?.elements.blind)

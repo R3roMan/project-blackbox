@@ -19,7 +19,7 @@ var entries = {
     rain:{id:"rain",title:"Rain",glyph:"☂",tint:"#93c9ff",
         description:"Burn goes out. Frost fully freezes vulnerable targets. Electric damage doubles and chains through enemies across all wallpapers."},
     thunder:{id:"thunder",title:"Thunderstorm",glyph:"ϟ",tint:"#c7b8ff",
-        description:"One in five rainstorms becomes a thunderstorm. Lightning targets ordinary demons. Each strike has an equal chance to kill or charge its target. Charged demons move and attack 50% faster and deal Electric damage."},
+        description:"Thunderstorms keep the effects of rain and boost Electric damage to 2.25×. Lightning kills or supercharges ordinary demons. Charged demons move and attack 50% faster and deal Electric damage."},
     fog:{id:"fog",title:"Fog",glyph:"≋",tint:"#c1c8cf",
         description:"Grey mist hides distant enemies. They become easier to see as they approach. Fog can layer over any sky phase."},
     winter:{id:"winter",title:"Winter",glyph:"❄",tint:"#c3f6ff",
@@ -64,6 +64,8 @@ function isNight(condition) {
 function isRain(weather) {
     return weather === "rain" || weather === "thunder"
 }
+
+function electricScale(weather) {return weather==="thunder" ? 2.25 : weather==="rain" ? 2 : 1}
 
 // One additional layer is rolled per wave. Rain always carries cloud cover.
 function companionWeather(primary,wave,seed) {

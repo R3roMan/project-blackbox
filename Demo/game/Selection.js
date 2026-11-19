@@ -2,7 +2,7 @@
 .import "Loadout.js" as Gear
 
 var bossChoices = [
-    { id:"health", title:"Maximum health", values:[65,80,95,108,120], description:"Increase your maximum and current health for this run." },
+    { id:"health", title:"Maximum health", values:[60,74,89,102,114], description:"Increase your maximum and current health for this run." },
     { id:"damage", title:"Damage", values:[.21,.27,.32,.39,.46], description:"Increase your outgoing damage for this run." },
     { id:"speed", title:"Turn speed", values:[.17,.22,.27,.32,.38], description:"Turn between wallpapers faster for this run." }
 ]

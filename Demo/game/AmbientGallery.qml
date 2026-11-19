@@ -28,6 +28,36 @@ Template.Scene {
     property string previousRoom:"shrine"
     property string committedRoom:"shrine"
     property int mouseEdge:-1
+    property int candidateEdge:-1
+    property int edgeHoldMs:220
+    function trackEdge(position) {
+        if (!mouseLook || moving) return
+        const area=turnArea
+        const gaps=[position.x-area.x,area.x+area.width-position.x,
+            position.y-area.y,area.y+area.height-position.y]
+        const distance=Math.min(...gaps)
+        if (distance>28 || distance<0) mouseEdge=-1
+        const edge=distance>=0 && distance<17 ? gaps.indexOf(distance) : -1
+        if (edge===candidateEdge) return
+        candidateEdge=edge
+        edgeHold.stop()
+        if (edge>=0 && edge!==mouseEdge) edgeHold.restart()
+    }
+    function leaveEdge() {
+        candidateEdge=mouseEdge=-1
+        edgeHold.stop()
+    }
+    onMouseLookChanged:if (!mouseLook) leaveEdge()
+    Timer {
+        id:edgeHold
+        interval:gallery.edgeHoldMs
+        onTriggered:{
+            const edge=gallery.candidateEdge
+            if (edge<0 || !gallery.mouseLook || gallery.moving) return
+            gallery.mouseEdge=edge
+            gallery.move(["left","right","up","down"][edge])
+        }
+    }
     onRoomChanged:{
         previousRoom=committedRoom
         committedRoom=room
@@ -40,26 +70,11 @@ Template.Scene {
         onActivated:gallery.go(gallery.previousRoom)
     }
     HoverHandler {
-        parent:gallery.pointerSurface || gallery
-        enabled:gallery.mouseLook && gallery.exposed && !gallery.drawerOpen && !gallery.clean
+        enabled:!gallery.pointerSurface && gallery.mouseLook && gallery.exposed && !gallery.drawerOpen && !gallery.clean
         acceptedDevices:PointerDevice.Mouse | PointerDevice.TouchPad
-        onPointChanged:{
-            if (gallery.moving) return
-            const area=gallery.turnArea
-            const position=gallery.mapFromItem(parent,point.position.x,point.position.y)
-            const gaps=[position.x-area.x,area.x+area.width-position.x,
-                position.y-area.y,area.y+area.height-position.y]
-            const distance=Math.min(...gaps)
-            if (distance>28) {
-                gallery.mouseEdge=-1
-            } else if (distance>=0 && distance<17) {
-                const edge=gaps.indexOf(distance)
-                if (gallery.mouseEdge!==edge) {
-                    gallery.mouseEdge=edge
-                    gallery.move(["left","right","up","down"][edge])
-                }
-            }
-        }
+        blocking:false
+        onPointChanged:gallery.trackEdge(point.position)
+        onHoveredChanged:if (!hovered) gallery.leaveEdge()
     }
     readonly property string viewedRoom:destination || room
     onViewedRoomChanged: {

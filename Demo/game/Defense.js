@@ -1,7 +1,7 @@
 .pragma library
 
-var raiseThreshold=.20
-var raiseCost=.10
+var raiseThreshold=.30
+var raiseCost=.20
 
 var modes = {
     standard:{ title:"Field shield", tint:"#65c8ff", hits:1,limit:3.1,cooldown:4.5 },
