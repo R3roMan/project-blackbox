@@ -117,6 +117,12 @@ QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software /usr/lib/qt6/bin/qmltestrunn
 
 On Arch the Qt components come from `qt6-declarative`, `qt6-quick3d` and `qt6-multimedia`. The included audio files play directly. To regenerate effects, use `python Demo/tools/make-audio.py`. To regenerate the music, use `python Demo/tools/make-music.py` with NumPy and FFmpeg installed.
 
+In 0.4.3, sound effects use a bounded pool of Qt media players. Rain stops when the weather clears or you descend into the Abyss. Clear battles leave space for occasional distant voices and breathing. The Ambience slider controls weather and distant sounds, and the Effects slider controls enemy death sounds.
+
+Ordinary night still darkens the edges of the screen. It leaves accuracy at the normal 5% miss chance. Inflicted Blindness adds miss penalties of 3%, 8% and 15% by level. Blood Moon Night applies level II.
+
+Ultra adds separate surface maps for skin, wing membranes, horns, bone, metal, fabric and wood. Regenerate the maps with `python Demo/tools/make-surfaces.py` using NumPy and Pillow.
+
 ## Learn your way around the source
 
 | File | What to follow |
