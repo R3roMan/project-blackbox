@@ -101,6 +101,7 @@ FocusScope {
     property real idleOpacity:idleControls ? 1 : 0
     property bool idleToggleHeld:false
     property bool idleToggleAlone:false
+    property bool idlePointerHeld:false
     readonly property var bindings:Controls.read(options.controlBindings)
     readonly property var quickPointer:Controls.quickPointer(bindings)
     readonly property bool idleOverlay:bookOpen || vaultOpen || settingsDrawer.visible || !!galleryLoader.item?.drawerOpen
@@ -110,8 +111,22 @@ FocusScope {
     property bool quickQueued:false
     readonly property bool idleKeys:home && claimed && mode==="idle"
         && !idleOverlay
+    readonly property bool idleWatch:useWorkArea && !!desktopInputParent
+    Binding {target:Native.Desktop;property:"idleInputWindow";value:host.Window.window;when:host.idleWatch && host.claimed}
+    Connections {
+        target:Native.Desktop
+        enabled:host.idleKeys && host.idleWatch
+        function onIdleKey(key,modifiers,pressed,repeated) {
+            if(!repeated) host.trackIdleToggle(key,modifiers,pressed)
+        }
+        function onIdlePointerChanged(held) {
+            host.idlePointerHeld=held
+            if (held) {host.idleToggleAlone=false;galleryLoader.item?.leaveEdge()}
+        }
+    }
     Behavior on idleOpacity {NumberAnimation {duration:220;easing.type:Easing.InOutQuad}}
     onIdleKeysChanged:if (!idleKeys) {
+        idlePointerHeld=false
         idleToggleHeld=false
         idleToggleAlone=false
         quickHold.stop()
@@ -139,11 +154,8 @@ FocusScope {
             report()
             return
         }
-        if (Controls.matches(bindings,"idleControls",event)) {
-            idleToggleHeld=true
-            idleToggleAlone=true
-        } else {
-            idleToggleAlone=false
+        if (!idleWatch) trackIdleToggle(event.key,event.modifiers,true)
+        if (!Controls.matches(bindings,"idleControls",event)) {
             if (!quickCount && Controls.matches(bindings,"quickStart",event)) {
                 quickHold.restart()
                 event.accepted=true
@@ -155,11 +167,18 @@ FocusScope {
     Keys.onReleased:function(event) {
         if (event.isAutoRepeat) return
         if (Controls.releases(bindings,"quickStart",event.key)) quickHold.stop()
-        if (!idleToggleHeld || !Controls.binding(bindings,"idleControls").some(chord=>chord.key===event.key)) return
+        if (!idleWatch && idleKeys) trackIdleToggle(event.key,event.modifiers,false)
+    }
+    function trackIdleToggle(key,modifiers,pressed) {
+        if (pressed) {
+            idleToggleAlone=Controls.matches(bindings,"idleControls",{key:key,modifiers:modifiers})
+            if (idleToggleAlone) idleToggleHeld=true
+            return
+        }
+        if (!idleToggleHeld || !Controls.binding(bindings,"idleControls").some(chord=>chord.key===key)) return
         idleToggleHeld=false
         if (idleKeys && idleToggleAlone && !quickCount) {
             idleControls=!idleControls
-            restoreIdleFocus()
             report()
         }
         idleToggleAlone=false
@@ -182,7 +201,7 @@ FocusScope {
     }
     TapHandler {
         parent:idleInput
-        enabled:host.idleActionsAvailable
+        enabled:host.idleActionsAvailable && host.desktopInputParent?.objectName!=="folder"
         acceptedButtons:Qt.LeftButton
         acceptedModifiers:Qt.NoModifier
         gesturePolicy:TapHandler.DragThreshold
@@ -212,7 +231,10 @@ FocusScope {
                 if (mouse.accepted) host.idleToggleAlone=false
             }
             onClicked:host.requestQuickStart()
-            onPositionChanged:function(mouse) {galleryLoader.item?.trackEdge(Qt.point(x+mouse.x,y+mouse.y))}
+            onPositionChanged:function(mouse) {
+                if (!host.idlePointerHeld && mouse.buttons===Qt.NoButton)
+                    galleryLoader.item?.trackEdge(Qt.point(x+mouse.x,y+mouse.y))
+            }
             onExited:galleryLoader.item?.leaveEdge()
         }
     }

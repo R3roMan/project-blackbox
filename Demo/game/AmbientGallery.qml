@@ -28,8 +28,6 @@ Template.Scene {
     property string previousRoom:"shrine"
     property string committedRoom:"shrine"
     property int mouseEdge:-1
-    property int candidateEdge:-1
-    property int edgeHoldMs:220
     function trackEdge(position) {
         if (!mouseLook || moving) return
         const area=turnArea
@@ -38,26 +36,13 @@ Template.Scene {
         const distance=Math.min(...gaps)
         if (distance>28 || distance<0) mouseEdge=-1
         const edge=distance>=0 && distance<17 ? gaps.indexOf(distance) : -1
-        if (edge===candidateEdge) return
-        candidateEdge=edge
-        edgeHold.stop()
-        if (edge>=0 && edge!==mouseEdge) edgeHold.restart()
-    }
-    function leaveEdge() {
-        candidateEdge=mouseEdge=-1
-        edgeHold.stop()
-    }
-    onMouseLookChanged:if (!mouseLook) leaveEdge()
-    Timer {
-        id:edgeHold
-        interval:gallery.edgeHoldMs
-        onTriggered:{
-            const edge=gallery.candidateEdge
-            if (edge<0 || !gallery.mouseLook || gallery.moving) return
-            gallery.mouseEdge=edge
-            gallery.move(["left","right","up","down"][edge])
+        if (edge>=0 && edge!==mouseEdge) {
+            mouseEdge=edge
+            move(["left","right","up","down"][edge])
         }
     }
+    function leaveEdge() {mouseEdge=-1}
+    onMouseLookChanged:if (!mouseLook) leaveEdge()
     onRoomChanged:{
         previousRoom=committedRoom
         committedRoom=room

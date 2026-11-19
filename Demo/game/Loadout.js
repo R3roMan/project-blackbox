@@ -489,7 +489,8 @@ var secondPerks = {
     voidliner:{ heal:4, text:"Heal 4 at wave start" }, deepcell:{ armor:.04, text:"Damage taken −4%" },
     hunter:{ cycle:.07, text:"Shot recovery −7%" }, cryojacket:{ frostDuration:1.2, text:"Frost duration +1.2s" },
     cinder:{ burnDuration:1.35, text:"Burn duration +1.35s" }, conductor:{ arcRadius:42, text:"Electric jump range +42" },
-    chainfuse:{ blastRadius:.11, text:"Death blast radius +11%" }, rewire:{ coins:30, text:"Mega coin gifts +30 gold" }
+    chainfuse:{ blastRadius:.11, text:"Death blast radius +11%" }, rewire:{ coins:30, text:"Mega coin gifts +30 gold" },
+    marginNote:{reload:.06,text:"Reload time −6%"}
 }
 Object.assign(secondPerks, Extra.perks, Arsenal.perks, Defense.perks, Deep.perks, Milestones.perks,Campaign.perks,Blood.perks,Grades.perks,Weather.perks)
 
