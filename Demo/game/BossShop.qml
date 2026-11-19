@@ -93,8 +93,9 @@ ColumnLayout {
             pendingReplacement=replacingKey
             return
         }
+        const targetKey=choosingUpgrade ? upgradeTargets.currentValue || "" : confirmed
         selectedId=selected.id
-        purchaseRequested(selected.id,destination,choosingUpgrade ? upgradeTargets.currentValue || "" : confirmed)
+        purchaseRequested(selected.id,destination,targetKey)
         pendingReplacement=""
     }
 

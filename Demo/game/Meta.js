@@ -351,6 +351,14 @@ function decode(data) {
             return known(id,vows) && Number.isInteger(data.legacyReceipts[id])
                 && data.legacyReceipts[id]>=0 && data.legacyReceipts[id]<=level(data,id)
         })) return null
+    for (const id of Object.keys(data.settled)) {
+        if (familyOf(data.settled[id])==="F") data.settled[id]="F"
+    }
+    for (const card of [data.best,data.last].concat(data.archive)) {
+        if (!card) continue
+        for (const axis of Object.keys(card.grades))
+            if (familyOf(card.grades[axis])==="F") card.grades[axis]="F"
+    }
     return data
 }
 

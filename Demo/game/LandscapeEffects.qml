@@ -105,7 +105,7 @@ Item {
             c.clip()
             if (land.frozen) {
                 const ice=c.createLinearGradient(0,278,0,432)
-                ice.addColorStop(0,"#5386a3bd");ice.addColorStop(.54,"#b3adcce0");ice.addColorStop(1,"#cfdeecf4")
+                ice.addColorStop(0,"#938aa4b7");ice.addColorStop(.54,"#daabc7df");ice.addColorStop(1,"#b3deecf4")
                 c.fillStyle=ice;c.fillRect(0,276,768,156)
                 c.lineJoin="round"
                 for (let i=0;i<24;i++) {
@@ -140,9 +140,14 @@ Item {
             if (land.hot) {
                 for (let i=0;i<19;i++) {
                     const x=183+i*157%567,y=286+i*91%151,p=(i*.618+t*(.62+i%4*.11))%1
-                    const size=(2+(y-280)*.034)*p
-                    c.strokeStyle=Qt.rgba(.93,.89,.66,Math.sin(p*Math.PI)*.46)
+                    const size=(2.3+(y-280)*.054)*p
+                    c.strokeStyle=Qt.rgba(.93,.89,.66,Math.sin(p*Math.PI)*.62)
                     c.lineWidth=.62;c.beginPath();c.ellipse(x-size*1.7,y-size*.42,size*3.4,size*.84);c.stroke()
+                    if (i%3===0 && p<.65) {
+                        c.strokeStyle=Qt.rgba(.94,.92,.81,.20*(1-p))
+                        c.lineWidth=.85
+                        c.beginPath();c.moveTo(x,y-2);c.quadraticCurveTo(x+4,y-7,x+Math.sin(p*9)*7,y-17*p-3);c.stroke()
+                    }
                     if (p<.62) {
                         c.fillStyle=Qt.rgba(.92,.94,.89,(1-p)*.39)
                         c.beginPath();c.ellipse(x-1.4,y-p*8,2.8,2.3);c.fill()
@@ -186,23 +191,26 @@ Item {
             }
         }
         function snowbanks(c) {
-            const banks=[[[0,310],[66,316],[121,329],[155,348],[222,350],[257,369],[305,369],[344,393],
-                [400,402],[455,410],[490,432],[0,432]],
-                [[0,276],[123,270],[201,274],[280,270],[394,267],[492,271],[634,273],[768,267],
-                [768,282],[674,282],[535,279],[426,278],[305,276],[178,282],[0,287]],
-                [[0,245],[70,249],[111,251],[158,250],[207,256],[288,257],[378,254],[427,258],[506,254],
-                [585,257],[634,253],[768,259],[768,271],[636,266],[474,267],[288,265],[142,260],[0,254]]]
+            const banks=[
+                [[0,318],[78,321],[107,333],[133,335],[177,355],[218,350],[215,357],[254,371],[267,372],[299,379],
+                    [329,390],[354,405],[396,404],[409,413],[440,411],[477,424],[489,432],[0,432]],
+                [[79,286],[120,282],[151,278],[197,279],[166,281],[130,283],[114,287]],
+                [[208,280],[245,278],[273,275],[299,277],[318,276],[363,278],[335,280],[269,279]],
+                [[398,279],[439,278],[481,280],[529,279],[562,282],[497,283],[464,281],[420,282]],
+                [[604,284],[652,280],[685,281],[707,278],[747,278],[768,276],[768,288],[717,289],[663,286]]]
             for (let i=0;i<banks.length;i++) {
                 c.save()
                 path(c,banks[i]);c.clip()
-                const snow=c.createLinearGradient(0,i===0 ? 310 : 245,0,i===0 ? 432 : 290)
-                snow.addColorStop(0,land.night ? "#927692ba" : "#c0e1edfa")
-                snow.addColorStop(1,land.night ? "#c19eb5d2" : "#daebf4fc")
-                c.fillStyle=snow;c.fillRect(0,241,768,191)
-                for(let j=0;j<112;j++) {
-                    const x=j*197%768,y=246+j*131%190
-                    c.fillStyle=j%4===0 ? "#43748fb0" : "#88f7fbff"
-                    c.beginPath();c.ellipse(x,y,1.5+(j%5)*1.75,1.1+j%3*.46);c.fill()
+                const snow=c.createLinearGradient(0,i===0 ? 314 : 273,0,i===0 ? 432 : 293)
+                snow.addColorStop(0,land.night ? "#927692ba" : "#a4c6d9eb")
+                snow.addColorStop(1,land.night ? "#c19eb5d2" : "#e9e0eefb")
+                c.fillStyle=snow;c.fillRect(0,270,768,162)
+                if (i===0) {
+                    for(let j=0;j<205;j++) {
+                        const x=j*197%768,y=312+j*131%124
+                        c.fillStyle=j%5===0 ? "#44748fb0" : "#66f7fbff"
+                        c.beginPath();c.ellipse(x,y,1.5+(j%5)*2.1,1.1+j%3*.6);c.fill()
+                    }
                 }
                 c.restore()
             }

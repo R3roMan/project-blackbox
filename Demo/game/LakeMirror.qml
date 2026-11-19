@@ -6,6 +6,7 @@ ShaderEffect {
     required property string framing
     required property real zoom
     required property vector4d lightAndTime
+    property vector2d waterMotion:Qt.vector2d(1,1)
     readonly property vector4d imageFrame:{
         const ratio=1672/941
         const fitted=framing==="fit" ? Math.min(width/ratio,height) : Math.max(width/ratio,height)

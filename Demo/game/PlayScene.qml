@@ -406,7 +406,7 @@ FocusScope {
     }
 
     function edgeTurn(x, y) {
-        if (!mouseTurns || !fighting || x < 0 || x >= width || y < 0 || y >= height)
+        if (!mouseTurns || !fighting || turning || x < 0 || x >= width || y < 0 || y >= height)
             return
         const boundary = Math.max(16, Math.min(30, Math.min(width, height) * .034))
         const directions = ["left", "right", "up", "down"]
@@ -472,7 +472,7 @@ FocusScope {
             queuedAbilityUntil=run.time+(turning ? .65 : .25)
             return false
         }
-        const point=worldItem ? {x:pointer.x/width,y:pointer.y/height} : null
+        const point=worldItem && aim.containsMouse ? {x:pointer.x/width,y:pointer.y/height} : null
         const cast=Rules.useAbility(run,slot,frontId,point ? aimAt(pointer.x,pointer.y) : 0,point)
         publish()
         return cast
@@ -1362,6 +1362,8 @@ FocusScope {
                 && play.weather!=="winter" && !play.backgroundFiles.left && !!play.worldItem
             sourceComponent:LakeMirror {
                 field:play.worldItem
+                waterMotion:Qt.vector2d(play.windy ? 2.65 : ["heatwave","inferno"].includes(play.weather) ? 1.65 : 1.15,
+                    play.weather==="fog" ? .63 : 1)
                 framing:play.wallpaperFit
                 zoom:play.wallpaperZoom
                 lightAndTime:Qt.vector4d(play.sky.sunX,play.sky.dark,
@@ -1855,7 +1857,7 @@ FocusScope {
         onEntered: play.updateAim(mouseX, mouseY, 0)
         onPositionChanged: function(mouse) {
             play.updateAim(mouse.x, mouse.y, 0)
-            if (pressed) play.edgeTurn(mouse.x, mouse.y)
+            play.edgeTurn(mouse.x, mouse.y)
         }
         onExited: play.fireHeld = false
         onCanceled: play.fireHeld = false

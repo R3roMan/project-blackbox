@@ -6,6 +6,7 @@ layout(std140, binding = 0) uniform buf {
     float qt_Opacity;
     vec4 imageFrame;
     vec4 lightAndTime;
+    vec2 waterMotion;
 };
 layout(binding = 1) uniform sampler2D field;
 layout(binding = 2) uniform sampler2D waterMask;
@@ -21,15 +22,17 @@ void main()
     }
 
     float depth = max(0.0, art.y - 0.645);
-    float ripple = sin(art.y * 310.0 + lightAndTime.w * 2.1) * 0.0028
-        + sin(art.y * 840.0 - art.x * 18.0 - lightAndTime.w * 3.6) * 0.0017;
+    float time = lightAndTime.w * waterMotion.x;
+    float ripple = (sin(art.y * 310.0 + time * 2.1) * 0.0028
+        + sin(art.y * 840.0 - art.x * 18.0 - time * 3.6) * 0.0017)
+        * (0.7 + waterMotion.x * 0.3);
     vec2 mirrored = vec2(art.x + ripple * (0.42 + depth * 5.3), 0.645 - depth * 1.23);
     vec2 point = imageFrame.xy + mirrored * imageFrame.zw;
     vec4 image = texture(field, point);
     image = (image * 2.0 + texture(field, point + vec2(0.0032, 0.0))
         + texture(field, point - vec2(0.0032, 0.0))) * 0.25;
 
-    float fade = water * (0.4 - lightAndTime.y * 0.23)
+    float fade = water * waterMotion.y * (0.4 - lightAndTime.y * 0.23)
         * smoothstep(0.0, 0.035, depth) * (1.0 - smoothstep(0.25, 0.37, depth));
     vec4 reflection = vec4(image.rgb * vec3(0.47, 0.66, 0.72), image.a) * fade;
 
