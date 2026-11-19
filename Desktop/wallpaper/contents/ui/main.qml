@@ -50,6 +50,12 @@ WallpaperItem {
         onLoaded:item.useWorkArea=true
         Binding {
             target:runtime.item
+            property:"desktopInputParent"
+            when:runtime.status===Loader.Ready
+            value:wallpaper.desktop
+        }
+        Binding {
+            target:runtime.item
             property:"workArea"
             when:runtime.status===Loader.Ready
             value:wallpaper.desktopArea()

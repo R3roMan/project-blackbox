@@ -22,6 +22,7 @@ FocusScope {
     property bool useWorkArea:false
     property bool standaloneWindow:!useWorkArea
     property bool editingDesktop:false
+    property Item desktopInputParent:null
     property rect workArea:Qt.rect(0,0,width,height)
     readonly property real areaLeft:useWorkArea ? Math.max(0,workArea.x) : 0
     readonly property real areaTop:useWorkArea ? Math.max(0,workArea.y) : 0
@@ -189,18 +190,26 @@ FocusScope {
             host.restoreIdleFocus()
         }
     }
-    MouseArea {
-        objectName:"idleQuickPointer"
-        anchors.fill:desktopControls
-        z:20
-        enabled:host.idleActionsAvailable
-        acceptedButtons:host.quickPointer.button
-        preventStealing:true
-        onPressed:function(mouse) {
-            mouse.accepted=(mouse.modifiers & Controls.modifierMask)===host.quickPointer.mods
-            if (mouse.accepted) host.idleToggleAlone=false
+    Item {
+        id:idleInput
+        parent:host.desktopInputParent || host
+        readonly property point origin:parent.mapFromItem(host,0,0)
+        x:origin.x;y:origin.y;width:host.width;height:host.height
+        z:2
+        visible:host.idleActionsAvailable
+        MouseArea {
+            objectName:"idleQuickPointer"
+            x:host.areaLeft;y:host.areaTop
+            width:parent.width-host.areaLeft-host.areaRight
+            height:parent.height-host.areaTop-host.areaBottom
+            acceptedButtons:host.quickPointer.button
+            preventStealing:true
+            onPressed:function(mouse) {
+                mouse.accepted=(mouse.modifiers & Controls.modifierMask)===host.quickPointer.mods
+                if (mouse.accepted) host.idleToggleAlone=false
+            }
+            onClicked:host.requestQuickStart()
         }
-        onClicked:host.requestQuickStart()
     }
     Shortcut {
         sequences:Controls.sequences(host.bindings,"quickStart");context:Qt.WindowShortcut
@@ -313,6 +322,7 @@ FocusScope {
             enabled:host.home
             focus:host.mode!=="play"
             mouseLook:host.options.mouseTurns && host.idleActionsAvailable
+            pointerSurface:idleInput
             turnArea:Qt.rect(host.areaLeft,host.areaTop,width-host.areaLeft-host.areaRight,height-host.areaTop-host.areaBottom)
             escapeBack:!host.quickCount
             externalChrome:true

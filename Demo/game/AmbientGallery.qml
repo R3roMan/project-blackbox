@@ -14,6 +14,7 @@ Template.Scene {
     property var forecast:Scenery.idleWeather(localTime,(localTime.getTime()-cycleOrigin)/1000,phaseMinutes)
     property var labAppearance:({})
     property bool mouseLook:false
+    property Item pointerSurface:null
     property rect turnArea:Qt.rect(0,0,width,height)
     readonly property string liveFront:Scenery.rooms[room] || "front"
     property string controlBindings:"{}"
@@ -37,11 +38,13 @@ Template.Scene {
         onActivated:gallery.go(gallery.previousRoom)
     }
     HoverHandler {
+        parent:gallery.pointerSurface || gallery
         enabled:gallery.mouseLook && gallery.exposed && !gallery.drawerOpen && !gallery.clean
         acceptedDevices:PointerDevice.Mouse | PointerDevice.TouchPad
         onPointChanged:{
             if (gallery.moving) return
-            const area=gallery.turnArea, position=point.position
+            const area=gallery.turnArea
+            const position=gallery.mapFromItem(parent,point.position.x,point.position.y)
             const gaps=[position.x-area.x,area.x+area.width-position.x,
                 position.y-area.y,area.y+area.height-position.y]
             const distance=Math.min(...gaps)
