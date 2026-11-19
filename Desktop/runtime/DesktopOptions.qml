@@ -206,7 +206,7 @@ Item {
             Copy {text:"Day → Sunset → Night → Sunrise. Each phase has about a 70% chance of weather and a 30% chance of clear skies."}
             Title {text:"KDE workspace integration"}
             Toggle {text:"Link each wallpaper to a KDE virtual desktop";checked:settings.options.linkDesktops;onToggled:value=>settings.set("linkDesktops",value)}
-            Copy {text:"Use KDE Activities for separate desktop widget layouts. Panels and wallpaper plug-ins are managed by Plasma."}
+            Copy {text:"Blackbox uses your current KDE panels, apps and widgets. Add tray or panel widgets in KDE’s Edit Mode. Use KDE Activities for separate desktop widget layouts."}
             Ui.ActionButton {Layout.fillWidth:true;text:"Return to KDE desktop";onClicked:Native.Desktop.command("revert")}
             Ui.ActionButton {objectName:"resetDesktopSettings";Layout.fillWidth:true;text:"Restore desktop settings";onClicked:resetConfirmation.open()}
         }
