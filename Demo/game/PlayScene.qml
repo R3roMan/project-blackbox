@@ -2081,6 +2081,7 @@ FocusScope {
 
     Column {
         id:fieldTitle
+        z:play.fighting ? 19 : 0
         objectName:"fieldTitle"
         visible:!play.outcomeKind && (!play.fighting || play.fieldHudVisible)
         opacity:play.fighting ? play.hudFade : 1
@@ -2092,7 +2093,7 @@ FocusScope {
             width:parent.width
             elide:Text.ElideRight
             text: play.lab ? "AFTER WAVE " + play.wave : "PROJECT BLACKBOX"
-            color: play.location.color
+            color: play.fighting ? Ui.FieldStyle.hudColor : play.location.color
             font.family: "IBM Plex Mono"
             font.pixelSize: Ui.UiMetrics.text(12)
             font.letterSpacing: 2

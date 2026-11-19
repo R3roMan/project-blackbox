@@ -24,7 +24,6 @@ Item {
     property bool swarm:false
     property bool weatherParticles:false
     property bool continuousWeather:false
-    property bool perspectiveSky:false
     property var labAppearance:({})
     property int detail:1
     property string framing:"fill"
@@ -37,7 +36,7 @@ Item {
     readonly property bool abyssTransition:moving && (activeFront==="down" || previousFront==="down")
     readonly property bool descending:abyssTransition && transitionStyle==="cinematic"
     readonly property bool skyTurn:moving && (activeFront==="up" || previousFront==="up")
-    readonly property bool rotating:moving && !abyssTransition && (!skyTurn || perspectiveSky) && transitionStyle==="cinematic"
+    readonly property bool rotating:moving && !abyssTransition && !skyTurn && transitionStyle==="cinematic"
     readonly property real sampleScale:Math.min(Math.max(1,Screen.devicePixelRatio),quality>0
         ? quality/Math.max(1,height) : 8192/Math.max(1,width))
     function defaultFor(front) {return Scenery.asset(front) || Qt.resolvedUrl(String(artDirectory)+Rules.front(front).art)}

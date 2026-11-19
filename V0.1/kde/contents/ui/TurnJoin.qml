@@ -41,7 +41,6 @@ Item {
     Canvas {
         id:strip
         property string source:""
-        property bool loaded:false
         x:join.horizontal ? join.boundary-(join.positive ? 0 : join.feather) : 0
         y:join.horizontal ? 0 : join.boundary-(join.positive ? 0 : join.feather)
         width:Math.max(1,join.captureSize.width*(join.horizontal ? join.fraction : 1))
@@ -51,7 +50,6 @@ Item {
             xScale:(join.horizontal ? join.feather : join.width)/strip.width
             yScale:(join.horizontal ? join.height : join.feather)/strip.height
         }
-        onSourceChanged:loaded=false
         onImageLoaded:requestPaint()
         onAvailableChanged:if (available && source) requestPaint()
         onPaint: {
@@ -77,7 +75,6 @@ Item {
             fade.addColorStop(1,"transparent")
             c.fillStyle=fade
             c.fillRect(0,0,width,height)
-            loaded=true
         }
     }
     Rectangle {
