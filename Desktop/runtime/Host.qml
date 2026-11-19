@@ -112,6 +112,7 @@ FocusScope {
     }
 
     Keys.onPressed:function(event) {
+        console.info("IDLE-KEY-P",event.key,event.modifiers,event.isAutoRepeat,idleKeys,ctrlDown)
         if (!idleKeys) return
         if (event.isAutoRepeat) {
             if (event.key===Qt.Key_Space && ctrlDown) event.accepted=true
@@ -131,6 +132,7 @@ FocusScope {
         }
     }
     Keys.onReleased:function(event) {
+        console.info("IDLE-KEY-R",event.key,event.modifiers,event.isAutoRepeat,idleKeys,ctrlDown)
         if (event.isAutoRepeat) return
         if (event.key===Qt.Key_Space) quickHold.stop()
         if (event.key!==Qt.Key_Control) return
@@ -151,6 +153,7 @@ FocusScope {
         id:quickHold;interval:420
         onTriggered:if (host.idleKeys && battle.item) {
             galleryLoader.item?.go("shrine",true)
+            console.info("IDLE-HOLD TIMER")
             host.quickCount=3
             menuSound.item?.play("takeover-tick",.69)
             quickStart.start()
