@@ -102,6 +102,7 @@ FocusScope {
     property bool idleToggleHeld:false
     property bool idleToggleAlone:false
     property bool idlePointerHeld:false
+    property bool idleEdgeArmed:true
     readonly property var bindings:Controls.read(options.controlBindings)
     readonly property var quickPointer:Controls.quickPointer(bindings)
     readonly property bool idleOverlay:bookOpen || vaultOpen || settingsDrawer.visible || !!galleryLoader.item?.drawerOpen
@@ -121,7 +122,11 @@ FocusScope {
         }
         function onIdlePointerChanged(held) {
             host.idlePointerHeld=held
-            if (held) {host.idleToggleAlone=false;galleryLoader.item?.leaveEdge()}
+            if (held) {
+                host.idleEdgeArmed=false
+                host.idleToggleAlone=false
+                galleryLoader.item?.leaveEdge()
+            }
         }
     }
     Behavior on idleOpacity {NumberAnimation {duration:220;easing.type:Easing.InOutQuad}}
@@ -232,8 +237,9 @@ FocusScope {
             }
             onClicked:host.requestQuickStart()
             onPositionChanged:function(mouse) {
-                if (!host.idlePointerHeld && mouse.buttons===Qt.NoButton)
-                    galleryLoader.item?.trackEdge(Qt.point(x+mouse.x,y+mouse.y))
+                if (host.idlePointerHeld || mouse.buttons!==Qt.NoButton) return
+                if (Math.min(mouse.x,mouse.y,width-mouse.x,height-mouse.y)>28) host.idleEdgeArmed=true
+                if (host.idleEdgeArmed) galleryLoader.item?.trackEdge(Qt.point(x+mouse.x,y+mouse.y))
             }
             onExited:galleryLoader.item?.leaveEdge()
         }
