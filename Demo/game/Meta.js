@@ -191,7 +191,7 @@ function grade(score) {
 function expeditionBonus(mark,difficulty,cleared) {
     if (!cleared) return {grade:0,difficulty:0}
     const relative=(grades.indexOf(mark)-grades.indexOf("B"))/3
-    const grade=Math.floor(cleared*.19*Math.pow(1.35,relative))
+    const grade=Math.floor(cleared*.183*Math.pow(1.34,relative))
     const difficultyBonus=difficulty==="insane" ? 50*Math.pow(2.60,relative)
         : difficulty==="hard" ? 24*Math.pow(1.95,relative) : 0
     return {grade:grade,difficulty:Math.round(difficultyBonus)}

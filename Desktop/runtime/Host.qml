@@ -97,12 +97,14 @@ FocusScope {
         && !Native.Desktop.sessionLocked && visible && here && !editingDesktop
     property bool idleControls:false
     property real idleOpacity:idleControls ? 1 : 0
+    property bool ctrlDown:false
     property bool ctrlAlone:false
     property int quickCount:0
     readonly property bool idleKeys:home && claimed && mode==="idle"
         && !bookOpen && !vaultOpen && !settingsDrawer.visible && !galleryLoader.item?.drawerOpen
     Behavior on idleOpacity {NumberAnimation {duration:220;easing.type:Easing.InOutQuad}}
     onIdleKeysChanged:if (!idleKeys) {
+        ctrlDown=false
         ctrlAlone=false
         quickHold.stop()
         quickStart.stop()
@@ -110,12 +112,17 @@ FocusScope {
     }
 
     Keys.onPressed:function(event) {
-        if (!idleKeys || event.isAutoRepeat) return
+        if (!idleKeys) return
+        if (event.isAutoRepeat) {
+            if (event.key===Qt.Key_Space && ctrlDown) event.accepted=true
+            return
+        }
         if (event.key===Qt.Key_Control) {
+            ctrlDown=true
             ctrlAlone=event.modifiers===Qt.NoModifier || event.modifiers===Qt.ControlModifier
         } else {
             ctrlAlone=false
-            if (event.key===Qt.Key_Space && event.modifiers===Qt.ControlModifier && !quickCount) {
+            if (event.key===Qt.Key_Space && ctrlDown && !(event.modifiers & (Qt.ShiftModifier | Qt.AltModifier | Qt.MetaModifier)) && !quickCount) {
                 quickHold.restart()
                 event.accepted=true
             } else {
@@ -124,8 +131,10 @@ FocusScope {
         }
     }
     Keys.onReleased:function(event) {
+        if (event.isAutoRepeat) return
         if (event.key===Qt.Key_Space) quickHold.stop()
-        if (event.key!==Qt.Key_Control || event.isAutoRepeat) return
+        if (event.key!==Qt.Key_Control) return
+        ctrlDown=false
         quickHold.stop()
         if (idleKeys && ctrlAlone && !quickCount) {
             idleControls=!idleControls
@@ -145,6 +154,7 @@ FocusScope {
             host.quickCount=3
             menuSound.item?.play("takeover-tick",.69)
             quickStart.start()
+            host.report()
         }
     }
     Timer {

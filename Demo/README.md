@@ -202,3 +202,8 @@ In **Settings → Display and accessibility**, choose the wallpaper for each dir
 The sliders in Settings can be adjusted with the wheel, keyboard or pointer. Overall scales the whole mix. Music, Combat effects, Ambience and Interface each have their own level. A new installation starts with sound on. Existing mute settings are carried forward.
 
 A field-shop purchase that upgrades an ability records its rank and price. Right-click the listing or open **Refund ranks** to return the last paid rank and get the price back. The listing stays sold. A later free reward rank stays above its earlier paid rank. Refunds in the Witch’s Vault use dark gems and have their own receipts.
+
+
+## Expedition crystal rewards
+
+At the same grade and number of waves cleared, Insane awards 50 more dark crystals than Normal at B and 130 more at A. Hard awards 24 and 47 more respectively. The premium grows with grade. Auto reduces the expedition’s total crystal reward once you use it at any point during that run. The rate rises with the grade and appears on the results card.

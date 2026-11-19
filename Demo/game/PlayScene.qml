@@ -2198,7 +2198,7 @@ FocusScope {
                 objectName:"autoPlayButton"
                 visible:!play.run.training
                 text:play.autoPlaying ? "Auto on" : "Auto"
-                hintText:play.autoLimit ? "Auto through Wave "+play.autoLimit : "Clear a wave to unlock Auto"
+                hintText:play.autoLimit ? "Auto through Wave "+play.autoLimit+" · Using it reduces the expedition’s crystal payout." : "Clear a wave to unlock Auto"
                 Accessible.name:play.autoPlaying ? "Turn Auto off" : "Turn Auto on"
                 enabled:play.interactive && (play.autoPlaying || play.autoEligible)
                 primary:play.autoPlaying
