@@ -17,9 +17,10 @@ WallpaperItem {
             onTriggered:Qt.callLater(runtime.item.openIdleSettings)
         }
     ]
-    // During Play the interactive surface needs to be above the containment's
-    // desktop click area. The real panels are separate Plasma windows.
-    z:runtime.item?.home && runtime.item.claimed && ["play","idle"].includes(runtime.item.mode) ? 1 : -1
+    // Play and modal overlays sit over desktop widgets. Idle scenery stays
+    // behind the Folder View icons and other standard Plasma widgets.
+    z:runtime.item?.home && runtime.item.claimed
+        && (runtime.item.mode==="play" || runtime.item.idleOverlay || runtime.item.quickCount) ? 1 : -1
 
     // The WallpaperItem paints behind Plasma's real panels. Use the
     // containment's available rectangle for the interactive HUD and menus.
