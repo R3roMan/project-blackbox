@@ -3,15 +3,11 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import "../../../../../project-blackbox/native" as Native
-import "../../../../../project-blackbox/Demo/ui" as Ui
-import "../../../../../project-blackbox/Demo/game/Loadout.js" as Gear
-import "../../../../../project-blackbox/Demo/game/Controls.js" as Controls
 PlasmoidItem {
     id:applet
     Plasmoid.title:"Project Blackbox"
     Plasmoid.icon:blackboxIcon.toString()
     readonly property url blackboxIcon:Qt.resolvedUrl("../../../../../project-blackbox/runtime/blackbox-desktop.svg")
-    readonly property var bindings:Controls.read(Native.Desktop.config.controlBindings)
     readonly property bool activeWallpaper:Native.Desktop.wallpaperActive
     readonly property bool showing:!activeWallpaper || Native.Desktop.config.mode==="play" || !!Native.Desktop.state.idleControls
     property string layoutNotice:""
@@ -41,32 +37,6 @@ PlasmoidItem {
         enabled:applet.showing
         Behavior on opacity {NumberAnimation {duration:220}}
         spacing:3
-        Repeater {
-            model:applet.activeWallpaper && Native.Desktop.config.mode==="play" ? Native.Desktop.state.actives || [] : []
-            PanelButton {
-                required property int index
-                required property var modelData
-                text:Controls.label(applet.bindings,index ? "active2" : "active1")+(modelData.cooldown>0 ? " "+Math.ceil(modelData.cooldown) : "")
-                enabled:!!modelData.id && Native.Desktop.atHome && Native.Desktop.state.phase==="combat" && !Native.Desktop.state.paused && modelData.cooldown<=0
-                implicitWidth:34
-                implicitHeight:26
-                Layout.maximumHeight:Math.max(16,panelControls.height)
-                contentItem:Item {
-                    Ui.GalleryPortrait {anchors.fill:parent;visible:!!modelData.id;entry:Gear.activeAbilities[modelData.id] || Gear.activeAbilities.shock;tint:Gear.rarities[Gear.activeAbilities[modelData.id]?.rarity || "common"].color}
-                    Text {anchors.left:parent.left;anchors.top:parent.top;text:Controls.label(applet.bindings,index ? "active2" : "active1");color:"white";font.pixelSize:Math.max(7,Math.min(11,31/(Math.max(1,text.length)*.55)));font.bold:true;style:Text.Outline;styleColor:"black"}
-                    Text {anchors.centerIn:parent;text:modelData.cooldown>0 ? Math.ceil(modelData.cooldown) : "";color:"white";font.bold:true;style:Text.Outline;styleColor:"black"}
-                }
-                ToolTip.visible:hovered;ToolTip.text:modelData.title
-                onClicked:Native.Desktop.command(index ? "e" : "q")
-                Rectangle {anchors.bottom:parent.bottom;height:2;width:parent.width*(1-modelData.cooldown/modelData.duration);color:"white"}
-            }
-        }
-        PanelButton {
-            text:"Ⅱ"
-            Accessible.name:"Pause Blackbox"
-            visible:applet.activeWallpaper && Native.Desktop.config.mode==="play"
-            onClicked:Native.Desktop.command("pause")
-        }
         PanelButton {
             id:badge
             objectName:"blackboxPanelBadge"
@@ -137,6 +107,10 @@ PlasmoidItem {
             onClicked:Native.Desktop.setDarkApps(!Native.Desktop.darkApps)
         }
         Label {Layout.fillWidth:true;wrapMode:Text.WordWrap;text:Native.Desktop.panelStyleNotice || "Choose custom colours and Plasma styles in KDE System Settings."}
+        RowLayout {
+            Button {text:"Night Light";onClicked:Native.Desktop.openDisplaySettings(false)}
+            Button {text:"Displays and HDR";onClicked:Native.Desktop.openDisplaySettings(true)}
+        }
         Label {visible:applet.activeWallpaper;text:"CPU "+Math.round(Native.Desktop.cpu*100)+"% · GPU "+(Native.Desktop.gpu<0 ? "unavailable" : Math.round(Native.Desktop.gpu*100)+"%")}
         Label {visible:applet.activeWallpaper;text:Native.Desktop.audioStatus;wrapMode:Text.WordWrap;Layout.fillWidth:true}
         Item {Layout.fillHeight:true}

@@ -1,2 +1,3 @@
 singleton UiMetrics 1.0 UiMetrics.qml
 singleton SoundMix 1.0 SoundMix.qml
+singleton FieldStyle 1.0 FieldStyle.qml

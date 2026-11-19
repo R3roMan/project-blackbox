@@ -1411,6 +1411,14 @@ function offerDetails(offer,run) {
         kitOwnership(run,group,offer.id)].filter(Boolean).join("\n")
 }
 
+function fieldItemDetails(run,group,item) {
+    const spec=catalogs[group]?.[item.id]
+    if (!spec) return ""
+    const summary=spec.description.match(/^.*?[.!?](?=\s|$)/)?.[0] || spec.description
+    const facts=itemDetails(run,group,item).split("\n").filter(line=>/^(Damage |Magazine |Spell charge |Cooldown |Ability damage:|Upgrade )/.test(line))
+    return [spec.title,summary,...facts].join("\n")
+}
+
 var activeImpacts={shock:[5,1.5],sunfall:[8.25,2.3],immolate:[3.3,1],stormcall:[9,1.8],searingmark:[1.5,1],
     bladesweep:[7.4,2.3],blackWake:[4.2,1.25],brineFlare:[7.4,1.8],colourSpill:[5,1.5],mireCloud:[4.5,1]}
 function abilityDamageDescription(run,item,bonus) {

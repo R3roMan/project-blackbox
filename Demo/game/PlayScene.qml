@@ -57,6 +57,7 @@ FocusScope {
     property bool sound: true
     property bool motion: true
     property var knownEnemies: []
+    property var seenInPlay:[]
     property string resumeState:""
     property string saveNotice:""
     property int graphicsDetail:1
@@ -522,7 +523,11 @@ FocusScope {
             upgradeColor:Gear.slotUpgradeColor("active", slot) }
     }
 
+    readonly property real abilityBottom:Math.max(leftHudPanel.height*leftHudPanel.scale+leftHudPanel.anchors.bottomMargin,
+        rightHudPanel.height*rightHudPanel.scale+rightHudPanel.anchors.bottomMargin)+6
+
     function learn(group, entry) {
+        if (group==="enemies" && !seenInPlay.includes(entry)) seenInPlay=seenInPlay.concat(entry)
         const key = group + ":" + entry
         if (!discoveries[key]) {
             discoveries[key] = true
@@ -2472,11 +2477,16 @@ FocusScope {
             spacing:play.height < 640 ? 5 : 9
         ActiveTile {
             objectName: "activeHUD-Q"
+            parent:play;z:24
+            anchors.left:parent.left;anchors.leftMargin:16
+            anchors.bottom:parent.bottom;anchors.bottomMargin:play.abilityBottom
+            scale:play.hudZoom;transformOrigin:Item.BottomLeft
+            visible:play.fieldHudVisible;enabled:!play.hudHidden;opacity:play.hudFade
             abilityState: { play.revision; return play.abilityTile(Rules.slotInput(play.run,0)) }
             shortcut:Controls.label(play.bindings,"active1")
             onCastRequested:{play.activateAbility(0,true);play.keyTargetFocus()}
             motion: play.motion
-            details:ability ? Gear.itemDetails(play.run,"active",{id:ability.id,level:abilityState.level}) : ""
+            details:ability ? Gear.fieldItemDetails(play.run,"active",{id:ability.id,level:abilityState.level}) : ""
             onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
         }
         Meter {
@@ -2583,11 +2593,16 @@ FocusScope {
             spacing:play.height < 640 ? 5 : 9
         ActiveTile {
             objectName: "activeHUD-E"
+            parent:play;z:24
+            anchors.right:parent.right;anchors.rightMargin:16
+            anchors.bottom:parent.bottom;anchors.bottomMargin:play.abilityBottom
+            scale:play.hudZoom;transformOrigin:Item.BottomRight
+            visible:play.fieldHudVisible;enabled:!play.hudHidden;opacity:play.hudFade
             abilityState: { play.revision; return play.abilityTile(Rules.slotInput(play.run,1)) }
             shortcut:Controls.label(play.bindings,"active2")
             onCastRequested:{play.activateAbility(1,true);play.keyTargetFocus()}
             motion: play.motion
-            details:ability ? Gear.itemDetails(play.run,"active",{id:ability.id,level:abilityState.level}) : ""
+            details:ability ? Gear.fieldItemDetails(play.run,"active",{id:ability.id,level:abilityState.level}) : ""
             onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
         }
         Column {
@@ -2601,10 +2616,11 @@ FocusScope {
                 hovered:gunHover.hovered
                 chapter:"weapons"
                 entryId:play.weapon.id
-                details:{play.revision;return gunHover.hovered || gunHint.visible ? Gear.itemDetails(play.run,"weapon",Gear.current(play.run)) : play.weapon.title}
+                details:{play.revision;return gunHover.hovered || gunHint.visible ? Gear.fieldItemDetails(play.run,"weapon",Gear.current(play.run)) : play.weapon.title}
                 onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
             }
             AmmoDial {
+                visible:!play.weapon.melee && !play.weapon.staff
                 objectName:"ammoDial"
                 anchors.horizontalCenter:parent.horizontalCenter
                 width:Math.min(parent.width,play.compactLayout ? 78 : 96)
@@ -3222,7 +3238,7 @@ FocusScope {
             onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
             stage:play.upcomingStage
             companion:play.petChoice || play.flyingPet ? play.petSpec : null
-            discoveries:play.knownEnemies
+            discoveries:play.knownEnemies.concat(play.seenInPlay)
             compact:play.compactLayout
             software:play.projectedMode
             detail:play.graphicsDetail

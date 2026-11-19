@@ -13,6 +13,8 @@ Popup {
     property var comparisons:[]
     property color metadataTint:"#e4bbc7"
     property int delay:300
+    property var pointerPosition:null
+    property var openedAt:null
     signal entryRequested(string chapter, string id)
 
     parent:anchorItem
@@ -27,9 +29,10 @@ Popup {
     property point origin:Qt.point(0,0)
     width:Math.max(160,Math.min(432,windowWidth-24))
     height:Math.min(implicitHeight,windowHeight-24)
-    x:Math.max(12-origin.x,Math.min((anchorItem.width-width)/2,windowWidth-origin.x-width-12))
-    y:Math.max(12-origin.y,Math.min(anchorItem.height+5+origin.y+height < windowHeight-12
-        ? anchorItem.height+5 : -height-5,windowHeight-origin.y-height-12))
+    x:Math.max(12-origin.x,Math.min(openedAt ? openedAt.x+13 : (anchorItem.width-width)/2,windowWidth-origin.x-width-12))
+    y:Math.max(12-origin.y,Math.min(openedAt
+        ? (openedAt.y+origin.y+height+14 < windowHeight-12 ? openedAt.y+14 : openedAt.y-height-13)
+        : (anchorItem.height+5+origin.y+height < windowHeight-12 ? anchorItem.height+5 : -height-5),windowHeight-origin.y-height-12))
 
     function updateHover() {
         if (hovered && details.length) {
@@ -51,6 +54,7 @@ Popup {
         interval:card.delay
         onTriggered:if (card.hovered) {
             card.origin=card.anchorItem.mapToItem(null,0,0)
+            card.openedAt=card.pointerPosition
             card.open()
         }
     }

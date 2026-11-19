@@ -20,15 +20,14 @@ View3D {
             if (index >= 0 && index < company.length)
                 return index
         }
-        // The frame can precede the scene's pick data during a resize or
-        // reopen. Test the projected bodies at their current animated poses.
+        // Keep the fallback inside the visible body while the pick buffer warms up.
         let selected=-1, nearest=1
         for (let index=0;index<figures.count;++index) {
             const figure=figures.objectAt(index)
             if (!figure) continue
             const centre=mapFrom3DScene(figure.scenePosition)
             const size=Muster.displaySize(Mission.enemyTypes[figure.enemy.type])*previewCamera.verticalMagnification
-            const distance=Math.hypot((x-centre.x)/(82*size),(y-centre.y+15*size)/(90*size))
+            const distance=Math.hypot((x-centre.x)/(56*size),(y-centre.y+12*size)/(64*size))
             if (distance < nearest) {
                 selected=index
                 nearest=distance

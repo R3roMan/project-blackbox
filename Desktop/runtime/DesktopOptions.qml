@@ -215,10 +215,14 @@ Item {
             Title {text:"KDE workspace integration"}
             Toggle {text:"Link each wallpaper to a KDE virtual desktop";checked:settings.options.linkDesktops;onToggled:value=>settings.set("linkDesktops",value)}
             Copy {text:"Blackbox uses your current KDE panels, apps and widgets. Add tray or panel widgets in KDE’s Edit Mode. Use KDE Activities for separate desktop widget layouts."}
+            Ui.ActionButton {Layout.fillWidth:true;text:"KDE Night Light";onClicked:Native.Desktop.openDisplaySettings(false)}
+            Ui.ActionButton {Layout.fillWidth:true;text:"KDE displays and HDR";onClicked:Native.Desktop.openDisplaySettings(true)}
             Ui.ActionButton {Layout.fillWidth:true;text:"Return to KDE desktop";onClicked:Native.Desktop.command("revert")}
             Ui.ActionButton {objectName:"resetDesktopSettings";Layout.fillWidth:true;text:"Restore desktop settings";onClicked:resetConfirmation.open()}
+            Ui.ActionButton {Layout.fillWidth:true;text:"Report a bug";onClicked:bugReport.open()}
         }
     }
+    Ui.BugReport {id:bugReport;scene:settings;context:({host:"Plasma",screen:"desktop settings",mode:settings.options.mode})}
     Component {
         id:gameplayPage
         Stack {

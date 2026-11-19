@@ -299,6 +299,19 @@ ColumnLayout {
                     }
                 }
             }
+            Repeater {
+                model:{shop.revision;return Math.max(0,8-shop.run.shopCapacity)}
+                Ui.ActionButton {
+                    required property int index
+                    objectName:"lockedShopListing-"+(shop.run.shopCapacity+index+1)
+                    Layout.fillWidth:true
+                    implicitHeight:shop.compact ? 38 : 48
+                    text:"🔒  Listing "+(shop.run.shopCapacity+index+1)
+                    hintText:index===0 && shop.expansion ? shop.expansion.description : "Unlock the earlier listing first."
+                    enabled:index===0 && !!shop.expansion && shop.balance>=shop.expansion.cost
+                    onClicked:shop.purchaseRequested("expand-counter",-1,"")
+                }
+            }
         }
 
         Rectangle {

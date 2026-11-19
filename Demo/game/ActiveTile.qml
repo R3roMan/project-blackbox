@@ -13,8 +13,8 @@ Rectangle {
     readonly property var ability: abilityState.ability
     readonly property string label: ability ? ability.title : abilityState.available ? "Empty" : "Locked"
 
-    implicitWidth: 108
-    implicitHeight: 96
+    implicitWidth: 56
+    implicitHeight: 56
     radius: 7
     color: "#e3151b2a"
     border.color: ability ? Gear.rarities[ability.rarity].color : "#61637a"
@@ -39,10 +39,8 @@ Rectangle {
     }
     Ui.AbilityGlyph {
         visible:!!tile.ability
-        anchors.top:parent.top
-        anchors.topMargin:6
-        anchors.horizontalCenter:parent.horizontalCenter
-        width:28; height:28
+        anchors.centerIn:parent
+        width:34; height:34
         entry:tile.ability
         tint:tile.border.color
     }
@@ -52,52 +50,17 @@ Rectangle {
         corner: tile.radius
         motion: tile.motion
     }
-    Text {
-        x: 9
-        y: 8
-        text: tile.shortcut
-        width:parent.width*.66
-        elide:Text.ElideRight
-        font.family: "IBM Plex Mono"
-        font.weight: Font.Bold
-        font.pixelSize:Math.min(Ui.UiMetrics.text(20),Math.max(10,width/(Math.max(1,text.length)*.64)))
-        color: "#f1eff9"
-    }
-    Text {
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: 9
-        text: tile.abilityState.cooldown > 0 ? Math.ceil(tile.abilityState.cooldown) + "s"
-            : tile.ability ? "Lv " + tile.abilityState.level : ""
-        font.pixelSize: Ui.UiMetrics.text(13)
-        font.family: "IBM Plex Mono"
-        color: "#ffffff"
-    }
-    Text {
-        anchors.fill: parent
-        anchors.margins: 9
-        anchors.topMargin: 34
-        anchors.bottomMargin: 18
-        text: tile.label
-        wrapMode: Text.WordWrap
-        elide: Text.ElideRight
-        color: tile.ability ? "#f5eaf9" : "#b7b2c4"
-        font.family: "Inter"
-        font.pixelSize: Ui.UiMetrics.text(14)
-    }
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: 9
-        height: 4
-        radius: 2
-        color: "#53586b"
-        Rectangle {
-            width: tile.ability ? parent.width * (1 - Math.min(1, tile.abilityState.cooldown / tile.abilityState.duration)) : 0
-            height: parent.height
-            color: "#ffffff"
-            radius: 2
-        }
+        height:tile.ability ? parent.height*Math.min(1,tile.abilityState.cooldown/tile.abilityState.duration) : 0
+        color:"#66ffffff";radius:5
+    }
+    Text {
+        anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.margins:5
+        text:tile.abilityState.cooldown>0 ? Math.ceil(tile.abilityState.cooldown)+"s" : tile.ability ? "" : tile.abilityState.available ? "–" : "🔒"
+        font.family:"IBM Plex Mono";font.bold:true;font.pixelSize:Ui.UiMetrics.text(12)
+        color:"white";style:Text.Outline;styleColor:"#191723"
     }
 }

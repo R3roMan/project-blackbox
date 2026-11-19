@@ -105,6 +105,8 @@ Item {
             hoverEnabled:true
             EnemyHint {
                 anchorItem:parent; hovered:muster.software ? parent.containsMouse : muster.nativeBossHovered
+                pointerPosition:muster.software ? Qt.point(parent.mouseX,parent.mouseY)
+                    : anchorItem.mapFromItem(parade,paradeHover.mouseX,paradeHover.mouseY)
                 enemyType:muster.overlord; discoveries:muster.discoveries
                 onEntryRequested:function(chapter,id) { muster.entryRequested(chapter,id) }
             }
@@ -247,6 +249,8 @@ Item {
                         Accessible.name: Muster.tooltip(member.modelData,muster.discoveries)
                         EnemyHint {
                             anchorItem:parent; hovered:muster.software ? parent.containsMouse : muster.hoveredMember===member.index
+                            pointerPosition:muster.software ? Qt.point(parent.mouseX,parent.mouseY)
+                                : anchorItem.mapFromItem(parade,paradeHover.mouseX,paradeHover.mouseY)
                             enemyType:member.modelData.type; discoveries:muster.discoveries
                             onEntryRequested:function(chapter,id) { muster.entryRequested(chapter,id) }
                         }

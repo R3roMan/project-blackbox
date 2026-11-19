@@ -119,6 +119,7 @@ Item {
                             SettingsCheck { text:"Mouse edge turns"; checked:page.display.mouseTurns; onClicked:page.displayRequested("mouseTurns",checked) }
                             SettingsCheck {text:"Show enemy lineup before waves";checked:page.display.showEnemyPreview;onClicked:page.displayRequested("showEnemyPreview",checked)}
                             ActionButton {text:"Remap controls";Layout.fillWidth:true;onClicked:bindingsPanel.visible=!bindingsPanel.visible}
+                            FieldStyleOptions {}
                             ControlBindings {
                                 id:bindingsPanel
                                 Layout.fillWidth:true
@@ -139,12 +140,14 @@ Item {
                                 ActionButton {objectName:"importProgress"; text:"Import"; onClicked:page.importRequested()}
                             }
                             SettingsText {visible:page.status.length>0; text:page.status; color:"#a1dbc9"}
+                            ActionButton {text:"Report a bug";onClicked:bugReport.open()}
                         }
                     }
                 }
             }
         }
     }
+    BugReport {id:bugReport;scene:page;context:({host:"demo",screen:"settings"})}
 
     component SettingsTitle: Text {
         font.family:"Inter"
