@@ -118,6 +118,13 @@ FocusScope {
             if (event.key===Qt.Key_Space && ctrlDown) event.accepted=true
             return
         }
+        if (event.key===Qt.Key_Escape && quickCount>0) {
+            quickStart.stop()
+            quickCount=0
+            event.accepted=true
+            report()
+            return
+        }
         if (event.key===Qt.Key_Control) {
             ctrlDown=true
             ctrlAlone=event.modifiers===Qt.NoModifier || event.modifiers===Qt.ControlModifier
@@ -161,11 +168,6 @@ FocusScope {
             galleryLoader.item?.forceActiveFocus()
             quickHold.restart()
         }
-    }
-    Shortcut {
-        sequence:"Escape";context:Qt.WindowShortcut
-        enabled:host.idleKeys && host.quickCount>0
-        onActivated:{quickStart.stop();host.quickCount=0}
     }
     Timer {
         id:quickHold;interval:420
@@ -308,7 +310,7 @@ FocusScope {
             onMouseTurnsRequested:function(value){Native.Desktop.setOption("mouseTurns",value)}
             escapeBack:true
             wallpaperInsets:Qt.rect(host.areaLeft,host.areaTop,host.areaRight,host.areaBottom)
-            interactive:host.home
+            interactive:host.home && host.mode==="play"
             onFrontIdChanged:if (host.options.linkDesktops && host.mode==="play" && host.here && host.claimed && frontId!==host.linkedFront) {
                 host.workspaceSyncQueued=false
                 host.requestedWorkspace=frontId
