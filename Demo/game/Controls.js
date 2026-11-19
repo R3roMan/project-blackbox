@@ -24,6 +24,7 @@ var desktop = [
     {id:"idleControls",title:"Show or hide Idle controls",keys:[Qt.Key_Control]},
     {id:"quickStart",title:"Hold to start a Normal run",keys:[Qt.Key_Space],mods:Qt.ControlModifier}
 ]
+var navigation = ["left","right","up","down"]
 var buttons = [Qt.LeftButton,Qt.RightButton,Qt.MiddleButton,Qt.BackButton,Qt.ForwardButton]
 var buttonNames = ["Left button","Right button","Middle button","Back button","Forward button"]
 var modifierMask = Qt.ControlModifier | Qt.AltModifier | Qt.ShiftModifier | Qt.MetaModifier
@@ -91,7 +92,9 @@ function sequences(profile,id) {return binding(profile,id).map(sequence)}
 function label(profile,id) {return sequences(profile,id).join(" / ") || "Unassigned"}
 
 function conflict(profile,id,chord) {
-    const group=desktop.some(entry=>entry.id===id) ? desktop : keyboard
+    const inIdle=desktop.some(entry=>entry.id===id)
+    const group=inIdle ? desktop.concat(keyboard.filter(entry=>navigation.includes(entry.id)))
+        : navigation.includes(id) ? keyboard.concat(desktop) : keyboard
     return group.find(entry=>entry.id!==id && binding(profile,entry.id).some(other=>other.key===chord.key && other.mods===chord.mods))
 }
 

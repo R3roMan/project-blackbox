@@ -1,6 +1,7 @@
 import QtQuick
 import "../../V0.1/kde/contents/ui" as Template
 import "Scenery.js" as Scenery
+import "Controls.js" as Controls
 
 Template.Scene {
     id:gallery
@@ -13,6 +14,11 @@ Template.Scene {
     property var forecast:Scenery.idleWeather(localTime,(localTime.getTime()-cycleOrigin)/1000,phaseMinutes)
     property var labAppearance:({})
     property bool mouseLook:false
+    property string controlBindings:"{}"
+    readonly property var bindings:Controls.read(controlBindings)
+    navigationKeyHandler:function(event) {
+        return Controls.action(gallery.bindings,Controls.navigation,event) || ""
+    }
     property bool escapeBack:false
     property string previousRoom:"shrine"
     property string committedRoom:"shrine"
@@ -23,7 +29,7 @@ Template.Scene {
         if (viewedRoom!=="lab") labAppearance=({})
     }
     Shortcut {
-        sequence:"Escape";context:Qt.WindowShortcut
+        sequences:Controls.sequences(gallery.bindings,"pause");context:Qt.WindowShortcut
         enabled:gallery.escapeBack && gallery.visible && gallery.exposed && gallery.enabled
             && !gallery.drawerOpen && !gallery.clean && !gallery.moving && gallery.room!=="shrine"
         onActivated:gallery.go(gallery.previousRoom)

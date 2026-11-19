@@ -48,6 +48,7 @@ FocusScope {
     property bool clean: false
     property bool externalChrome:false
     property real chromeOpacity:1
+    property var navigationKeyHandler:null
     property bool audioDemo: false
     property int demoCpu: 12
     property int demoGpu: 20
@@ -923,6 +924,10 @@ FocusScope {
     Keys.onPressed: function(event) {
         if (root.drawerOpen || root.clean) {
             return
+        } else if (root.navigationKeyHandler && event.key !== Qt.Key_Home) {
+            const direction=root.navigationKeyHandler(event)
+            if (!direction) return
+            if (!event.isAutoRepeat) root.move(direction)
         } else if (event.key === Qt.Key_Up) {
             root.move("up")
         } else if (event.key === Qt.Key_Down) {

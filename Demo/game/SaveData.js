@@ -5,6 +5,7 @@
 .import "Elements.js" as Elements
 .import "Pets.js" as Pets
 .import "Conditions.js" as Conditions
+.import "Controls.js" as Controls
 .import "Meta.js" as Meta
 
 var phases = ["ready","combat","between","reward","bossReward","shop"]
@@ -269,6 +270,11 @@ function decodeBundle(text) {
     if (d.frameLimit===undefined) d.frameLimit=60
     if (d.showTimer===undefined) d.showTimer=false
     if (!Number.isInteger(d.frameLimit) || d.frameLimit<20 || d.frameLimit>240 || typeof d.showTimer!=="boolean") return null
+    if (d.controlBindings===undefined) d.controlBindings="{}"
+    if (!Controls.valid(d.controlBindings)) return null
+    if (d.wheelSwitch===undefined) d.wheelSwitch=true
+    if (d.showEnemyPreview===undefined) d.showEnemyPreview=true
+    if (typeof d.wheelSwitch!=="boolean" || typeof d.showEnemyPreview!=="boolean") return null
     if (d.backgroundFiles===undefined) d.backgroundFiles={}
     if (!plain(d.backgroundFiles) || !Object.entries(d.backgroundFiles).every(function(pair) {
         return ["front","left","right","up","down"].includes(pair[0]) && typeof pair[1]==="string"

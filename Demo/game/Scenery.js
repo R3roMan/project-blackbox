@@ -35,27 +35,29 @@ function roomWeather(weather,front) {
     return weather
 }
 
-var idlePhases=["daytime","sunset","sunrise","night"]
+var idlePhases=["daytime","sunset","night","sunrise"]
 
 function idleLighting(elapsedSeconds, minutes) {
     const duration=Math.max(1,minutes || 10)*60
     const elapsed=Math.max(0,elapsedSeconds)
     const step=Math.floor(elapsed/duration)
-    return {phase:idlePhases[step%idlePhases.length],solarTime:(elapsed%duration)/duration*240}
+    return {phase:idlePhases[step%idlePhases.length],step:step,solarTime:(elapsed%duration)/duration*240}
 }
 
-// The weather forecast stays shared by all rooms. The lighting has its own timer.
+// Roll one forecast at each lighting change and share it across every room.
 function idleWeather(date,elapsedSeconds,minutes) {
-    const hour=date.getHours(), block=Math.floor(hour/3)
-    const seed=date.getFullYear()*372+date.getMonth()*31+date.getDate()
-    const roll=Conditions.roll(block,seed,0x276f821d)
-    const cold=[11,0,1].includes(date.getMonth())
-    const light=idleLighting(elapsedSeconds || 0,minutes)
-    const phase=light.phase
-    const weather=roll<.41 ? "clear" : roll<.63 ? "cloudy" : roll<.76 ? "rain"
-        : roll<.80 ? "thunder" : roll<.88 ? "fog" : roll<.95 ? "windy"
-        : cold ? "winter" : Conditions.isNight(phase) ? "clear" : "heatwave"
-    const stage={weather:weather,extraWeather:Conditions.companionWeather(weather,block,seed)}
-    return {phase:phase,solarTime:light.solarTime,weather:weather,cloudy:Conditions.hasWeather(weather,stage,"cloudy"),
-        windy:Conditions.hasWeather(weather,stage,"windy"),swarm:Conditions.roll(block,seed,0x298fd269)<.16}
+    const elapsed=Math.max(0,elapsedSeconds || 0)
+    const origin=date.getTime()-elapsed*1000
+    const seed=Math.round(origin/1000)>>>0
+    const light=idleLighting(elapsed,minutes)
+    const month=new Date(origin + light.step*Math.max(1,minutes || 10)*60000).getMonth()
+    const cold=[11,0,1].includes(month)
+    const roll=Conditions.roll(light.step,seed,0x276f821d)
+    const weather=roll<.30 ? "clear" : roll<.47 ? "cloudy" : roll<.60 ? "rain"
+        : roll<.66 ? "thunder" : roll<.79 ? "fog" : roll<.88 ? "windy"
+        : cold ? "winter" : light.phase==="night" ? "windy" : "heatwave"
+    const stage={weather:weather,extraWeather:Conditions.companionWeather(weather,light.step,seed)}
+    return {phase:light.phase,solarTime:light.solarTime,weather:weather,
+        cloudy:Conditions.hasWeather(weather,stage,"cloudy"),windy:Conditions.hasWeather(weather,stage,"windy"),
+        swarm:Conditions.roll(light.step,seed,0x298fd269)<.16}
 }

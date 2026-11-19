@@ -18,6 +18,7 @@ import "Meta.js" as Meta
 import "Selection.js" as Draw
 import "Tarot.js" as Tarot
 import "Autoplay.js" as Autoplay
+import "Controls.js" as Controls
 
 FocusScope {
     id: play
@@ -92,6 +93,14 @@ FocusScope {
     property int wallpaperQuality: 0
     property real wallpaperZoom: 1
     property bool mouseTurns: true
+    property bool wheelSwitch:true
+    property bool showEnemyPreview:true
+    property string controlBindings:"{}"
+    readonly property var bindings:Controls.read(controlBindings)
+    readonly property int shootButton:Controls.mouse(bindings,glitchInput ? "mouseReload" : "mouseFire")
+    readonly property int reloadButton:Controls.mouse(bindings,glitchInput ? "mouseFire" : "mouseReload")
+    readonly property bool previewing:showEnemyPreview && preparing && !paused
+    property bool keyboardFire:false
     readonly property bool compactLayout: width < 900 || height < 650
     property int crossedMouseEdges: 0
     property real lastWheelSwitch: -1
@@ -450,6 +459,25 @@ FocusScope {
         fireHeld = false
         shotFlash = 0
         publish()
+    }
+
+    function tutorialControls(message) {
+        const names={
+            "R":Controls.label(bindings,"reload"),"right-click":Controls.buttonNames[Controls.buttons.indexOf(reloadButton)],
+            "Space":Controls.label(bindings,"shield"),"SPACE":Controls.label(bindings,"shield").toUpperCase(),
+            "Q":Controls.label(bindings,"active1"),"Shift":Controls.label(bindings,"aim"),
+            "A or the left arrow":Controls.label(bindings,"left"),"D":Controls.label(bindings,"right")
+        }
+        return message.replace(/(right-click|A or the left arrow|Space|SPACE|Shift|R|Q|D)/g,term=>names[term])
+    }
+
+    function beginFiring(x,y) {
+        fireHeld=true
+        if (!fieldGuard.raised && weapon.spinup && canShoot && !reloadTime && !prepTime && !cooling && audio.item)
+            audio.item.play(weapon.id==="chainsaw" ? "sawRev" : weapon.chargeEachShot ? "starCharge" : "spinup")
+        if (aim.containsMouse) updateAim(x,y,0)
+        if (!aimInitialized) updateAim(width*.5,height*.5,0)
+        fire(pointer.x,pointer.y)
     }
 
     function reloadGun() {
@@ -1059,6 +1087,7 @@ FocusScope {
     }
     onFightingChanged: {
         if (!fighting) {
+            keyboardFire=false
             queuedAbility=-1
             sealing = false
             fireHeld = false
@@ -1070,8 +1099,16 @@ FocusScope {
             Rules.holdShield(run,false)
         }
     }
+    onControlBindingsChanged:if (run) {
+        keyboardFire=false
+        fireHeld=false
+        heldShiftKeys=[]
+        sealing=false
+        Rules.holdShield(run,false)
+    }
     onBookVisibleChanged: {
         if (bookVisible) {
+            keyboardFire=false
             fireHeld = false
             sealing = false
             heldShiftKeys = []
@@ -1151,8 +1188,8 @@ FocusScope {
             previous=now
             play.accumulated=Math.min(.4,play.accumulated+frameTime*play.gameSpeed)
             const step=1/60
-            if (play.interactive && !play.autoPlaying) play.updateAim(aim.mouseX,aim.mouseY,frameTime)
-            const sight=play.autoPlaying ? play.autoCombat(frameTime) : play.interactive && aim.containsMouse && !play.turning && !play.stunned
+            if (play.interactive && !play.autoPlaying && (aim.containsMouse || !play.keyboardFire)) play.updateAim(aim.mouseX,aim.mouseY,frameTime)
+            const sight=play.autoPlaying ? play.autoCombat(frameTime) : play.interactive && (aim.containsMouse || play.keyboardFire) && !play.turning && !play.stunned
                 ? {x:play.pointer.x/play.width,y:play.pointer.y/play.height,aspect:play.width/play.height} : null
             if (play.queuedAbility>=0 && !play.turning) {
                 const slot=play.queuedAbility
@@ -1176,99 +1213,87 @@ FocusScope {
             if (play.phase!=="combat" && play.phase!=="defeat") play.saveCheckpoint(true)
             if (!play.autoPlaying) {
                 if (sight && Rules.queuedShot(play.run)) play.fire(play.pointer.x,play.pointer.y,true)
-                else if (play.fireHeld && aim.containsMouse) play.fire(play.pointer.x,play.pointer.y)
+                else if (play.fireHeld && (aim.containsMouse || play.keyboardFire)) play.fire(play.pointer.x,play.pointer.y)
             }
         }
     }
 
     Keys.priority: Keys.BeforeItem
-    Keys.onPressed: function(event) {
-        if (!fighting || bookVisible || !interactive || autoPlaying)
-            return
-        if (trainingBlocked) return
-        if (event.isAutoRepeat && [Qt.Key_A,Qt.Key_Left,Qt.Key_D,Qt.Key_Right,Qt.Key_W,Qt.Key_Up,Qt.Key_S,Qt.Key_Down].includes(event.key)) {
-            event.accepted=true
-            return
+    Keys.onPressed:function(event) {
+        if (!fighting || bookVisible || !interactive || autoPlaying || trainingBlocked) return
+        const control=Controls.action(bindings,Controls.keyboard,event)?.id
+        if (!control || ["pause","confirm","timer","loadout","grimoire"].includes(control)) return
+        event.accepted=true
+        if (event.isAutoRepeat) return
+        switch(control) {
+        case "left": case "right": case "up": case "down": turnView(control); break
+        case "weapon1": case "weapon2": equipWeapon(Rules.slotInput(run,control==="weapon1" ? 0 : 1)); break
+        case "reload": reloadGun(); break
+        case "fire":
+            keyboardFire=true
+            beginFiring(aim.mouseX,aim.mouseY)
+            break
+        case "shield": Rules.holdShield(run,true);publish();break
+        case "aim": setShiftKey(event.nativeScanCode,true);break
+        case "active1": case "active2": activateAbility(control==="active1" ? 0 : 1,true);break
+        case "seal": if (!stunned && frontId==="down" && !turning) sealing=true;break
         }
-        switch (event.key) {
-        case Qt.Key_A: case Qt.Key_Left: turnView("left"); break
-        case Qt.Key_D: case Qt.Key_Right: turnView("right"); break
-        case Qt.Key_W: case Qt.Key_Up: turnView("up"); break
-        case Qt.Key_S: case Qt.Key_Down: turnView("down"); break
-        case Qt.Key_1: case Qt.Key_2:
-            if (!event.isAutoRepeat)
-                equipWeapon(Rules.slotInput(run,event.key === Qt.Key_1 ? 0 : 1))
-            break
-        case Qt.Key_R:
-            if (!event.isAutoRepeat)
-                reloadGun()
-            break
-        case Qt.Key_Space:
-            if (!event.isAutoRepeat) {
-                Rules.holdShield(run,true)
-                publish()
-            }
-            break
-        case Qt.Key_Shift:
-            if (!event.isAutoRepeat)
-                setShiftKey(event.nativeScanCode, true)
-            break
-        case Qt.Key_Q: case Qt.Key_E:
-            if (!event.isAutoRepeat) play.activateAbility(event.key===Qt.Key_Q ? 0 : 1,true)
-            break
-        case Qt.Key_F:
-            if (!event.isAutoRepeat && !stunned && frontId === "down" && !play.turning)
-                sealing = true
-            break
-        default:
-            return
-        }
-        event.accepted = true
     }
-    Keys.onReleased: function(event) {
-        if (event.isAutoRepeat)
-            return
-        if (event.key === Qt.Key_Shift) {
-            setShiftKey(event.nativeScanCode, false)
-            event.accepted = fighting
-        } else if (event.key === Qt.Key_Space && run.shield.held) {
+    Keys.onReleased:function(event) {
+        if (event.isAutoRepeat) return
+        if (Controls.releases(bindings,"aim",event.key)) {
+            if (!Controls.binding(bindings,"aim").some(chord=>chord.key===event.key)) heldShiftKeys=[]
+            else setShiftKey(event.nativeScanCode,false)
+            event.accepted=fighting
+        }
+        if (Controls.releases(bindings,"shield",event.key) && run.shield.held) {
             Rules.holdShield(run,false)
             publish()
-            event.accepted = true
-        } else if (event.key === Qt.Key_F) {
-            sealing = false
-            event.accepted = fighting
+            event.accepted=true
+        }
+        if (Controls.releases(bindings,"seal",event.key) && sealing) {
+            sealing=false
+            event.accepted=fighting
+        }
+        if (Controls.releases(bindings,"fire",event.key) && keyboardFire) {
+            keyboardFire=false
+            fireHeld=false
+            event.accepted=fighting
         }
     }
     Shortcut {
-        sequence: "Escape"
-        enabled: play.interactive && !play.bookVisible
-        context: Qt.WindowShortcut
-        onActivated: play.handleEscape()
+        sequences:Controls.sequences(play.bindings,"pause")
+        enabled:play.interactive && !play.bookVisible
+        context:Qt.WindowShortcut
+        autoRepeat:false
+        onActivated:play.handleEscape()
     }
     Shortcut {
-        sequences: ["Return", "Enter"]
-        context: Qt.WindowShortcut
-        enabled: play.interactive && play.allowed && !play.bookVisible && !play.fighting && primaryAction.activeFocus && primaryAction.visible
-        onActivated: play.mainAction()
+        sequences:Controls.sequences(play.bindings,"confirm")
+        context:Qt.WindowShortcut
+        enabled:play.interactive && play.allowed && !play.bookVisible && !play.fighting && primaryAction.activeFocus && primaryAction.visible
+        autoRepeat:false
+        onActivated:play.mainAction()
     }
-
-    Shortcut {sequence:".";enabled:play.interactive && play.allowed && !play.bookVisible;onActivated:play.timerRequested(!play.showTimer)}
-
     Shortcut {
-        sequence: "T"
-        enabled: play.interactive && play.allowed && !play.bookVisible && (play.fighting || play.lab || play.paused || play.phase === "between" || play.phase === "ready")
-        onActivated: {
-            if (play.paused && play.pauseTab === "inventory")
-                play.mainAction()
-            else
-                play.pauseRun("inventory")
-        }
-    }
-
-    Shortcut {
-        sequence:"I"
+        sequences:Controls.sequences(play.bindings,"timer")
         enabled:play.interactive && play.allowed && !play.bookVisible
+        autoRepeat:false
+        onActivated:play.timerRequested(!play.showTimer)
+    }
+    Shortcut {
+        sequences:Controls.sequences(play.bindings,"loadout")
+        enabled:play.interactive && play.allowed && !play.bookVisible && (play.fighting || play.lab || play.paused || play.preparing)
+        autoRepeat:false
+        onActivated:{
+            if (play.paused && play.pauseTab==="inventory") play.mainAction()
+            else play.pauseRun("inventory")
+        }
+    }
+    Shortcut {
+        sequences:Controls.sequences(play.bindings,"grimoire")
+        enabled:play.interactive && play.allowed && !play.bookVisible
+        autoRepeat:false
         onActivated:play.codexRequested("enemies","")
     }
 
@@ -1843,42 +1868,39 @@ FocusScope {
         visible: play.fighting
         enabled: visible && play.interactive && !play.autoPlaying
         hoverEnabled: enabled
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        cursorShape: play.glitchInput ? Qt.BlankCursor : play.fighting ? Qt.CrossCursor : Qt.ArrowCursor
-        onPressed: function(mouse) {
+        acceptedButtons:play.shootButton | play.reloadButton
+        cursorShape:play.glitchInput ? Qt.BlankCursor : play.fighting ? Qt.CrossCursor : Qt.ArrowCursor
+        onPressed:function(mouse) {
             keyTarget.forceActiveFocus()
-            if (mouse.button === (play.glitchInput ? Qt.LeftButton : Qt.RightButton)) {
+            if (mouse.button===play.reloadButton) {
                 play.fireHeld=false
-                play.updateAim(mouse.x, mouse.y, 0)
+                play.keyboardFire=false
+                play.updateAim(mouse.x,mouse.y,0)
                 play.reloadGun()
-                return
+            } else {
+                play.beginFiring(mouse.x,mouse.y)
             }
-            play.fireHeld = true
-            if (!play.fieldGuard.raised && play.weapon.spinup && play.canShoot && !play.reloadTime && !play.prepTime && !play.cooling && audio.item)
-                audio.item.play(play.weapon.id === "chainsaw" ? "sawRev" : play.weapon.chargeEachShot ? "starCharge" : "spinup")
-            play.updateAim(mouse.x, mouse.y, 0)
-            play.fire(play.pointer.x, play.pointer.y)
         }
-        onReleased: function(mouse) {
-            if (mouse.button === (play.glitchInput ? Qt.RightButton : Qt.LeftButton))
-                play.fireHeld = false
+        onReleased:function(mouse) {
+            if (mouse.button===play.shootButton && !play.keyboardFire) play.fireHeld=false
         }
-        onWheel: function(event) {
-            if (event.angleDelta.y && play.run.time - play.lastWheelSwitch >= .20) {
-                const other = 1 - play.run.selectedWeapon
-                if (play.run.slots.weapon[other] && play.run.slots.weapon[other].item) {
-                    play.lastWheelSwitch = play.run.time
+        onWheel:function(event) {
+            if (!play.wheelSwitch || !event.angleDelta.y) {event.accepted=false;return}
+            if (play.run.time-play.lastWheelSwitch>=.20) {
+                const other=1-play.run.selectedWeapon
+                if (play.run.slots.weapon[other]?.item) {
+                    play.lastWheelSwitch=play.run.time
                     play.equipWeapon(other)
                 }
             }
-            event.accepted = true
+            event.accepted=true
         }
         onEntered: play.updateAim(mouseX, mouseY, 0)
         onPositionChanged: function(mouse) {
             play.updateAim(mouse.x, mouse.y, 0)
             play.edgeTurn(mouse.x, mouse.y)
         }
-        onExited: play.fireHeld = false
+        onExited: if (!play.keyboardFire) play.fireHeld=false
         onCanceled: play.fireHeld = false
     }
 
@@ -2177,14 +2199,14 @@ FocusScope {
             }
             Ui.ActionButton {
                 visible:play.fighting || (play.lab && !play.paused)
-                text:play.compactLayout ? "Pause" : "Pause · Esc"
+                text:play.compactLayout ? "Pause" : "Pause · "+Controls.label(play.bindings,"pause")
                 objectName:"pausePlay"
                 onClicked:play.pauseRun("build")
             }
             Ui.ActionButton {
                 objectName:"exitPlay"
                 visible:play.phase==="ready" || play.phase==="defeat"
-                text:"Home · Esc"
+                text:"Home · "+Controls.label(play.bindings,"pause")
                 onClicked:play.exitRequested()
             }
         }
@@ -2369,7 +2391,7 @@ FocusScope {
                 objectName: "sealMeter"
                 anchors.centerIn: parent
                 width: parent.width - 22
-                label: play.sealClosed ? "RIFT CLOSED FOR THIS WAVE" : play.sealing ? "SEALING RIFT" : "HOLD F TO SEAL THE RIFT"
+                label: play.sealClosed ? "RIFT CLOSED FOR THIS WAVE" : play.sealing ? "SEALING RIFT" : "HOLD "+Controls.label(play.bindings,"seal").toUpperCase()+" TO SEAL THE RIFT"
                 value: Math.floor(play.sealProgress * 100)
                 maximum: 100
                 suffix: "%"
@@ -2425,7 +2447,7 @@ FocusScope {
         ActiveTile {
             objectName: "activeHUD-Q"
             abilityState: { play.revision; return play.abilityTile(Rules.slotInput(play.run,0)) }
-            shortcut: "Q"
+            shortcut:Controls.label(play.bindings,"active1")
             onCastRequested:{play.activateAbility(0,true);play.keyTargetFocus()}
             motion: play.motion
             details:ability ? Gear.itemDetails(play.run,"active",{id:ability.id,level:abilityState.level}) : ""
@@ -2545,7 +2567,7 @@ FocusScope {
         ActiveTile {
             objectName: "activeHUD-E"
             abilityState: { play.revision; return play.abilityTile(Rules.slotInput(play.run,1)) }
-            shortcut: "E"
+            shortcut:Controls.label(play.bindings,"active2")
             onCastRequested:{play.activateAbility(1,true);play.keyTargetFocus()}
             motion: play.motion
             details:ability ? Gear.itemDetails(play.run,"active",{id:ability.id,level:abilityState.level}) : ""
@@ -2627,7 +2649,7 @@ FocusScope {
                 objectName: "weaponCycleStatus"
                 width: parent.width
                 elide: Text.ElideRight
-                text: play.fieldGuard.raised ? "SHIELD RAISED · RELEASE SPACE TO FIRE"
+                text: play.fieldGuard.raised ? "SHIELD RAISED · RELEASE "+Controls.label(play.bindings,"shield").toUpperCase()+" TO FIRE"
                     : play.runeCost && play.runes >= play.runeCost ? "SPELL READY · R"
                     : play.prepTime > 0 ? (play.weapon.throwing ? "DRAWING AXE " : play.weapon.stab ? "THRUST " : "TRICK ") + play.prepTime.toFixed(1) + "s"
                     : play.cooling > 0 ? "COOLING " + play.cooling.toFixed(1) + "s"
@@ -2685,7 +2707,7 @@ FocusScope {
         anchors.horizontalCenter:parent.horizontalCenter
         // Switching a bottom anchor and a centre anchor in the same update
         // can leave Qt holding a stretched height when reopening preparation.
-        y: play.preparing && !play.paused
+        y:play.previewing
             ? parent.height - height - (play.compactLayout ? 14 : 26)
             : (parent.height - height) / 2
         width: Math.min(parent.width - (play.compactLayout ? 24 : 56),play.preparing ? 1120 : play.phase==="shop" ? 1110 : play.lab ? 960 : 900)
@@ -2694,7 +2716,7 @@ FocusScope {
         readonly property int inset: play.compactLayout ? 13 : 22
         implicitHeight: screen.implicitHeight + menuFooter.implicitHeight + inset * 2 + 9
         // Always reserve a separate forecast area on preparation screens.
-        height: Math.min(implicitHeight, parent.height * (play.preparing && !play.paused ? .63 : .91))
+        height: Math.min(implicitHeight, parent.height * (play.previewing ? .63 : .91))
         radius: 7
         color: play.phase === "shop" ? "#211823" : "#f71b1622"
         border.color: play.phase === "shop" ? "#a67b77" : "#94616f"
@@ -2883,7 +2905,10 @@ FocusScope {
             Text {
                 Layout.fillWidth: true
                 visible: false
-                text: "HOLD CLICK  Fire     1 / 2  Switch weapon     R  Reload     HOLD SHIFT  Aim\nMOUSE EDGE / WASD  Turn     Q / E  Abilities     HOLD SPACE  Shield     HOLD F  Seal"
+                text:"Fire · "+Controls.buttonNames[Controls.buttons.indexOf(play.shootButton)]
+                    +"     Reload · "+Controls.label(play.bindings,"reload")+"     Aim · "+Controls.label(play.bindings,"aim")
+                    +"\nAbilities · "+Controls.label(play.bindings,"active1")+" / "+Controls.label(play.bindings,"active2")
+                    +"     Shield · "+Controls.label(play.bindings,"shield")+"     Seal · "+Controls.label(play.bindings,"seal")
                 lineHeight: 1.5
                 wrapMode: Text.WordWrap
                 color: "#ffd0a9"
@@ -3172,7 +3197,7 @@ FocusScope {
         anchors.leftMargin:play.compactLayout ? 26 : 40
         anchors.rightMargin:play.compactLayout ? 26 : 40
         anchors.bottomMargin:6
-        active:play.preparing && !play.paused
+        active:play.previewing
         visible:active
         sourceComponent:EnemyMuster {
             onEntryRequested:function(chapter,id) { play.codexRequested(chapter,id) }
@@ -3346,7 +3371,7 @@ FocusScope {
             x:18; y:18; width:trainingCard.width-36; spacing:10
             Text {width:parent.width;text:{play.revision;return play.run.training ? Tutorial.title(play.run) : ""}
                 color:"#ffcd90";font.family:"serif";font.pixelSize:Ui.UiMetrics.text(25);font.bold:true;wrapMode:Text.WordWrap}
-            Text {width:parent.width;text:{play.revision;return play.run.training ? Tutorial.text(play.run) : ""}
+            Text {width:parent.width;text:{play.revision;return play.run.training ? play.tutorialControls(Tutorial.text(play.run)) : ""}
                 color:"#efe0d6";font.pixelSize:Ui.UiMetrics.text(15);wrapMode:Text.WordWrap}
             Ui.ActionButton {objectName:"tutorialContinue";text:play.run.training && play.run.training.mode==="won" ? "Return to Home" : "Ready";primary:true
                 onClicked:play.advanceTraining()}
@@ -3361,7 +3386,7 @@ FocusScope {
         anchors.topMargin:8
         Text {
             anchors.horizontalCenter:parent.horizontalCenter
-            text:{play.revision;return play.run.training ? Tutorial.prompt(play.run) : ""}
+            text:{play.revision;return play.run.training ? play.tutorialControls(Tutorial.prompt(play.run)) : ""}
             color:"#fff0d4";font.pixelSize:Ui.UiMetrics.text(16);style:Text.Outline;styleColor:"#1b1120"
         }
         Rectangle {

@@ -83,6 +83,9 @@ ApplicationWindow {
         property int quality: 0
         property real zoom: 1
         property bool mouseTurns: true
+        property bool wheelSwitch:true
+        property bool showEnemyPreview:true
+        property string controlBindings:"{}"
         property int frameLimit:60
         property bool showTimer:false
         property int detail:1
@@ -155,6 +158,7 @@ ApplicationWindow {
 
     function displayValues() {
         return {backgroundFiles:display.backgroundFiles,framing:display.framing,quality:display.quality,zoom:display.zoom,mouseTurns:display.mouseTurns,
+            wheelSwitch:display.wheelSwitch,showEnemyPreview:display.showEnemyPreview,controlBindings:display.controlBindings,
             frameLimit:display.frameLimit,showTimer:display.showTimer,detail:display.detail,transitionStyle:display.transitionStyle,transitionStrength:display.transitionStrength,
             hudScale:display.hudScale,textScale:display.textScale,autoSave:display.autoSave,backgroundPlay:display.backgroundPlay,
             audioMaster:display.audioMaster,audioMusic:display.audioMusic,audioEffects:display.audioEffects,audioAmbience:display.audioAmbience,audioInterface:display.audioInterface}
@@ -540,7 +544,10 @@ ApplicationWindow {
             wallpaperFit: display.framing
             wallpaperQuality: display.quality
             wallpaperZoom: display.zoom
-            mouseTurns: display.mouseTurns
+            mouseTurns:display.mouseTurns
+            wheelSwitch:display.wheelSwitch
+            showEnemyPreview:display.showEnemyPreview
+            controlBindings:display.controlBindings
             onMouseTurnsRequested: function(value) { display.mouseTurns = value }
             onFitRequested: function(value) { display.framing = value }
             onQualityRequested: function(value) { display.quality = value }

@@ -117,6 +117,18 @@ Item {
                             }
                             SettingsCheck { text:"Animation"; checked:page.motion; onClicked:page.motionRequested() }
                             SettingsCheck { text:"Mouse edge turns"; checked:page.display.mouseTurns; onClicked:page.displayRequested("mouseTurns",checked) }
+                            SettingsCheck {text:"Show enemy lineup before waves";checked:page.display.showEnemyPreview;onClicked:page.displayRequested("showEnemyPreview",checked)}
+                            ActionButton {text:"Remap controls";Layout.fillWidth:true;onClicked:bindingsPanel.visible=!bindingsPanel.visible}
+                            ControlBindings {
+                                id:bindingsPanel
+                                Layout.fillWidth:true
+                                visible:false
+                                value:page.display.controlBindings
+                                wheelSwitch:page.display.wheelSwitch
+                                onBindingsRequested:value=>page.displayRequested("controlBindings",value)
+                                onWheelRequested:value=>page.displayRequested("wheelSwitch",value)
+                            }
+
                         }
                         SettingsCard {
                             Layout.fillWidth:true

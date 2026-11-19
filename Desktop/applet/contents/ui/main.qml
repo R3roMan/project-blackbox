@@ -6,9 +6,11 @@ import org.kde.plasma.core as PlasmaCore
 import "../../../../../project-blackbox/native" as Native
 import "../../../../../project-blackbox/Demo/ui" as Ui
 import "../../../../../project-blackbox/Demo/game/Loadout.js" as Gear
+import "../../../../../project-blackbox/Demo/game/Controls.js" as Controls
 PlasmoidItem {
     id:applet
     Plasmoid.title:"Blackbox"
+    readonly property var bindings:Controls.read(Native.Desktop.config.controlBindings)
     readonly property bool showing:Native.Desktop.config.mode==="play" || !!Native.Desktop.state.idleControls
     onShowingChanged:if (!showing) expanded=false
     preferredRepresentation:compactRepresentation
@@ -24,14 +26,14 @@ PlasmoidItem {
             Button {
                 required property int index
                 required property var modelData
-                text:(index ? "E" : "Q")+(modelData.cooldown>0 ? " "+Math.ceil(modelData.cooldown) : "")
+                text:Controls.label(applet.bindings,index ? "active2" : "active1")+(modelData.cooldown>0 ? " "+Math.ceil(modelData.cooldown) : "")
                 enabled:!!modelData.id && Native.Desktop.atHome && Native.Desktop.state.phase==="combat" && !Native.Desktop.state.paused && modelData.cooldown<=0
                 implicitWidth:34
                 implicitHeight:26
                 Layout.maximumHeight:Math.max(16,panelControls.height)
                 contentItem:Item {
                     Ui.GalleryPortrait {anchors.fill:parent;visible:!!modelData.id;entry:Gear.activeAbilities[modelData.id] || Gear.activeAbilities.shock;tint:Gear.rarities[Gear.activeAbilities[modelData.id]?.rarity || "common"].color}
-                    Text {anchors.left:parent.left;anchors.top:parent.top;text:index ? "E" : "Q";color:"white";font.pixelSize:11;font.bold:true;style:Text.Outline;styleColor:"black"}
+                    Text {anchors.left:parent.left;anchors.top:parent.top;text:Controls.label(applet.bindings,index ? "active2" : "active1");color:"white";font.pixelSize:Math.max(7,Math.min(11,31/(Math.max(1,text.length)*.55)));font.bold:true;style:Text.Outline;styleColor:"black"}
                     Text {anchors.centerIn:parent;text:modelData.cooldown>0 ? Math.ceil(modelData.cooldown) : "";color:"white";font.bold:true;style:Text.Outline;styleColor:"black"}
                 }
                 ToolTip.visible:hovered;ToolTip.text:modelData.title

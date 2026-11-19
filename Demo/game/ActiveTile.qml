@@ -56,9 +56,11 @@ Rectangle {
         x: 9
         y: 8
         text: tile.shortcut
+        width:parent.width*.66
+        elide:Text.ElideRight
         font.family: "IBM Plex Mono"
         font.weight: Font.Bold
-        font.pixelSize: Ui.UiMetrics.text(20)
+        font.pixelSize:Math.min(Ui.UiMetrics.text(20),Math.max(10,width/(Math.max(1,text.length)*.64)))
         color: "#f1eff9"
     }
     Text {

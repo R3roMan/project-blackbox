@@ -11,6 +11,7 @@ import "../Demo/game/Progress.js" as Progress
 import "../Demo/game/Autoplay.js" as Autoplay
 import "../Demo/game/SaveData.js" as SaveData
 import "../Demo/game/Meta.js" as Meta
+import "../Demo/game/Controls.js" as Controls
 
 FocusScope {
     id:host
@@ -97,40 +98,47 @@ FocusScope {
         && !Native.Desktop.sessionLocked && visible && here && !editingDesktop
     property bool idleControls:false
     property real idleOpacity:idleControls ? 1 : 0
-    property bool ctrlDown:false
-    property bool ctrlAlone:false
+    property bool idleToggleHeld:false
+    property bool idleToggleAlone:false
+    readonly property var bindings:Controls.read(options.controlBindings)
+    readonly property double idleClockOrigin:Date.now()
     property int quickCount:0
     property bool quickQueued:false
     readonly property bool idleKeys:home && claimed && mode==="idle"
         && !bookOpen && !vaultOpen && !settingsDrawer.visible && !galleryLoader.item?.drawerOpen
     Behavior on idleOpacity {NumberAnimation {duration:220;easing.type:Easing.InOutQuad}}
     onIdleKeysChanged:if (!idleKeys) {
-        ctrlDown=false
-        ctrlAlone=false
+        idleToggleHeld=false
+        idleToggleAlone=false
         quickHold.stop()
         quickStart.stop()
         quickCount=0
+    }
+    onBindingsChanged:{
+        idleToggleHeld=false
+        idleToggleAlone=false
+        quickHold.stop()
     }
 
     Keys.onPressed:function(event) {
         if (!idleKeys) return
         if (event.isAutoRepeat) {
-            if (event.key===Qt.Key_Space && ctrlDown) event.accepted=true
+            if (Controls.matches(bindings,"quickStart",event)) event.accepted=true
             return
         }
-        if (event.key===Qt.Key_Escape && quickCount>0) {
+        if (quickCount>0 && (event.key===Qt.Key_Escape || Controls.matches(bindings,"pause",event))) {
             quickStart.stop()
             quickCount=0
             event.accepted=true
             report()
             return
         }
-        if (event.key===Qt.Key_Control) {
-            ctrlDown=true
-            ctrlAlone=event.modifiers===Qt.NoModifier || event.modifiers===Qt.ControlModifier
+        if (Controls.matches(bindings,"idleControls",event)) {
+            idleToggleHeld=true
+            idleToggleAlone=true
         } else {
-            ctrlAlone=false
-            if (event.key===Qt.Key_Space && ctrlDown && !(event.modifiers & (Qt.ShiftModifier | Qt.AltModifier | Qt.MetaModifier)) && !quickCount) {
+            idleToggleAlone=false
+            if (!quickCount && Controls.matches(bindings,"quickStart",event)) {
                 quickHold.restart()
                 event.accepted=true
             } else {
@@ -140,15 +148,14 @@ FocusScope {
     }
     Keys.onReleased:function(event) {
         if (event.isAutoRepeat) return
-        if (event.key===Qt.Key_Space) quickHold.stop()
-        if (event.key!==Qt.Key_Control) return
-        ctrlDown=false
-        quickHold.stop()
-        if (idleKeys && ctrlAlone && !quickCount) {
+        if (Controls.releases(bindings,"quickStart",event.key)) quickHold.stop()
+        if (!idleToggleHeld || !Controls.binding(bindings,"idleControls").some(chord=>chord.key===event.key)) return
+        idleToggleHeld=false
+        if (idleKeys && idleToggleAlone && !quickCount) {
             idleControls=!idleControls
             report()
         }
-        ctrlAlone=false
+        idleToggleAlone=false
     }
     TapHandler {
         enabled:host.idleKeys && host.idleOpacity<.95 && !host.quickCount
@@ -160,11 +167,11 @@ FocusScope {
         }
     }
     Shortcut {
-        sequence:"Ctrl+Space";context:Qt.WindowShortcut
+        sequences:Controls.sequences(host.bindings,"quickStart");context:Qt.WindowShortcut
         enabled:host.idleKeys && !host.quickCount
         autoRepeat:false
         onActivated:{
-            host.ctrlAlone=false
+            host.idleToggleAlone=false
             galleryLoader.item?.forceActiveFocus()
             quickHold.restart()
         }
@@ -244,7 +251,7 @@ FocusScope {
         const game=battle.item,run=game.run
         const actives=run.slots.active.map(function(slot,i){return slot.item ? {title:Gear.activeAbilities[slot.item.id].title,id:slot.item.id,cooldown:Rules.activeCooldown(run,slot.item.id),duration:Rules.abilityRecovery(run,slot)} : {title:"Empty",cooldown:0,duration:1}})
         Native.Desktop.publish({renderer:game.projectedMode ? "2D fallback" : "Qt Quick 3D",
-            canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,idleControls:host.idleControls,countdown:host.quickCount,weapon:Gear.current(run).id,pet:run.pet?.id || "",difficulty:run.difficulty,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
+            idlePhase:galleryLoader.item?.forecast.phase || "",idleWeather:galleryLoader.item?.forecast.weather || "",previewing:game.previewing,canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,idleControls:host.idleControls,countdown:host.quickCount,weapon:Gear.current(run).id,pet:run.pet?.id || "",difficulty:run.difficulty,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(home) {
         if (mode==="play" && battle.item) {
@@ -278,6 +285,9 @@ FocusScope {
             escapeBack:!host.quickCount
             externalChrome:true
             chromeOpacity:host.idleOpacity
+            controlBindings:host.options.controlBindings
+            phaseMinutes:host.options.idlePhaseMinutes
+            cycleOrigin:host.idleClockOrigin
             ambientFps:Math.min(24,host.options.frameLimit)
             sceneryDetail:host.options.detail
             motionAllowed:host.options.motion
@@ -307,6 +317,9 @@ FocusScope {
             allowed:host.mode==="play" && host.visible && !Native.Desktop.sessionLocked && !host.editingDesktop
                 && (host.home || host.options.backgroundPlay || !!host.requestedWorkspace || turning && host.options.linkDesktops)
             mouseTurns:host.options.mouseTurns
+            controlBindings:host.options.controlBindings
+            wheelSwitch:host.options.wheelSwitch
+            showEnemyPreview:host.options.showEnemyPreview
             onMouseTurnsRequested:function(value){Native.Desktop.setOption("mouseTurns",value)}
             escapeBack:true
             wallpaperInsets:Qt.rect(host.areaLeft,host.areaTop,host.areaRight,host.areaBottom)
@@ -499,5 +512,5 @@ FocusScope {
         width:Math.min(620,desktopControls.width)
         height:desktopControls.height
         edge:Qt.RightEdge;z:80
-        DesktopOptions {anchors.fill:parent;anchors.margins:16}}
+        DesktopOptions {anchors.fill:parent;onCloseRequested:settingsDrawer.close()}}
 }

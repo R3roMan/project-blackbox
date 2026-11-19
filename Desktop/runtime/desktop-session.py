@@ -55,13 +55,30 @@ def launcher():
     target.chmod(0o755)
 
 
+def active_desktops():
+    return json.loads(desktop_script(
+        "print(JSON.stringify(desktopsForActivity(currentActivity()).map(d=>"
+        "({id:String(d.id),screen:d.screen,plugin:d.wallpaperPlugin}))))"
+    ))
+
+
 def activate(state):
-    desktops = json.loads(desktop_script("print(JSON.stringify(desktops().map(d=>[String(d.id),d.wallpaperPlugin])))"))
-    for key, plugin in desktops:
-        if plugin and plugin != ID:
-            state[key] = plugin
-    remember(state)
-    desktop_script(f"desktops().forEach(d=>{{d.wallpaperPlugin={json.dumps(ID)}}})")
+    desktops = active_desktops()
+    if not desktops:
+        raise SystemExit("Plasma has no desktop on the current Activity.")
+    if not any(d["plugin"] == ID for d in desktops):
+        target = next((d for d in desktops if d["id"] == state.get("_launchTarget")), None)
+        if target is None:
+            target = next((d for d in desktops if d["screen"] == 0), desktops[0])
+        key = target["id"]
+        if target["plugin"]:
+            state[key] = target["plugin"]
+        state["_launchTarget"] = key
+        remember(state)
+        desktop_script(
+            f"var target=desktopsForActivity(currentActivity()).find(d=>String(d.id)==={json.dumps(key)});"
+            f"if(target) target.wallpaperPlugin={json.dumps(ID)};"
+        )
     for _ in range(20):
         response = subprocess.run(BRIDGE[:-1] + [BRIDGE[-1] + "Configure", "mode", '"idle"'],
                                   capture_output=True, timeout=2)
@@ -74,7 +91,7 @@ def activate(state):
 def revert(state):
     launcher()
     desktop_script(
-        f"var before={json.dumps(state)};desktops().forEach(d=>{{if(d.wallpaperPlugin==={json.dumps(ID)})"
+        f"var before={json.dumps(state)};desktopsForActivity(currentActivity()).forEach(d=>{{if(d.wallpaperPlugin==={json.dumps(ID)})"
         f"{{d.wallpaperPlugin=before[String(d.id)]||{json.dumps(DEFAULT)}}}}})"
     )
 
