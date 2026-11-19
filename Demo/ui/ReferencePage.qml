@@ -295,11 +295,13 @@ FocusScope {
         }
 
         RowLayout {
-            Layout.alignment:Qt.AlignHCenter
-            spacing:5
+            Layout.fillWidth:true
+            spacing:8
             visible:page.tab==="enemies" || page.tab==="weapons"
             LeafPicker {
                 objectName:"galleryOriginFilter"
+                Layout.fillWidth:true
+                pickerLabel:"Origin"
                 visible:page.tab==="enemies"
                 model:["All origins","Hellborne","Space","Void"]
                 currentIndex:Math.max(0,model.indexOf(page.enemyOrigin))
@@ -307,12 +309,17 @@ FocusScope {
             }
             LeafPicker {
                 objectName:"galleryWeaponFilter"
+                Layout.fillWidth:true
+                pickerLabel:"Weapon type"
                 visible:page.tab==="weapons"
                 model:["All weapons","Guns","Staffs","Melee"]
                 currentIndex:Math.max(0,model.indexOf(page.weaponClass))
                 onActivated:page.weaponClass=currentIndex ? currentText : "All"
             }
             LeafPicker {
+                objectName:"galleryRankFilter"
+                Layout.fillWidth:true
+                pickerLabel:"Rank"
                 visible:page.tab==="enemies"
                 model:["All ranks","Normal","Ascended","Nightmare","Overlord"]
                 currentIndex:Math.max(0,model.indexOf(page.enemyTier))
@@ -320,6 +327,8 @@ FocusScope {
             }
             LeafPicker {
                 objectName:"galleryStatsSort"
+                Layout.fillWidth:true
+                pickerLabel:"Sort"
                 model:page.tab==="enemies" ? ["Debut wave","Name","Kills","Deaths"] : ["Name","Kills"]
                 currentIndex:model.indexOf(page.tab==="enemies" ? page.enemySort : page.weaponSort)
                 onActivated:if (page.tab==="enemies") page.enemySort=currentText; else page.weaponSort=currentText
@@ -650,7 +659,9 @@ FocusScope {
             id:leafPicker
             objectName:"bookLeafPicker"
             Layout.alignment:Qt.AlignHCenter
-            Layout.maximumWidth:Math.min(frame.width,500)
+            Layout.fillWidth:true
+            Layout.maximumWidth:Math.min(frame.width,800)
+            pickerLabel:"Jump to page"
             implicitContentWidthPolicy:ComboBox.WidestText
             model:page.displayed.map(function(record) { return page.visibleEntry(record) ? record.title : "Unknown" })
             currentIndex:page.pageIndex
@@ -661,10 +672,11 @@ FocusScope {
 
     component LeafPicker: ComboBox {
         id:picker
+        property string pickerLabel:""
         font.family:"Inter"
         font.pixelSize:UiMetrics.text(page.compact ? 12 : 13)
         implicitContentWidthPolicy:ComboBox.WidestText
-        implicitHeight:Math.max(30,font.pixelSize+12)
+        implicitHeight:Math.max(43,font.pixelSize+24)
         leftPadding:11
         rightPadding:26
         palette.base:"#231b26"
@@ -672,12 +684,31 @@ FocusScope {
         palette.text:"#f6ded0"
         palette.buttonText:"#f6ded0"
         palette.highlight:"#673748"
-        contentItem:Text {
-            text:picker.displayText
-            font:picker.font
-            color:"#f6ded0"
-            verticalAlignment:Text.AlignVCenter
-            elide:Text.ElideRight
+        contentItem:Item {
+            Column {
+                anchors.verticalCenter:parent.verticalCenter
+                width:parent.width
+                Text {width:parent.width; text:picker.pickerLabel; color:"#c9a889";font.pixelSize:UiMetrics.text(9);elide:Text.ElideRight}
+                Text {width:parent.width; text:picker.displayText;font:picker.font;color:"#f6ded0";elide:Text.ElideRight}
+            }
+        }
+        popup:Popup {
+            popupType:Popup.Item
+            width:picker.width
+            y:picker.y+picker.height+6
+            x:picker.x
+            parent:picker.parent
+            padding:4
+            margins:10
+            closePolicy:Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+            implicitHeight:Math.min(contentItem.contentHeight+8,page.height*.54)
+            contentItem:ListView {
+                clip:true
+                model:picker.popup.visible ? picker.delegateModel : null
+                currentIndex:picker.highlightedIndex
+                ScrollBar.vertical:ScrollBar {policy:ScrollBar.AsNeeded}
+            }
+            background:Rectangle {color:"#231b26";radius:6;border.color:"#b68571"}
         }
         indicator:Text {
             text:"⌄"

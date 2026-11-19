@@ -91,7 +91,7 @@ function create(seed, unlocks) {
         deathCoins:0, coinsSent:0, nextCoin:0, aspect:1.6, guardFlash:0,
         ambientAt:0, ambientRng:(seed >>> 0) ^ 0x7c159e37, splatterAt:0, deathVoiceAt:0,
         lunge:null, meleeImpact:0,soulReturns:[],
-        shield:{ level:0,raised:false,held:false,age:0,limit:0,capacity:1,charges:0,cool:0,recovery:Defense.modes.standard.cooldown,
+        shield:{ level:0,raised:false,held:false,age:0,limit:0,capacity:1,charges:0,cool:0,rejected:0,drainRelief:0,recovery:Defense.modes.standard.cooldown,
             mode:"standard",tint:"#65c8ff",credit:0,blocked:0,absorbed:0,flash:0,bolstered:false },
         criticalSeed:(seed >>> 0) ^ 0xc38eaf17, aimSeed:(seed >>> 0) ^ 0x61c7b172,
         criticalFlash:0, criticalRoll:0, sureAttack:false, sharpenTime:0,
@@ -153,8 +153,7 @@ function tarotEvent(run,event,advance) {
             run.cooldowns[id]=Math.max(0,run.cooldowns[id]-amount)
         break
     case "shield":
-        if (run.shield.raised) run.shield.credit+=amount
-        else run.shield.cool=Math.max(0,run.shield.cool-amount)
+        run.shield.cool=Math.max(0,run.shield.cool-amount)
         break
     case "fire":
         run.fastFire=Math.max(amount,run.fastFire)
@@ -411,22 +410,32 @@ function shieldMode(run) {
     return transformation ? transformation.item.id : "standard"
 }
 
+function shieldCharge(run) {
+    return Math.max(0,Math.min(1,1-run.shield.cool/run.shield.recovery))
+}
+
 function raiseShield(run) {
     const guard = run.shield
-    if (!canAct(run) || run.hypnosis || guard.raised || guard.cool > 0)
+    if (!canAct(run) || run.hypnosis || guard.raised)
         return false
+    const charge=shieldCharge(run)
+    if (charge+1e-7 < Defense.raiseThreshold) {
+        guard.rejected=.38
+        return false
+    }
     const mode = shieldMode(run)
     const spec = Defense.modes[mode]
     const upgrades = Math.max(0,rank(run,mode)-1)
-    guard.limit = spec.limit ? spec.limit + upgrades*.12 + Gear.perk(run,"shieldLimit") : 0
+    guard.limit = spec.limit + upgrades*.12 + Gear.perk(run,"shieldLimit")
     guard.capacity = spec.hits + Number(guard.level >= 2) + Number(rank(run,"guardSeam") >= 3) + Gear.kitBonus(run,"shieldHits")
     guard.recovery = Math.max(2.45,spec.cooldown - upgrades*.25 - guard.level*.65 - rank(run,"guardSeam")*.45
         - Gear.perk(run,"shieldCool") - Gear.kitBonus(run,"shieldCooldown") - Gear.passiveSockets(run,"shieldRecovery",.85) - Meta.benefits(run).shield - Tarot.value(run,"shield"))
+    guard.cool = (1-charge+Defense.raiseCost)*guard.recovery
     guard.mode = mode
     guard.tint = spec.tint
     guard.raised = true
     guard.charges = guard.capacity
-    guard.age = guard.blocked = guard.credit = guard.flash = 0
+    guard.age = guard.blocked = guard.flash = guard.drainRelief = 0
     guard.parried = false
     guard.bolstered = false
     Gear.current(run).burstLeft = 0
@@ -444,10 +453,10 @@ function lowerShield(run) {
         return
     guard.raised = false
     guard.charges = 0
-    guard.cool = Math.max(1.6,guard.recovery-guard.credit)
 }
 
 function holdShield(run, held) {
+    if (held===run.shield.held) return
     run.shield.held = held
     if (held)
         raiseShield(run)
@@ -458,14 +467,15 @@ function holdShield(run, held) {
 function tickShield(run, dt) {
     const guard = run.shield
     guard.flash = Math.max(0, guard.flash - dt)
+    guard.rejected = Math.max(0,(guard.rejected || 0)-dt)
     if (guard.raised) {
         guard.age += dt
-        if (guard.limit && guard.age >= guard.limit)
-            lowerShield(run)
+        const relaxed=Math.min(dt,guard.drainRelief || 0)
+        guard.drainRelief=Math.max(0,(guard.drainRelief || 0)-dt)
+        guard.cool=Math.min(guard.recovery,guard.cool+(dt-relaxed*.6)*guard.recovery/guard.limit)
+        if (guard.cool>=guard.recovery-1e-7) lowerShield(run)
     } else {
         guard.cool = Math.max(0,guard.cool - dt)
-        if (guard.held && !guard.cool)
-            raiseShield(run)
     }
 }
 
@@ -473,7 +483,6 @@ function blockWithShield(run, amount, origin, type, payload, projectile, critica
     const guard = run.shield
     guard.flash = .38
     guard.blocked += 1
-    guard.charges -= 1
     guard.absorbed = Math.min(100,guard.absorbed + amount * (critical ? 2 : 1))
     record(run, "shieldBlocks")
     if (critical) {
@@ -487,12 +496,13 @@ function blockWithShield(run, amount, origin, type, payload, projectile, critica
         record(run, "goldEarned", reward)
         passiveVisual(run,"guardToll",origin,"coin","mint",null,"+"+reward+" GOLD")
     }
-    guard.credit = Math.min(guard.recovery*.50, guard.credit + rank(run,"coolGuard")*.5)
     if (guard.mode === "fleetShell")
         run.fastTurn = Math.max(2.3,run.fastTurn)
     if (guard.mode === "jesterWard" && guard.blocked === 1) {
         const luck = sample(run,["heal","speed","gold"])
+        const remaining=shieldCharge(run)
         guard.recovery += luck === "heal" ? .45 : luck === "speed" ? -.75 : 1.25
+        guard.cool=(1-remaining)*guard.recovery
         guard.tint = luck === "heal" ? "#a9f299" : luck === "speed" ? "#72e5ff" : "#ffcf82"
         if (luck === "heal")
             run.health = Math.min(Gear.maxHealth(run),run.health+7)
@@ -503,18 +513,20 @@ function blockWithShield(run, amount, origin, type, payload, projectile, critica
             record(run,"goldEarned",7)
         }
     }
-    const parried = isTimedParry(run)
+    const parried = !guard.parried && isTimedParry(run)
     const perfect = guard.mode === "perfectGuard" && parried
-    if (perfect)
-        guard.credit += 1.8
-    if (parried && !guard.parried) {
+    if (parried) {
         guard.parried = true
-        guard.credit += guard.recovery*.25+Tarot.value(run,"parryCredit")
+        guard.cool = 0
+        guard.drainRelief=Tarot.value(run,"parryCredit")+(perfect ? .7 : 0)
         record(run,"parries")
         if (rank(run,"parry")) {
-            guard.credit += 3.8 + Gear.perk(run,"parryCredit") + Gear.kitBonus(run,"parryCredit")
+            guard.drainRelief += .85 + rank(run,"parry")*.28 + Gear.perk(run,"parryCredit")*.15 + Gear.kitBonus(run,"parryCredit")*.15
             passiveVisual(run,"parry",origin,"guard","shield",null,"PARRY RECHARGE")
         }
+    } else {
+        const reserve=Math.max(1,guard.charges)
+        guard.cool=Math.max(0,Math.min(guard.recovery,guard.cool+Math.max(.10,.33/reserve)*guard.recovery-rank(run,"coolGuard")*.5))
     }
     const foil = rank(run,"foilGuard")
     const mirror = !(payload && payload.mirror) && (perfect
@@ -529,10 +541,10 @@ function blockWithShield(run, amount, origin, type, payload, projectile, critica
         if (attacker)
             run.reflections.push({ id:attacker.id,damage:mirror ? amount*(perfect ? .9 : .56) : 0,burn:cinder })
     }
-    if (!guard.charges)
+    if (guard.cool>=guard.recovery-1e-7)
         lowerShield(run)
     announce(run, returned ? "Projectile returned" : critical ? "Critical hit blocked" : parried ? "Parry" : "Shield blocked the attack",
-        returned ? "returnBolt" : critical ? "fieldCritical" : parried ? "parryBlock" : "fieldBlock")
+        parried ? "parryBlock" : returned ? "returnBolt" : "fieldBlock")
 }
 
 function refreshRemaining(run, preview) {
@@ -902,7 +914,8 @@ function startWave(run) {
     }
     run.phase = "combat"
     run.paidRerolls=0
-    run.shield.absorbed = 0
+    run.shield.absorbed = run.shield.cool = run.shield.rejected = run.shield.drainRelief = 0
+    run.shield.raised = run.shield.held = false
     run.playerFront = "front"
     run.viewReady = true
     run.abyssSeal = {progress:run.nextSeal,closed:false}
@@ -2816,11 +2829,11 @@ function updateLunge(run, dt) {
         run.lunge = null
 }
 
-function meleeStrike(run, gun, weapon, stats, aimed, view, power) {
+function meleeStrike(run, gun, weapon, stats, aimed, view, power, eyeTargets) {
     const melee = weapon.melee
     const charged = gun.primed
     const enemy = aimed.map(function(id) { return target(run,id) }).find(Boolean)
-    const critical = weaponCritical(run,weapon,gun,enemy)
+    const ordinaryCritical = weaponCritical(run,weapon,gun,enemy)
     gun.primed = false
     gun.chargedStrike = charged
     if (weapon.id === "katana") {
@@ -2833,13 +2846,14 @@ function meleeStrike(run, gun, weapon, stats, aimed, view, power) {
     const honed = run.honedHit
     run.honedHit = 0
     const limit = melee.targets + Number(weapon.id === "darksaber" && Gear.hasKit(run, "darkSet"))
-    const level = weapon.signature === "criticalFlame" && critical > 1 ? 3
-        : Math.min(3, stats.elementLevel + Number(charged && weapon.id === "mechasword" && Gear.hasKit(run,"mechaSet")))
+    const weaponLevel = Math.min(3, stats.elementLevel + Number(charged && weapon.id === "mechasword" && Gear.hasKit(run,"mechaSet")))
     let struck = 0
     for (const id of new Set(aimed)) {
         const contact = impactContact(run, id, view)
         if (!contact)
             continue
+        const critical=eyeTargets?.includes(id) ? Math.max(ordinaryCritical,criticalProfile(run,weapon).power) : ordinaryCritical
+        const level=weapon.signature==="criticalFlame" && critical>1 ? 3 : weaponLevel
         const close = contact.point.depth <= range
         if (!close && (!charged || struck))
             continue
@@ -3109,12 +3123,15 @@ function shoot(run, hits, view, aim, continuation) {
         }
     }
     if (weapon.melee) {
-        meleeStrike(run, gun, weapon, stats, hits, frontId, power)
+        meleeStrike(run, gun, weapon, stats, hits, frontId, power,aim?.eyeTargets)
         return true
     }
     const scoped = !!aim?.scoped && Gear.hasGunSights(weapon)
     const primary = hits.find(function(id) { return id > 0 }) || 0
     const critical = weaponCritical(run,weapon,gun,target(run,primary))
+    function criticalAt(id) {
+        return aim?.eyeTargets?.includes(id) ? Math.max(critical,criticalProfile(run,weapon).power) : critical
+    }
     const previousCriticals = run.metrics.criticalHits || 0
     gun.focus = primary && gun.lastTarget === primary ? gun.focus + 1 : Number(primary > 0)
     gun.lastTarget = primary
@@ -3127,7 +3144,7 @@ function shoot(run, hits, view, aim, continuation) {
         run.breachRounds -= 1
     if (weapon.throwing) {
         throwAxe(run, gun, stats, frontId, primary, aim || {x:.5,y:.5},
-            (stats.damage + (power.damage || 0) + rank(run,"caliber") * .66) * outgoing(run) * (1 + run.axePower), critical)
+            (stats.damage + (power.damage || 0) + rank(run,"caliber") * .66) * outgoing(run) * (1 + run.axePower), criticalAt(primary))
         run.axePower = 0
         return true
     }
@@ -3135,7 +3152,7 @@ function shoot(run, hits, view, aim, continuation) {
         throwGrenade(run, frontId, primary, Object.assign({ x:.5, y:.5 }, aim, { kind:"launcher" }),
             (stats.damage + rank(run, "booster") * .78 + (power.damage || 0) + (run.giftDamage > 0 ? 2 : 0)) * outgoing(run),
             weapon.blast * (1 + Gear.perk(run, "blastRadius")), primary ? .28 : .55, 0,
-            Object.assign({}, stats, { breachBonus:breachRoundsBonus, critical:critical, attackRolled:true,scoped:scoped,weaponId:weapon.id }))
+            Object.assign({}, stats, { breachBonus:breachRoundsBonus, critical:criticalAt(primary), attackRolled:true,scoped:scoped,weaponId:weapon.id }))
         announce(run, "", "shot")
         return true
     }
@@ -3248,7 +3265,8 @@ function shoot(run, hits, view, aim, continuation) {
         }
         if (signature === "blackHole")
             depositHole(run,arcPoint(enemy),frontId,Gear.weaponLevel(run,gun))
-        message = wound(run, enemy, damage, "gun", element, level, impact) || message
+        message = wound(run, enemy, damage, "gun", element, level, aim?.eyeTargets?.includes(key)
+            ? Object.assign({},impact,{critical:criticalAt(key)}) : impact) || message
         if (relay) {
             for (const neighbour of blastNeighbours(run,enemy,310+Gear.kitBonus(run,"shardRadius")).slice(0,4))
                 wound(run,neighbour,2+Gear.weaponLevel(run,gun)*.55,"gun","freeze",Math.max(1,level-1))
@@ -4449,7 +4467,7 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
     const apron = !burningTick && source && source.depth <= 500 ? .08 * rank(run,"furnaceApron") : 0
     const damage = Math.max(1, amount * (1-apron) * (1-rank(run,"firstShift")*(run.wave<=20 ? .08 : .02)) * (projectile ? Math.max(.70,1-rank(run,"leeSide")*.04) : 1) * (run.cursed ? 1.20 : 1) * criticalPower * lining * exposure * guarded * Math.max(.25,
         1 - rank(run, "armour") * .095 - padding - insulation - ground - blast - steady - first - brine - Gear.perk(run, "armor") - (run.covenant && run.covenant.tarot ? Tarot.armor(run,Gear.maxHealth(run),projectile) : 0)))
-    if (run.desktop)run.desktop.pressure=Math.min(1,run.desktop.pressure+.06+damage/400)
+    if (run.desktop?.gpuMode)run.desktop.pressure=Math.min(1,run.desktop.pressure+.06+damage/400)
     const before=run.health
     run.health = Math.max(0, run.health - damage)
     if (critical) {
@@ -5072,7 +5090,7 @@ function strike(run, enemy, creature) {
             knockBack(run,enemy,1120)
             enemy.attack=Math.max(enemy.attack,creature.interval)
             run.bursts.push(Object.assign(arcPoint(enemy),{front:enemy.front,radius:164,life:.45,span:.45,color:"#c880f6"}))
-            announce(run,"Shield repelled Fearme","parryBlock")
+            announce(run,"Shield repelled Fearme","")
             return
         }
         run.fearCut = true
@@ -5205,7 +5223,8 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         Gear.clampStats(run)
     if (run.desktop) {
         const desktop=run.desktop
-        desktop.heat=Math.max((desktop.cpu || 0)*100,(desktop.heat || 0)-dt*(desktop.locked ? 22 : 12))
+        const floor=desktop.locked ? 0 : Math.min(37,(desktop.cpu || 0)*42)
+        desktop.heat=Math.max(floor,(desktop.heat || 0)-dt*(desktop.locked ? 28 : 13))
         if(desktop.heat<45)desktop.locked=false
         desktop.pressure=Math.max(0,(desktop.pressure || 0)-dt*.022)
     }

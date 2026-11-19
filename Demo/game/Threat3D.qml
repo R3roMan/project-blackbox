@@ -417,14 +417,14 @@ Node {
                     y: actor.alien || actor.crawler ? 0 : 50
                     z: actor.crawler ? 25 : actor.alien ? 40 : actor.dragon ? 77 : 48
 
-                    Model {
+                    Model { objectName:"eye:"+actor.enemy.id; pickable:actor.warp===0;
                         source: "#Sphere"
                         y: actor.crawler ? 0 : 9
                         z: 8
                         scale: actor.crawler ? Qt.vector3d(0.44, 0.42, 0.15) : Qt.vector3d(.41,.32*(1-actor.hurtFace*.50),.18)
                         materials: [light]
                     }
-                    Model {
+                    Model { objectName:"eye:"+actor.enemy.id; pickable:visible && actor.warp===0;
                         source: "#Sphere"
                         visible: !actor.crawler
                         y: 9

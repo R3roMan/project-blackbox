@@ -43,13 +43,15 @@ PlasmoidItem {
         ComboBox {Layout.fillWidth:true;model:["Idle","Play"];currentIndex:Native.Desktop.config.mode==="play" ? 1 : 0;onActivated:Native.Desktop.setOption("mode",currentIndex ? "play" : "idle")}
         RowLayout {
             Button {text:"New run";onClicked:Native.Desktop.command("new")}
-            Button {text:Native.Desktop.state.phase==="ready" || Native.Desktop.state.phase==="between" ? "Begin wave" : "Resume";onClicked:Native.Desktop.command(Native.Desktop.state.phase==="ready" || Native.Desktop.state.phase==="between" ? "begin" : "resume")}
+            Button {text:Native.Desktop.config.mode!=="play" ? "Back to Play" : Native.Desktop.state.phase==="ready" || Native.Desktop.state.phase==="between" ? "Begin wave" : "Resume"
+                onClicked:{Native.Desktop.command(Native.Desktop.config.mode!=="play" ? "play" : Native.Desktop.state.phase==="ready" || Native.Desktop.state.phase==="between" ? "begin" : "resume");applet.expanded=false}}
             Button {text:"Loadout";onClicked:Native.Desktop.command("loadout")}
         }
         RowLayout {
             Button {text:Native.Desktop.state.saveStatus || "Save";onClicked:Native.Desktop.command("save")}
             Button {text:"Continue";enabled:Native.Desktop.hasSave;onClicked:Native.Desktop.command("continue")}
-            Button {text:"Settings";onClicked:Native.Desktop.command("settings")}
+            Button {text:"Settings";onClicked:{Native.Desktop.command("settings");applet.expanded=false}}
+            Button {text:"Grimoire";onClicked:{Native.Desktop.command("grimoire");applet.expanded=false}}
         }
         Label {text:"CPU "+Math.round(Native.Desktop.cpu*100)+"% · GPU "+(Native.Desktop.gpu<0 ? "unavailable" : Math.round(Native.Desktop.gpu*100)+"%")}
         Label {text:Native.Desktop.audioStatus;wrapMode:Text.WordWrap;Layout.fillWidth:true}

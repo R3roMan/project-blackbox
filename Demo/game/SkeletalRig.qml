@@ -60,7 +60,7 @@ Node {
                 scale: Qt.vector3d(.22,.16,.12)
                 materials: [hollow]
             }
-            Model {
+            Model { objectName:"eye:"+rig.targetId; pickable:rig.live;
                 source: "#Cube"
                 x: side.sign*17; y:43; z:69
                 eulerRotation: Qt.vector3d(26,side.sign*31,45)

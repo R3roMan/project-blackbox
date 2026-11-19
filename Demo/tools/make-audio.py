@@ -783,3 +783,32 @@ def last_breath():
 
 
 last_breath()
+
+
+def shield_cues():
+    noise = Random(934)
+    low = 0.0
+
+    def bump(t):
+        nonlocal low
+        low += .092 * (noise.uniform(-1,1) - low)
+        return min(1,t*510)*exp(-t*18)*(.56*tone(93,t-.31*t*t)+.29*tone(144,t)+.48*low)
+
+    def lift(t):
+        shape = min(t*46,1)*exp(-t*7)
+        return shape*(.34*tone(270,t+t*t*.97)+.21*tone(413,t+t*t*.89)+.11*tone(589,t+t*t*.5))
+
+    def sparkle(t):
+        sound = 0
+        for start, pitch, weight in ((0,1420,.34),(.035,2120,.22),(.072,2960,.17),(.12,3640,.12)):
+            age = t-start
+            if age>=0:
+                sound+=weight*min(1,age*480)*exp(-age*12)*(tone(pitch,age)+.28*tone(pitch*1.58,age))
+        return sound*min(1,(.51-t)*20)
+
+    write("field-guard",.39,lift)
+    write("field-block",.32,bump)
+    write("parry-block",.51,sparkle)
+
+
+shield_cues()

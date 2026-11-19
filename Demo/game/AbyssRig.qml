@@ -217,12 +217,12 @@ Node {
                 scale:Qt.vector3d(.45*eye.scaleFactor,.045,.07)
                 materials:[voidSkin]
             }
-            Model {
+            Model { objectName:"eye:"+beast.enemy.id; pickable:beast.live && eye.exposed;
                 source:"#Sphere"
                 scale:Qt.vector3d(.45*eye.scaleFactor,(beast.leviathan ? .23 : .40)*eye.scaleFactor,.16)
                 materials:[pupil]
             }
-            Model {
+            Model { objectName:"eye:"+beast.enemy.id; pickable:beast.live && eye.exposed;
                 source:"#Sphere"; z:9
                 scale:Qt.vector3d((beast.doll ? .125 : .28)*eye.scaleFactor,
                     (beast.leviathan ? .09 : beast.doll ? .14 : .22)*eye.scaleFactor,.075)

@@ -15,9 +15,15 @@ WallpaperItem {
         return item
     }
     function desktopArea() {
-        if (desktop?.availableScreenRect.width>0)
-            return desktop.availableScreenRect
-        return Qt.rect(0,0,width,Math.max(0,height-50))
+        const rect=desktop?.availableScreenRect
+        if (rect?.width>0 && rect.height>0) {
+            const local=rect.x>=0 && rect.y>=0 && rect.x+rect.width<=width+1 && rect.y+rect.height<=height+1
+            const left=Math.max(0,rect.x-(local ? 0 : Screen.virtualX))
+            const top=Math.max(0,rect.y-(local ? 0 : Screen.virtualY))
+            return Qt.rect(left+6,top+6,Math.max(0,Math.min(width-left,rect.width)-12),
+                Math.max(0,Math.min(height-top,rect.height)-12))
+        }
+        return Qt.rect(6,6,Math.max(0,width-12),Math.max(0,height-72))
     }
     Image {anchors.fill:parent;fillMode:Image.PreserveAspectCrop;source:Qt.resolvedUrl("../../../../../project-blackbox/V0.1/kde/contents/images/shrine.png")}
     Text {anchors.centerIn:parent;visible:runtime.status===Loader.Error;color:"#ffe1bd";text:"Blackbox needs rebuilding for this Qt installation. See the Blackbox Desktop README.";wrapMode:Text.WordWrap;width:Math.min(600,parent.width-30)}

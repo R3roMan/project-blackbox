@@ -72,7 +72,7 @@ Item {
             : projection(Rules.lanePosition(enemy), Rules.elevation(enemy), enemy.depth)
     }
 
-    function pickTargets(x, y) {
+    function pickTargets(x, y, eyeHits) {
         const impacts = []
         if (!hypnotised) {
             for (const enemy of actors) {
@@ -96,6 +96,9 @@ Item {
             const local = figure.mapFromItem(world, x, y)
             if (local.x >= 0 && local.x < figure.width && local.y >= 0 && local.y < figure.height) {
                 impacts.push({ depth:figure.enemy.depth, id:figure.enemy.id })
+                if (eyeHits && figure.eyeZones.some(zone=>Math.hypot((local.x/figure.width-zone[0])/zone[2],
+                    (local.y/figure.height-zone[1])/zone[3])<=1))
+                    eyeHits.add(figure.enemy.id)
             }
         }
         for (let index = 0; index < bags.count; index += 1) {
@@ -317,6 +320,11 @@ Item {
                 }
             }
 
+            property var eyeZones:[]
+            function eyeOval(ctx,x,y,w,h,fill,edge) {
+                eyeZones.push([x+w/2,y+h/2,w/2,h/2])
+                oval(ctx,x,y,w,h,fill,edge)
+            }
             function oval(ctx, x, y, w, h, fill, edge) {
                 ctx.beginPath()
                 ctx.ellipse(x, y, w, h)
@@ -336,6 +344,7 @@ Item {
                 ctx.reset()
                 ctx.clearRect(0, 0, width, height)
                 ctx.scale(width, height)
+                eyeZones=[]
                 const accent = stormLit ? "#fff0ff" : angry ? "#fd5579" : ghost ? "#b9c0ca" : creature.accent
                 const skin = angry ? "#daa3b5" : ghost ? "#858a95" : flashing ? Qt.lighter(creature.skin, 1.60) : creature.skin
                 const eye = ghost ? "#d3d7de" : flashing ? Qt.lighter(accent, 1.35) : accent
@@ -475,7 +484,7 @@ Item {
                     }
                     oval(ctx, .154,.29,.692,.595,sheen,"#b5d761")
                     oval(ctx, .224,.26,.552,.31,sheen,"")
-                    oval(ctx, .409,.278,.182,.145,eye,"#a8d94b")
+                    eyeOval(ctx,.409,.278,.182,.145,eye,"#a8d94b")
                     oval(ctx, .477,.292,.048,.119,"#251e13","")
                     oval(ctx, .467,.303,.020,.023,"#fff8d0","")
                     oval(ctx, .276,.476,.448,.141 + gape * .17,"#161d0d","#a0b54c")
@@ -500,8 +509,8 @@ Item {
                         polygon(ctx, [.36,.37,.65,.42,tip + phase,.82,tip,.99,tip - .04,.75], "#130f23", "#70538e")
                     }
                     oval(ctx, .27,.15,.46,.67,"#0c0b1e","#a685bc")
-                    oval(ctx, .362,.34,.10,.099,eye,"")
-                    oval(ctx, .532,.34,.105,.099,eye,"")
+                    eyeOval(ctx,.362,.34,.10,.099,eye,"")
+                    eyeOval(ctx,.532,.34,.105,.099,eye,"")
                 } else if (angel) {
                     oval(ctx, .265,.037,.47,.128,"","#a48baf")
                     oval(ctx, .277,.048,.446,.106,"","#211423")
@@ -514,7 +523,7 @@ Item {
                     oval(ctx, .375,.19,.25,.32,enemy.type === "jos" ? skin : "#1b1825",accent)
                     for (const side of [-1, 1]) {
                         const x = .5+side*.086
-                        oval(ctx, x - .032,.28,.064,.058,eye,"")
+                        eyeOval(ctx,x - .032,.28,.064,.058,eye,"")
                         if (enemy.type === "jos") {
                             oval(ctx, x - .014,.31 + (clock % .47) * .19,.029,.057,"#7ea6c6","")
                             polygon(ctx, [.5+side*.22,.42,.5+side*.19,.68,x,.34,x-side*.058,.27,.5+side*.14,.31], skin, accent)
@@ -567,11 +576,11 @@ Item {
                         }
                     }
                     oval(ctx, .33,.22,.34,.44,"#39415c",accent)
-                    oval(ctx, .415,.356,.17,.16,eye,"")
+                    eyeOval(ctx,.415,.356,.17,.16,eye,"")
                     if (strike > .08)
                         oval(ctx, .46,.63,.08,.11 + strike * .15,eye,"")
                 } else if (deepRig) {
-                    AbyssPaint.draw(ctx,enemy,skin,accent,clock,Rules.warningProgress(enemy),Rules.lureActive(enemy),Rules.mirrorActive(enemy))
+                    AbyssPaint.draw(ctx,enemy,skin,accent,clock,Rules.warningProgress(enemy),Rules.lureActive(enemy),Rules.mirrorActive(enemy),eyeZones)
                 } else if (creature.voidBoss) {
                     oval(ctx,.26,.19,.48,.69,"#5c121122","")
                     for (let i = 0; i < 18; ++i) {
@@ -582,7 +591,7 @@ Item {
                     for (const side of [-1,1]) {
                         const x = .5 + side*.12
                         oval(ctx,x-.081,.309,.162,.11,"#94fb183a","")
-                        oval(ctx,x-.054,.338,.108,.053,flashing ? "#ff9d80" : "#ff395d","")
+                        eyeOval(ctx,x-.054,.338,.108,.053,flashing ? "#ff9d80" : "#ff395d","")
                     }
                 } else if (creature.sniper) {
                     polygon(ctx,[.28,.30,.56,.16,.69,.38,.66,.69,.53,.81,.26,.67,.21,.49],"#374a5c","#8491ac")
@@ -618,7 +627,7 @@ Item {
                             polygon(ctx,[x,.391,x+.025,.381,x+.010,.471+(i%3)*.017],"#edd0a0","")
                             polygon(ctx,[x,.55+opening*.18,x+.031,.55+opening*.18,x+.019,.50+opening*.18],"#d9a76e","")
                         }
-                        oval(ctx,.435+offset,.201,.13,.11,enemy.feedingHeal ? "#c4f791" : eye,"")
+                        eyeOval(ctx,.435+offset,.201,.13,.11,enemy.feedingHeal ? "#c4f791" : eye,"")
                         oval(ctx,.477+offset,.218,.046,.081,"#261620","")
                     }
                 } else if (creature.serpent) {
@@ -637,7 +646,7 @@ Item {
                     oval(ctx,.36+sway,.29,.29,.06+jaw,"#181c21","#41553b")
                     for (const side of [-1,1]) {
                         const x = .5 + side*.079 + sway
-                        oval(ctx,x-.026,.235,.055,.038,flashing ? "#f4dcff" : "#b4fd6f","")
+                        eyeOval(ctx,x-.026,.235,.055,.038,flashing ? "#f4dcff" : "#b4fd6f","")
                         polygon(ctx,[x-.021,.32,x+.024,.32,x,.377+jaw*.50],"#dfd7a8","")
                     }
                 } else if (creature.triad) {
@@ -653,7 +662,7 @@ Item {
                         for (let i = 0; i < 4; ++i)
                             ctx.fillRect(x-.071,.36+i*.065,.142,.018)
                     }
-                    oval(ctx,.348,.335,.304,.25,flashing ? "#fff8ff" : "#d7abff","#f8e6ff")
+                    eyeOval(ctx,.348,.335,.304,.25,flashing ? "#fff8ff" : "#d7abff","#f8e6ff")
                     oval(ctx,.472,.366,.056,.18,"#342942","")
                 } else if (alien) {
                     const wing=Qt.darker(skin,1.89)
@@ -666,7 +675,7 @@ Item {
                     }
                     oval(ctx,.273,.39,.454,.33,skin,accent)
                     oval(ctx,.354,.35,.292,.152,"#171222",skin)
-                    oval(ctx,.398,.46,.204,.044,eye,"")
+                    eyeOval(ctx,.398,.46,.204,.044,eye,"")
                     if (enemy.type === "mothergalian") {
                         oval(ctx,.21,.65,.163,.20,wing,accent)
                         oval(ctx,.418,.67,.163,.20,wing,accent)
@@ -677,6 +686,7 @@ Item {
                         0.8, 0.38, 0.96, 0.8, 0.73, 0.68, 0.62, 0.91, 0.38, 0.91, 0.27, 0.68],
                         skin, accent)
                     oval(ctx, 0.30, 0.28, 0.40, 0.42, "", "#e8baff")
+                    eyeZones.push([.5,.49,.094,.105])
                     polygon(ctx, [0.5, 0.32, 0.65, 0.49, 0.5, 0.66, 0.35, 0.49], eye, "#fff1ff")
                 } else {
                     polygon(ctx, [0.245, 0.53, 0.27, 0.39, 0.35, 0.32, 0.32, 0.13, 0.425, 0.25,
@@ -725,7 +735,7 @@ Item {
                             ctx.restore()
                         }
                     }
-                    oval(ctx,.347,.289,.306,.186,eye,"")
+                    eyeOval(ctx,.347,.289,.306,.186,eye,"")
                     if (creature.origin==="Hellborne") {
                         for (const sign of [-1,1]) {
                             ctx.strokeStyle="#a43b4b"

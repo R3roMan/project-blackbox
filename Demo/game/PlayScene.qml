@@ -37,7 +37,10 @@ FocusScope {
     property real gameSpeed:1
     property int autoLimit:0
     property bool autoPlaying:false
+    property bool autoScoped:false
+    property real autoAimUntil:0
     property real autoDecisionAt:0
+    property int autoShopEdition:-1
     property var autoPlan:({})
     readonly property bool autoEligible:!run.training && !run.rehearsal && wave>0 && wave<=autoLimit
     signal timerRequested(bool value)
@@ -140,7 +143,7 @@ FocusScope {
     readonly property bool cursed: { revision; return run.cursed }
     readonly property point pointer: Qt.point(aimX, aimY)
     property var heldShiftKeys: []
-    readonly property bool scopeHeld: heldShiftKeys.length > 0
+    readonly property bool scopeHeld: heldShiftKeys.length > 0 || autoPlaying && autoScoped
     readonly property bool gunSights: Gear.hasGunSights(weapon)
     readonly property bool shiftActive: scopeHeld && fighting && !turning && !lunging && !constricted && !stunned
     readonly property bool aimingGun: gunSights && shiftActive
@@ -205,12 +208,14 @@ FocusScope {
     readonly property real shieldCooldown: { revision; return Rules.barrierCooldown(run) }
     readonly property int shieldCapacity: { revision; return run.barrierMax+(run.barrierCell.level ? run.barrierCell.level+1 : Meta.benefits(run).barrier) }
     readonly property int barrierLevel: { revision; return run.barrierCell.level }
+    readonly property var desktopTelemetry:{revision;return run.desktop ? Object.assign({},run.desktop) : ({})}
     readonly property var fieldGuard: {
         revision
         const guard = run.shield
         const mode = guard.raised || guard.cool ? guard.mode : Rules.shieldMode(run)
         return { level:guard.level,raised:guard.raised,age:guard.age,limit:guard.limit,charges:guard.charges,
             capacity:guard.capacity,cool:guard.cool,recovery:guard.recovery,impact:guard.flash,
+            charge:Rules.shieldCharge(run),rejected:guard.rejected,
             mode:mode,tint:guard.raised || guard.cool ? guard.tint : Defense.modes[mode].tint }
     }
     readonly property real criticalFlash: { revision; return run.criticalFlash }
@@ -720,14 +725,19 @@ FocusScope {
         keyTargetFocus()
         direction = Rules.turnInput(run,direction)
         const destination = turns[direction]
-        if (!destination || !Rules.lookFront(run, destination))
-            return
+        turnTo(destination,direction)
+    }
+
+    function turnTo(destination,direction) {
+        if (!fighting || bookVisible || trainingBlocked || stunned || turnLocked || turning || lunging
+            || !destination || !Rules.lookFront(run,destination)) return
+        keyTargetFocus()
         sealing = false
         turnMs = Math.round(Rules.turnDuration(run)/gameSpeed)
         if (audio.item)
             audio.item.play("turn")
         previousFront = frontId
-        turnDirection = direction
+        turnDirection = direction || Rules.directionToward(frontId,destination)
         if (motion) {
             turnRatio = 0
             turn.restart()
@@ -772,22 +782,23 @@ FocusScope {
             const px = x + offset[0] * play.height * pattern
             const py = y + offset[1] * play.height * pattern
             let hitIds = []
+            const eyes=new Set()
             if (px >= 0 && px < play.width && py >= 0 && py < play.height) {
                 const point = worldItem.mapFromItem(aim, px, py)
                 if (weapon.penetration) {
-                    const targets = worldItem.pickTargets(point.x, point.y)
+                    const targets = worldItem.pickTargets(point.x, point.y,eyes)
                     const intercept = targets.findIndex(function(id) { return shipShots.has(id) })
                     const reach = intercept < 0 ? weapon.penetration : Math.min(weapon.penetration, intercept + 1)
                     hitIds = targets.slice(0, reach)
                 } else {
-                    hitIds = [worldItem.pickTarget(point.x, point.y)]
+                    hitIds = worldItem.pickTargets(point.x,point.y,eyes).slice(0,1)
                 }
             }
-            return { x:px, y:py, dx:px-x, dy:py-y, hit:hitIds[0] || 0, targets:hitIds }
+            return { x:px, y:py, dx:px-x, dy:py-y, hit:hitIds[0] || 0, targets:hitIds,eyes:hitIds.filter(id=>eyes.has(id)) }
         })
         const targets = weapon.melee ? swingTargets(x, y, Math.max(weapon.aim, height * weapon.aim / 650) * .74)
             : traces.reduce(function(all, trace) { return all.concat(trace.targets) }, [])
-        commitShot(targets,traces,{x:x/width,y:y/height,scoped:aimingGun},continuation)
+        commitShot(targets,traces,{x:x/width,y:y/height,scoped:aimingGun,eyeTargets:traces.reduce((all,ray)=>all.concat(ray.eyes),[])},continuation)
     }
 
     function commitShot(targets,traces,point,continuation) {
@@ -809,6 +820,8 @@ FocusScope {
     function stopAuto() {
         if (!autoPlaying) return
         autoPlaying=false
+        autoScoped=false
+        autoAimUntil=0
         autoPlan=({})
         sealing=false
         fireHeld=false
@@ -820,6 +833,7 @@ FocusScope {
         else if (fighting && autoEligible) {
             autoPlaying=true
             autoPlan=({})
+            autoShopEdition=-1
             autoDecisionAt=run.time+.24
             fireHeld=false
             heldShiftKeys=[]
@@ -837,6 +851,11 @@ FocusScope {
         if (deciding) {
             autoDecisionAt=run.time+.17+Math.random()*.11
             autoPlan=Autoplay.plan(run)
+            if (!gunSights || !autoPlan.enemy) autoScoped=false
+            else if (run.time>=autoAimUntil) {
+                autoScoped=Math.random()<(autoPlan.point.depth>1000 ? .52 : .30)
+                autoAimUntil=run.time+.7+Math.random()*.85
+            }
             Rules.holdShield(run,autoPlan.guard)
             if (autoPlan.direction && !run.shield.raised) {
                 sealing=false
@@ -853,7 +872,7 @@ FocusScope {
         const y=Math.max(3,Math.min(height-3,screen.y))
         if (!Number.isFinite(x) || !Number.isFinite(y)) return null
         updateAim(glitchInput ? width-x : x,glitchInput ? height-y : y,frameTime)
-        const sight={x:pointer.x/width,y:pointer.y/height,aspect:width/height,scoped:false}
+        const sight={x:pointer.x/width,y:pointer.y/height,aspect:width/height,scoped:aimingGun}
         const gun=Gear.current(run)
         const hits=[autoPlan.id]
         if (deciding && !run.shield.raised) {
@@ -1029,7 +1048,8 @@ FocusScope {
             if (play.phase==="between") {
                 if (play.wave>=play.autoLimit) play.stopAuto()
                 else play.startWave()
-            } else if (Autoplay.select(play.run)) {
+            } else if (Autoplay.select(play.run,play.autoShopEdition===play.run.shopEdition)) {
+                if (play.run.phase==="shop") play.autoShopEdition=play.run.shopEdition
                 play.selectedOffer=""
                 play.publish()
                 play.saveCheckpoint(true)
@@ -1046,7 +1066,7 @@ FocusScope {
     Timer { id: achievementNotice; interval: 3200; onTriggered: play.achievementText = "" }
     Timer {
         id:outcomeTimer
-        interval:play.outcomeKind==="loss" ? 2750 : 2350
+        interval:play.outcomeKind==="loss" ? 2750 : Math.round(2350/(play.autoPlaying ? play.gameSpeed : 1))
         onTriggered:{play.outcomeKind="";if(play.achievementText) achievementNotice.restart();Qt.callLater(play.giveMenuFocus)}
     }
     NumberAnimation {
@@ -2403,6 +2423,9 @@ FocusScope {
                 }
             }
             Rectangle {
+                objectName:"shieldChargeBar"
+                property real charge:play.fieldGuard.charge
+                property bool rejected:play.fieldGuard.rejected>0
                 width: parent.width
                 height: 9
                 radius: 3
@@ -2410,16 +2433,21 @@ FocusScope {
                 Rectangle {
                     height: parent.height
                     radius: parent.radius
-                    width: parent.width * (play.fieldGuard.raised ? play.fieldGuard.charges / play.fieldGuard.capacity
-                        : Math.max(0,1 - play.fieldGuard.cool / play.fieldGuard.recovery))
-                    color: play.fieldGuard.tint
+                    width:parent.width*parent.charge
+                    color:play.fieldGuard.rejected>0 ? "#ff596b" : play.fieldGuard.tint
                 }
+                Rectangle {
+                    anchors.fill:parent
+                    radius:3;color:"#66ff445a"
+                    visible:play.fieldGuard.rejected>0
+                }
+                Rectangle { x:parent.width*Defense.raiseThreshold; width:2; height:parent.height; color:"#f8ecce" }
             }
             Text {
-                text: (play.fieldGuard.raised ? play.fieldGuard.charges + (play.fieldGuard.charges === 1 ? " BLOCK" : " BLOCKS")
-                    + (play.fieldGuard.limit ? "  ·  " + Math.max(0,play.fieldGuard.limit-play.fieldGuard.age).toFixed(1) + "s" : "")
-                    : play.fieldGuard.cool ? play.fieldGuard.cool.toFixed(1) + "s RECHARGE" : "HOLD SPACE TO RAISE")
-                    + (play.fieldGuard.level ? "  ·  Lv " + play.fieldGuard.level : "")
+                width:parent.width
+                elide:Text.ElideRight
+                text:Math.round(play.fieldGuard.charge*100)+"% · "
+                    +(play.fieldGuard.raised ? "RAISED" : play.fieldGuard.charge>=Defense.raiseThreshold ? "READY" : "RECHARGING")
                 color: "#c9ccdd"
                 font.family: "IBM Plex Mono"
                 font.pixelSize: Ui.UiMetrics.text(11)
@@ -2476,22 +2504,41 @@ FocusScope {
                 details:{play.revision;return gunHover.hovered || gunHint.visible ? Gear.itemDetails(play.run,"weapon",Gear.current(play.run)) : play.weapon.title}
                 onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
             }
-            Text {
-                text: {
-                    play.revision
-                    return play.runeCost ? play.runes + " / " + play.runeCost + " RUNES"
-                        : play.weapon.signature === "hitStreak" ? "×" + (1 + play.streak*.12).toFixed(2)
-                        : play.weapon.sustain ? Math.round(play.heat * 100) + "% HEAT"
-                        : play.weapon.melee ? (play.primed ? "CHARGED" : play.comboLive ? "COMBO " + play.combo + " / 3" : "MELEE")
-                        : play.weapon.throwing ? "AXE" : play.weapon.stab ? "R · THRUST"
-                        : play.infiniteAmmo ? "∞" : play.rounds + " / " + Rules.magazine(play.run)
+            AmmoDial {
+                objectName:"ammoDial"
+                anchors.horizontalCenter:parent.horizontalCenter
+                width:Math.min(parent.width,play.compactLayout ? 78 : 96)
+                height:width
+                capacity:play.ammoWeapon && !play.infiniteAmmo && !play.desktopTelemetry.cpuMode ? Rules.magazine(play.run) : 0
+                rounds:play.rounds
+                charge:play.desktopTelemetry.cpuMode ? play.desktopTelemetry.heat/100 : play.runeCost ? play.runes/play.runeCost
+                    : play.weapon.sustain ? play.heat : play.shotReady
+                warning:play.desktopTelemetry.locked || !play.canShoot
+                caption:play.desktopTelemetry.cpuMode ? "CPU HEAT" : play.runeCost ? "RUNES" : play.weapon.sustain ? "HEAT" : play.ammoWeapon ? "ROUNDS" : ""
+                readout:play.desktopTelemetry.cpuMode ? Math.round(play.desktopTelemetry.heat)+"%"
+                    : play.runeCost ? play.runes+"/"+play.runeCost : play.weapon.sustain ? Math.round(play.heat*100)+"%"
+                    : play.ammoWeapon ? (play.infiniteAmmo ? "∞" : play.rounds+"/"+Rules.magazine(play.run))
+                    : play.weapon.melee ? (play.primed ? "CHARGED" : "MELEE") : play.weapon.throwing ? "AXE" : "READY"
+            }
+            Row {
+                anchors.horizontalCenter:parent.horizontalCenter
+                spacing:2
+                visible:!!play.desktopTelemetry.gpuMode || !!play.desktopTelemetry.resonance
+                AmmoDial {
+                    objectName:"gpuDial"
+                    width:Math.min(64,ammoReadout.width/2);height:width
+                    visible:!!play.desktopTelemetry.gpuMode
+                    tint:"#b59bff"; caption:"GPU"; charge:play.desktopTelemetry.gpuLoad || 0
+                    readout:Math.round(charge*100)+"%"
+                    warning:charge>=.8
                 }
-                color: "#ffcf9d"
-                font.family: "IBM Plex Mono"
-                width: parent.width
-                elide: Text.ElideRight
-                font.pixelSize: play.ammoWeapon ? (play.compactLayout ? 24 : 30) : (play.compactLayout ? 15 : 19)
-                font.weight: Font.Bold
+                AmmoDial {
+                    width:Math.min(64,ammoReadout.width/2);height:width
+                    visible:!!play.desktopTelemetry.resonance
+                    tint:"#83e4c7";caption:(play.desktopTelemetry.resonance || "").toUpperCase()
+                    charge:play.desktopTelemetry.music || 0
+                    readout:Math.round(charge*100)
+                }
             }
             Text {
                 text: { play.revision; return (play.run.selectedWeapon + 1) + " · " + play.weapon.title.toUpperCase() }
@@ -3265,15 +3312,4 @@ FocusScope {
         }
     }
 
-    Rectangle {
-        visible:play.fighting && !!play.run.desktop && play.run.desktop.cpuMode
-        anchors.top:combatMessages.bottom;anchors.horizontalCenter:parent.horizontalCenter;anchors.topMargin:6
-        z:28;width:220;height:27;color:"#de1d1624";border.color:play.run.desktop && play.run.desktop.locked ? "#ff6782" : "#a0bce3";radius:5
-        Text {anchors.centerIn:parent;text:{play.revision;return play.run.desktop ? (play.run.desktop.locked ? "COOLING · " : "CPU HEAT · ")+Math.round(play.run.desktop.heat)+"%" : ""}
-        color:"#fff2de";font.family:"monospace";font.pixelSize:11}
-        Rectangle {anchors.left:parent.left;anchors.bottom:parent.bottom;height:3;width:{play.revision;return parent.width*(play.run.desktop ? play.run.desktop.heat/100 : 0)}
-        color:"#cba3ff"}
-    }
-
 }
-

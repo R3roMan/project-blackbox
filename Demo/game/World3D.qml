@@ -140,14 +140,18 @@ View3D {
         return rayPickAll(eye.scenePosition,eye.mapDirectionToScene(direction).normalized())
     }
 
-    function pickTargets(x, y) {
+    function pickTargets(x, y, eyeHits) {
         const ids = new Set()
         const intersections = magnification > 1.001 ? scopedIntersections(x,y) : pickAll(x,y)
         for (let index = 0; index < intersections.length; index += 1) {
             const model = intersections[index].objectHit
-            const id = model ? Number(model.objectName) : 0
-            if (id > 0)
+            const label=model?.objectName || ""
+            const isEye=label.startsWith("eye:")
+            const id=Number(isEye ? label.slice(4) : label)
+            if (id>0) {
                 ids.add(id)
+                if (isEye && eyeHits) eyeHits.add(id)
+            }
         }
         const hits = []
         for (const enemy of actors) {

@@ -35,7 +35,7 @@ Node {
         objectName:String(ship.enemy.id); pickable:ship.live
         source:"#Sphere"; y:16; z:11; scale:Qt.vector3d(.78,.38,.87); materials:[windowGlass]
     }
-    Model {
+    Model { objectName:"eye:"+ship.enemy.id; pickable:ship.live;
         source:"#Sphere"; y:14; z:48; scale:Qt.vector3d(.49,.085,.08); materials:[engine]
     }
     Repeater3D {

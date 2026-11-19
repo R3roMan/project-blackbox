@@ -6,10 +6,10 @@
 var lessons=[
     {title:"Meet Oblogabgalus",text:"A large target. A loaded pistol. Aim at his belly and land three shots.",goal:"Land three pistol shots.",kind:"shoot",front:"front"},
     {title:"Keep the chamber fed",text:"Press R, or right-click, to reload. Watch the magazine fill before firing again.",goal:"Complete one reload.",kind:"reload",front:"front"},
-    {title:"Stand your ground",text:"Hold Space to raise your shield. His open mouth warns of a bite. Release Space after the block. Blocking or lowering your shield starts its recovery.",goal:"Block his bite with Space.",kind:"melee",front:"front"},
+    {title:"Stand your ground",text:"Hold Space to raise your shield. His open mouth warns of a bite. Release Space after the block. Raising it costs 10% charge. Holding it up drains the meter.",goal:"Block his bite with Space.",kind:"melee",front:"front"},
     {title:"Catch the warning",text:"This time he will spit. Hold Space before the projectile reaches you. You can also shoot hostile projectiles in ordinary battles.",goal:"Block the incoming projectile.",kind:"projectile",front:"front"},
-    {title:"Perfect parry",text:"Wait for the final flash of his windup. Press Space just before the bite, within the last fifth of a second. A perfect parry cuts the next shield recovery by 25%.",goal:"Wait for the flash, then press Space.",kind:"parry",front:"front"},
-    {title:"Let the shield recover",text:"Watch the blue field-shield bar. It fills while the shield recharges. Release Space and wait for READY before raising it again.",goal:"Watch the shield bar return to READY.",kind:"recharge",front:"front"},
+    {title:"Perfect parry",text:"Wait for the final flash of his windup. Press Space just before the bite, within the last fifth of a second. A perfect parry instantly restores the shield to 100%.",goal:"Wait for the flash, then press Space.",kind:"parry",front:"front"},
+    {title:"Let the shield recover",text:"Watch the blue field-shield bar. It fills while the shield is lowered. The marker at 20% shows when you can raise it again.",goal:"Release Space and let the meter cross the 20% marker.",kind:"recharge",front:"front"},
     {title:"Thin the crowd",text:"Shoot the small demon beside him. These practice targets will wait for you.",goal:"Defeat the stationary peon.",kind:"peon",front:"front"},
     {title:"A threat to the left",text:"Tap A or the left arrow, or move your mouse to the left edge. Find and shoot the peon. Return with D or the right edge.",goal:"Look left and defeat the peon.",kind:"peon",front:"left"},
     {title:"Watch both sides",text:"Reach the right-hand laboratory. Hold Shift and shoot the final peon. A scoped gun hit marks a demon for four seconds, so follow-up attacks on it bypass miss rolls. Release Shift before turning.",goal:"Look right. Hold Shift and shoot the peon.",kind:"peon",front:"right",scope:true}
@@ -71,7 +71,7 @@ function resetLesson(run) {
     run.enemies=run.enemies.filter(function(e){return e.id===t.bossId});run.roster++
     run.playerFront="front";t.front="front"
     run.shield.held=run.shield.raised=false
-    if (lesson.kind!=="recharge") run.shield.cool=0
+    run.shield.cool=lesson.kind==="recharge" ? run.shield.recovery*.94 : 0
     const gun=Gear.current(run)
     Object.assign(gun,Gear.makeItem("pistol"))
     if (lesson.kind==="reload") gun.ammo=2
@@ -154,7 +154,7 @@ function update(run,dt,sealing,firing,aim,viewReady) {
             success=delta(lesson.kind==="parry" ? "parries" : "shieldBlocks")>0
             if (lesson.kind==="parry" && t.struck && !success) {rewind(run);return}
         }
-        if (lesson.kind==="recharge") success=run.shield.cool<=0 && !run.shield.held
+        if (lesson.kind==="recharge") success=Rules.shieldCharge(run)>=.20 && !run.shield.held
         if (lesson.kind==="projectile" && b && t.age>1 && !t.struck) {
             t.struck=true
             Rules.launchBolts(run,b,{boltTime:1.2,accent:"#ffe17a",boltHealth:2})

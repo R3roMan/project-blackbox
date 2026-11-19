@@ -44,7 +44,7 @@ Node {
             z: 51
             eulerRotation.z: modelData*13
             Model { source:"#Sphere"; scale:Qt.vector3d(.38,.20,.07); opacity:.37; materials:[glow] }
-            Model { source:"#Sphere"; z:4; scale:Qt.vector3d(.205,.099,.072); materials:[eye] }
+            Model { objectName:"eye:"+rig.targetId; pickable:rig.live; source:"#Sphere"; z:4; scale:Qt.vector3d(.205,.099,.072); materials:[eye] }
         }
     }
 }

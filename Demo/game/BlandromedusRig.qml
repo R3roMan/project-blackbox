@@ -132,9 +132,9 @@ Node {
         x:vampire.eyeSwing
         y:6
         z:53+vampire.strike*7
-        Model {source:"#Sphere"; scale:Qt.vector3d(.25,.23,.24); materials:[eye]}
-        Model {source:"#Sphere"; z:11; scale:Qt.vector3d(.15,.14,.07); materials:[iris]}
-        Model {source:"#Sphere"; z:14.4; scale:Qt.vector3d(.052,.115,.036); materials:[cavity]}
+        Model { objectName:"eye:"+vampire.targetId; pickable:vampire.live;source:"#Sphere"; scale:Qt.vector3d(.25,.23,.24); materials:[eye]}
+        Model { objectName:"eye:"+vampire.targetId; pickable:vampire.live;source:"#Sphere"; z:11; scale:Qt.vector3d(.15,.14,.07); materials:[iris]}
+        Model { objectName:"eye:"+vampire.targetId; pickable:vampire.live;source:"#Sphere"; z:14.4; scale:Qt.vector3d(.052,.115,.036); materials:[cavity]}
         Model {source:"#Sphere"; x:-2.7; y:4.2; z:16; scale:Qt.vector3d(.037,.028,.018); materials:[eye]}
     }
 }

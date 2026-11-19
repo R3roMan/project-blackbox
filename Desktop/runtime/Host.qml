@@ -62,7 +62,7 @@ Item {
             Native.Desktop.release(ownershipToken);claimed=false
         }
     }
-    readonly property string preferredScreen:Native.Desktop.config.screenName || ""
+    readonly property string preferredScreen:Native.Desktop.screens.includes(options.screenName) ? options.screenName : ""
     onPreferredScreenChanged:claimVisible()
     onScreenNameChanged:claimVisible()
     onVisibleChanged:claimVisible()
@@ -89,7 +89,30 @@ Item {
     function persist() {Native.Desktop.saveProgress(JSON.stringify({profile:records,discoveries:discovered}))}
     readonly property var options:Native.Desktop.config
     readonly property string mode:options.mode
-    readonly property bool home:Native.Desktop.atHome && visible && !editingDesktop
+    readonly property string linkedFront:Native.Desktop.desktopFront
+    readonly property bool here:!options.linkDesktops || !!linkedFront
+    readonly property bool home:Native.Desktop.atHome && visible && here && !editingDesktop
+    property bool gpuBudgetLimited:false
+    function syncWorkspace() {
+        if (!claimed || !options.linkDesktops || !linkedFront) return
+        if (mode==="play" && battle.item?.fighting && battle.item.frontId!==linkedFront) {
+            if (!battle.item.turning) battle.item.turnTo(linkedFront,"")
+        } else if (["idle","performance"].includes(mode) && galleryLoader.item) {
+            const room=frontRooms[linkedFront]
+            if (room!==galleryLoader.item.destination && room!==galleryLoader.item.room)
+                galleryLoader.item.go(room,true)
+        }
+    }
+    readonly property var frontRooms:({front:"shrine",left:"media",right:"lab",up:"sky",down:"abyss"})
+    onLinkedFrontChanged:Qt.callLater(syncWorkspace)
+    onModeChanged:{
+        if (options.linkDesktops && mode==="play" && battle.item) Native.Desktop.switchWorkspace(battle.item.frontId)
+        else Qt.callLater(syncWorkspace)
+    }
+    function returnToPlasma() {
+        if (battle.item && SaveData.phases.includes(battle.item.phase)) battle.item.saveCheckpoint(false)
+        if (!Native.Desktop.returnToPlasma(Qt.resolvedUrl("desktop-session.py"))) saveStatus="Could not open KDE desktop switcher"
+    }
     readonly property var backgrounds: {
         const map={}
         for(const front of ["front","left","right","up","down"]) if(options["wallpaper_"+front]) map[front]=options["wallpaper_"+front]
@@ -100,7 +123,7 @@ Item {
         const game=battle.item,run=game.run
         const actives=run.slots.active.map(function(slot,i){return slot.item ? {title:Gear.activeAbilities[slot.item.id].title,id:slot.item.id,cooldown:Rules.activeCooldown(run,slot.item.id),duration:Rules.abilityRecovery(run,slot)} : {title:"Empty",cooldown:0,duration:1}})
         Native.Desktop.publish({renderer:game.projectedMode ? "2D fallback" : "Qt Quick 3D",
-            canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
+            canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(home && mode==="play" && battle.item)battle.item.keyTargetFocus()
     property int initialDetail:1
@@ -108,8 +131,20 @@ Item {
     Component.onDestruction: {if(claimed && battle.item)Native.Desktop.parkRun(SaveData.encodeRun(battle.item.run));Native.Desktop.release(ownershipToken)}
     Image {anchors.fill:parent;source:host.backgrounds.front || Qt.resolvedUrl("../Demo/assets/landscape/shrine-day.webp");fillMode:Image.PreserveAspectCrop}
     Loader {
-        anchors.fill:parent;active:host.claimed && ["idle","performance"].includes(host.mode);visible:active
+        id:galleryLoader
+        anchors.fill:parent
+        anchors.leftMargin:host.areaLeft;anchors.rightMargin:host.areaRight
+        anchors.topMargin:host.areaTop;anchors.bottomMargin:host.areaBottom
+        active:host.claimed && ["idle","performance"].includes(host.mode)
+        visible:active && host.here
+        onLoaded:item.go(host.frontRooms[host.linkedFront || host.options.idleFront] || "shrine",true)
         sourceComponent:Game.AmbientGallery {
+            onRoomChanged:{
+                const front=Object.keys(host.frontRooms).find(key=>host.frontRooms[key]===room)
+                if (!front || !host.home) return
+                if (host.options.idleFront!==front) Native.Desktop.setOption("idleFront",front)
+                if (host.options.linkDesktops) Native.Desktop.switchWorkspace(front)
+            }
             mode:host.mode==="performance" ? "performance" : "wallpaper"
             preview:false
             exposed:host.home
@@ -133,15 +168,18 @@ Item {
         anchors.rightMargin:host.areaRight
         anchors.bottomMargin:host.areaBottom
         active:host.claimed
-        visible:host.mode==="play"
+        visible:host.mode==="play" && host.here
         sourceComponent:Game.PlayScene {
             id:game
             resumeState:Native.Desktop.parkedRun()
             vault:careerVault
             artDirectory:Qt.resolvedUrl("../V0.1/kde/contents/images/")
             backgroundFiles:host.backgrounds
-            allowed:host.mode==="play" && host.visible && !host.editingDesktop && (host.home || host.options.backgroundPlay)
+            allowed:host.mode==="play" && host.visible && !Native.Desktop.sessionLocked && !host.editingDesktop && (host.home || host.options.backgroundPlay)
             interactive:host.home
+            onFrontIdChanged:if (host.options.linkDesktops && host.mode==="play" && host.here && host.claimed)
+                Native.Desktop.switchWorkspace(frontId)
+            onTurningChanged:if (!turning) Qt.callLater(host.syncWorkspace)
             backgroundPlay:host.options.backgroundPlay
             autoLimit:Autoplay.waveLimit(host.availableRecords,careerVault.state)
             onBackgroundPlayRequested:function(value) {Native.Desktop.setOption("backgroundPlay",value)}
@@ -155,7 +193,7 @@ Item {
             frameLimit:host.options.frameLimit
             initialDetail:host.initialDetail
             graphicsRestartText:"Save the run and restart the preview or reload the wallpaper to fully apply this preset."
-            graphicsDetail:host.options.gpuEffects && Native.Desktop.gpu>.8 ? 0 : host.options.detail
+            graphicsDetail:host.gpuBudgetLimited ? Math.max(0,host.options.detail-1) : host.options.detail
             wallpaperQuality:host.mode==="performance" ? 1080 : 0
             showTimer:host.options.showTimer
             unlockedGear:Progress.unlocked(host.availableRecords,host.options.achievementOverride)
@@ -184,9 +222,13 @@ Item {
                 if(!run.desktop)run.desktop={cpuMode:false,heat:0,locked:false,pressure:0,cpu:0,music:0,musicTick:0}
                 run.desktop.cpuMode=host.options.cpuAmmo
                 run.desktop.cpu=Native.Desktop.cpu
+                run.desktop.gpuMode=host.options.gpuEffects
+                const pressure=Math.min(1,Math.max(0,Native.Desktop.gpu)+(run.desktop.pressure || 0)*.45)
+                run.desktop.gpuLoad=(run.desktop.gpuLoad || 0)*.65+pressure*.35
+                host.gpuBudgetLimited=host.options.gpuEffects && run.desktop.gpuLoad>(host.gpuBudgetLimited ? .62 : .84)
                 const bands=Native.Desktop.bands
                 const bass=(bands[0]+bands[1]+bands[2])/3,treble=(bands[5]+bands[6]+bands[7])/3
-                run.desktop.resonance=host.options.musicReactive ? (bass>treble*1.25 ? "bass" : treble>bass*1.25 ? "treble" : "pulse") : ""
+                run.desktop.resonance=host.options.musicReactive && host.home && Native.Desktop.loudness>.045 ? (bass>treble*1.25 ? "bass" : treble>bass*1.25 ? "treble" : "pulse") : ""
                 run.desktop.music=host.options.musicReactive && host.home ? Native.Desktop.loudness : 0
             }
             host.report()
@@ -197,7 +239,12 @@ Item {
         function onCommandRequested(name) {
             if(!host.claimed || !battle.item || host.vaultOpen)return
             const game=battle.item
-            if(name==="new") {
+            if(name==="revert") host.returnToPlasma()
+            else if(name==="grimoire") {if(host.home)host.openBook("enemies","")}
+            else if(name==="play") {
+                Native.Desktop.setOption("mode","play")
+                if(host.options.linkDesktops) Native.Desktop.switchWorkspace(game.frontId)
+            } else if(name==="new") {
                 menuSound.item?.play("new-game",.72)
                 Native.Desktop.setOption("mode","play")
                 game.resetRun()
@@ -268,8 +315,9 @@ Item {
         }
     }
     Row {
-        anchors.left:parent.left;anchors.bottom:parent.bottom;anchors.leftMargin:host.areaLeft+10;anchors.bottomMargin:host.areaBottom+10;spacing:6;z:60
+        anchors.right:parent.right;anchors.top:parent.top;anchors.rightMargin:host.areaRight+14;anchors.topMargin:host.areaTop+70;spacing:6;z:60
         visible:host.home && !host.bookOpen && !host.vaultOpen && host.mode!=="play"
+        Ui.ActionButton {text:"Back to Play";primary:true;onClicked:Native.Desktop.command("play")}
         Ui.ActionButton {text:"Grimoire";onClicked:host.openBook("enemies","")}
         Ui.ActionButton {text:"Witch’s Vault";onClicked:{careerVault.reload();host.vaultOpen=true}}
         Ui.ActionButton {text:"Desktop settings";onClicked:settingsDrawer.open()}
@@ -285,6 +333,11 @@ Item {
         Repeater {model:Native.Desktop.bands
             Rectangle {required property var modelData;width:12;height:4+modelData*60;anchors.bottom:parent.bottom;color:"#c788ed";opacity:.65}}
     }
-    Drawer {id:settingsDrawer;width:Math.min(620,host.width);height:host.height;edge:Qt.RightEdge;z:80
+    Drawer {id:settingsDrawer
+        popupType:Popup.Item
+        y:host.areaTop
+        width:Math.min(620,host.width-host.areaLeft-host.areaRight)
+        height:host.height-host.areaTop-host.areaBottom
+        edge:Qt.RightEdge;z:80
         DesktopOptions {anchors.fill:parent;anchors.margins:16}}
 }

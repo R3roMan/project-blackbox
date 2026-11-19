@@ -23,7 +23,8 @@ function oval(ctx,x,y,w,h,color) {
     ctx.fill()
 }
 
-function draw(ctx, foe, skin, accent, time, tell, lamp, mirror) {
+function draw(ctx, foe, skin, accent, time, tell, lamp, mirror, eyes) {
+    function mark(x,y,w,h) { if (eyes) eyes.push([x+w/2,y+h/2,w/2,h/2]) }
     const kind = foe.type
     if (kind === "harvester") {
         shape(ctx,[.17,.77,.20,.45,.30,.16,.55,.10,.75,.28,.81,.74,.73,.92,.66,.82,.58,.97,.47,.86,.36,.96,.25,.83,.18,.94],
@@ -150,6 +151,7 @@ function draw(ctx, foe, skin, accent, time, tell, lamp, mirror) {
         }
         for (let i=0; i<(tall ? (foe.eyeCount ?? 8) : 2); ++i) {
             const x = i%2 ? .53 : .395
+            mark(x,.277+Math.floor(i*.5)*.10,.074,.045)
             oval(ctx,x,.277+Math.floor(i*.5)*.10,.074,.045,accent)
         }
         return
@@ -159,7 +161,9 @@ function draw(ctx, foe, skin, accent, time, tell, lamp, mirror) {
         shape(ctx,[.43,.33,.57,.33,.68,.82,.51,.91,.34,.82],skin,.017,"#ccbba4")
         oval(ctx,.37,.17,.26,.24,"#685064")
         oval(ctx,.37,.105,.26,.049,"#2c1e27")
+        mark(.42,.258,.058,.034)
         oval(ctx,.42,.258,.058,.034,accent)
+        mark(.53,.253,.058,.034)
         oval(ctx,.53,.253,.058,.034,"#fc776d")
         if (mirror) {
             ctx.beginPath()

@@ -81,8 +81,8 @@ var passiveRows = [
         "coldDamage",.08,"Damage to frozen foes +8%"],
     ["soulReaper","Soul reaper","epic","Each kill grants 1.2% outgoing damage for the wave, up to 18%.",
         "soulStrength",.004,"Each soul adds another 0.4% damage"],
-    ["parry","Parry","epic","Raise the field shield within 0.20 seconds of a hit to take 3.8 seconds off its next cooldown.",
-        "parryCredit",.65,"Timed parry cuts another 0.65 seconds from recovery"]
+    ["parry","Parry","epic","Raise the field shield within 0.20 seconds of a hit to slow shield drain briefly after the refill.",
+        "parryCredit",.65,"Parry protection lasts a little longer"]
 ]
 var passives = {}
 var perks = {}
@@ -118,5 +118,5 @@ var kits = [
     {key:"harvestKit",title:"Harvest kit",weapon:"fearScythe",active:"boneShatter",passive:"soulReaper",
         stat:"crit",value:.06,scope:"fearScythe",bonus:"Fearme's Harvest gains another six percentage points of critical chance."},
     {key:"jesterVerdictKit",title:"Jester's verdict kit",weapon:"jesterScatter",active:"colourSpill",passive:"parry",
-        stat:"parryCredit",value:.65,bonus:"Timed parries remove another 0.65 seconds of shield recovery."}
+        stat:"parryCredit",value:.65,bonus:"Timed parries extend the slower shield drain."}
 ]

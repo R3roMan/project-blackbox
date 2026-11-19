@@ -102,7 +102,7 @@ Node {
                 scale:Qt.vector3d(side.sign*.65,.62,.62)
                 materials:[ivory]
             }
-            Model {
+            Model { objectName:"eye:"+figure.targetId; pickable:figure.live && visible;
                 visible: !figure.cover
                 source: "#Sphere"
                 x: side.sign * 13

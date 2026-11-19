@@ -77,7 +77,7 @@ Node {
             delegate: Node {
                 required property int modelData
                 x: modelData*25
-                Model {
+                Model { objectName:"eye:"+rig.targetId; pickable:rig.live;
                     source: "#Sphere"
                     y: 7
                     z: 25

@@ -71,8 +71,8 @@ Node {
             materials: [gums]
         }
         Model { source:"#Sphere"; y:-6; z:27; scale:Qt.vector3d(1.05,.30+rig.openness*.45,.075); materials:[pit] }
-        Model { source:"#Sphere"; y:31; z:19; scale:Qt.vector3d(.32,.20,.19); materials:[gaze] }
-        Model { source:"#Sphere"; y:31; z:28; scale:Qt.vector3d(.084,.15,.056); materials:[pit] }
+        Model { objectName:"eye:"+rig.targetId; pickable:rig.live; source:"#Sphere"; y:31; z:19; scale:Qt.vector3d(.32,.20,.19); materials:[gaze] }
+        Model { objectName:"eye:"+rig.targetId; pickable:rig.live; source:"#Sphere"; y:31; z:28; scale:Qt.vector3d(.084,.15,.056); materials:[pit] }
         Repeater3D {
             model: 13
             delegate: Model {

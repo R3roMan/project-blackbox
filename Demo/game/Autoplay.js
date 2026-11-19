@@ -31,7 +31,7 @@ function destination(run, item) {
     return slot === -1 ? Math.floor(Math.random() * run.slots[Gear.groupOf(item)].length) : slot
 }
 
-function select(run) {
+function select(run, boughtInShop) {
     if (run.phase === "reward")
         return shuffled(run.offers).some(card => Rules.choose(run,card.id,destination(run,card))) || Rules.skipSelection(run)
     if (run.phase === "bossReward")
@@ -39,7 +39,7 @@ function select(run) {
     if (run.phase === "shop") {
         const affordable = Gear.shopCards(run).filter(card => !card.sold && card.cost <= Gear.availableGold(run))
         const paid = affordable.find(card => card.paid)
-        const options = paid ? [paid] : shuffled(affordable)
+        const options = paid ? [paid] : boughtInShop ? [] : shuffled(affordable)
         return options.some(card => {
             const item = card.action === "gear" ? Gear.catalogs[card.group][card.gearId] : null
             const replace = Gear.replacement(run,card)
@@ -67,7 +67,7 @@ function plan(run) {
     const enemies = run.enemies.filter(enemy => liveEnemy(run,enemy))
     const melee = enemies.some(enemy => enemy.front === view && !enemy.warp && !enemy.waitingBoss
         && enemy.depth <= Rules.enemyTypes[enemy.type].reach && Rules.charging(enemy) && enemy.attack < .34 && enemy.attack > 0)
-    const guard = !run.hypnosis && (shot || melee) && !run.shield.cool
+    const guard = !run.hypnosis && (shot || melee) && (run.shield.raised || Rules.shieldCharge(run)>=.20)
     enemies.sort((a,b) => threat(run,b) - threat(run,a))
     const local = enemies.find(enemy => enemy.front === view && !enemy.warp && !enemy.waitingBoss && !Rules.ghosted(enemy))
     const destination = seal && view !== "down" ? "down" : !local && !run.hypnosis && enemies[0]?.front

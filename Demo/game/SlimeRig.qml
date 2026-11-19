@@ -57,14 +57,14 @@ Node {
         scale: Qt.vector3d(1.40, .79, .82)
         materials: [mucous]
     }
-    Model {
+    Model { objectName:"eye:"+slime.targetId; pickable:slime.live;
         source: "#Sphere"
         y: 54
         z: 70
         scale: Qt.vector3d(.36, .23, .115)
         materials: [glow]
     }
-    Model {
+    Model { objectName:"eye:"+slime.targetId; pickable:slime.live;
         source: "#Sphere"
         y: 55
         z: 76

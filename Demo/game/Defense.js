@@ -1,11 +1,14 @@
 .pragma library
 
+var raiseThreshold=.20
+var raiseCost=.10
+
 var modes = {
-    standard:{ title:"Field shield", tint:"#65c8ff", hits:1,limit:0,cooldown:4.5 },
-    fleetShell:{ title:"Fleet shell", tint:"#6df6cb", hits:1,limit:1.40,cooldown:3.2 },
-    perfectGuard:{ title:"Perfect guard", tint:"#d9deff", hits:1,limit:.73,cooldown:5.5 },
-    jesterWard:{ title:"Jester ward", tint:"#ce86ff", hits:1,limit:0,cooldown:7.4 },
-    bulwark:{ title:"Bulwark", tint:"#ffc77c", hits:2,limit:0,cooldown:12.1 }
+    standard:{ title:"Field shield", tint:"#65c8ff", hits:1,limit:3.1,cooldown:4.5 },
+    fleetShell:{ title:"Fleet shell", tint:"#6df6cb", hits:1,limit:2.5,cooldown:3.2 },
+    perfectGuard:{ title:"Perfect guard", tint:"#d9deff", hits:1,limit:1.48,cooldown:5.5 },
+    jesterWard:{ title:"Jester ward", tint:"#ce86ff", hits:1,limit:3.65,cooldown:7.4 },
+    bulwark:{ title:"Bulwark", tint:"#ffc77c", hits:2,limit:4.0,cooldown:8.4 }
 }
 
 var kits = [
@@ -16,7 +19,7 @@ var kits = [
     { key:"returnFire", title:"Return fire kit", weapon:"verdictRifle",active:"guardKick",passive:"mirrorGuard",
         stat:"reflect",value:.12,bonus:"Your shield gains another 12 percentage points of reflection chance." },
     { key:"sparksInAmber", title:"Sparks in amber", weapon:"cinderDouble",active:"glassVault",passive:"bulwark",
-        stat:"shieldHits",value:1,bonus:"Bulwark can absorb one more hit while raised." },
+        stat:"shieldHits",value:1,bonus:"Bulwark can lose less charge from each block." },
     { key:"blackMint", title:"Black mint kit", weapon:"weathered",active:"flashCoins",passive:"guardToll",
         stat:"guardGold",value:1,bonus:"The first three blocks per shield raise earn one extra gold." },
     { key:"paleJudgement", title:"Pale judgement kit", weapon:"gallows",active:"critMark",passive:"criticalLens",
@@ -32,14 +35,14 @@ var kits = [
 var passiveRows = [
     ["mirrorGuard","Mirror guard","rare","A shield block has a 22% chance to reflect some damage to the attacker.","critChance",.018,"Critical chance +1.8%"],
     ["guardToll","Guard toll","rare","The first three blocks per raise each earn two gold.","heal",2,"Heal 2 at wave start"],
-    ["coolGuard","Quick return","rare","Each block removes half a second from the shield's next recovery.","shieldCool",.35,"Shield recovery −0.35s"],
-    ["guardSeam","Long seam","rare","Reduce shield recovery by 0.45 seconds per rank. Lv 3 adds one more block per raise.","shieldCool",.35,"Shield recovery −0.35s"],
+    ["coolGuard","Quick return","rare","Each block restores half a second of charge per rank, softening the cost of a hit.","shieldCool",.35,"Shield recovery −0.35s"],
+    ["guardSeam","Long seam","rare","Reduce shield recovery by 0.45 seconds per rank. Lv 3 reduces the charge each block costs.","shieldCool",.35,"Shield recovery −0.35s"],
     ["cinderGuard","Cinder guard","epic","Blocking a close attacker sets it on fire.","burnDuration",.60,"Burn lasts another 0.6s"],
     ["guardInsulation","Guard lining","rare","Take less damage from ground explosions and beams while the shield is raised.","armor",.03,"Damage taken −3%"],
-    ["fleetShell","Fleet shell","epic","A quick teal shield. A block speeds your turns. It recharges after a short raise, including when released early.","shieldCool",.23,"Shield recovery −0.23s"],
-    ["perfectGuard","Perfect guard","legendary","A brief silver guard with a cooldown on release. A block in the first 0.2 seconds reflects damage and shortens the recharge.","shieldLimit",.13,"Parry shield stays raised 0.13s longer"],
+    ["fleetShell","Fleet shell","epic","A quick teal shield. A block speeds your turns. It drains quickly and refills faster while lowered.","shieldCool",.23,"Shield recovery −0.23s"],
+    ["perfectGuard","Perfect guard","legendary","A fast-draining silver guard. A perfect parry reflects damage, refills the meter and briefly slows its drain.","shieldLimit",.13,"Parry shield stays raised 0.13s longer"],
     ["jesterWard","Jester ward","legendary","A shifting violet guard. Each first block rolls a surprise benefit and a variable recovery time.","shieldCool",.30,"Shield recovery −0.30s"],
-    ["bulwark","Bulwark","legendary","An amber shield that absorbs two hits. Its weight slows turns while raised, and its recovery is longer.","shieldCool",.46,"Shield recovery −0.46s"],
+    ["bulwark","Bulwark","legendary","An amber shield. Blocks cost less charge and turns are slower while raised. It takes longer to refill.","shieldCool",.46,"Shield recovery −0.46s"],
     ["criticalLens","Critical lens","rare","Increase weapon critical chance by 7 percentage points per rank.","critChance",.032,"Critical chance +3.2%"],
     ["deepCut","Deep cut","epic","Multiply critical hits by another 0.30 per rank.","critPower",.18,"Critical multiplier +0.18"],
     ["critLoader","Impact feeder","rare","Return one round on a critical hit, up to one refund per rank in each magazine.","reload",.055,"Reload time −5.5%"],
@@ -60,7 +63,7 @@ var actives = {
     guardPulse:{ id:"guardPulse",title:"Guard pulse",category:"Active",rarity:"epic",cooldown:22,
         description:"Spend the force stored by recent shield blocks to release a shockwave. A raised shield drops when you spend it." },
     reserveGuard:{ id:"reserveGuard",title:"Reserve guard",category:"Active",rarity:"epic",cooldown:19,
-        description:"Take four seconds off your shield recovery. If a temporary barrier is up, restore one barrier charge." },
+        description:"Restore four seconds of shield charge. If a temporary barrier is up, restore one barrier charge." },
     sureStrike:{ id:"sureStrike",title:"Sure strike",category:"Active",rarity:"rare",cooldown:22,
         description:"Your next weapon attack is a guaranteed critical if it connects. The strength upgrade raises its critical damage." },
     sharpen:{ id:"sharpen",title:"Sharpen",category:"Active",rarity:"rare",cooldown:21,
@@ -85,7 +88,7 @@ var rituals = [
     ["slingCast","Sling cast","rare",21,"axePrep",.7,"Recover a thrown axe faster and strengthen the next throw."],
     ["pinpointDust","Pinpoint dust","rare",24,"sight",7,"Tighten your shot spread for seven seconds."],
     ["steadyCharm","Steady charm","rare",23,"cleanFrost",2.5,"Clear Frost and briefly speed up turns."],
-    ["glassVault","Glass vault","epic",22,"shieldWindow",.59,"Give your raised shield one extra block and shorten your next shot recovery."],
+    ["glassVault","Glass vault","epic",22,"shieldWindow",.59,"Reinforce your raised shield so its blocks use less charge and shorten your next shot recovery."],
     ["fireline","Fireline","epic",24,"ember",6.4,"Ignite the closest enemy on each wallpaper."],
     ["clawStop","Claw stop","epic",21,"interrupt",3.2,"Interrupt two charging enemies and damage them lightly."],
     ["sporeVise","Spore vise","epic",20,"corrode",5.2,"Poison one target and weaken its attack before it reaches you."],

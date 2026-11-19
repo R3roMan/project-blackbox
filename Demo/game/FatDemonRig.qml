@@ -46,8 +46,8 @@ Node {
                 required property int modelData
                 x:modelData*(rig.teacher ? 17 : 28)
                 y:rig.angry ? -3 : 0
-                Model {source:"#Sphere";scale:Qt.vector3d(rig.teacher ? .095 : .24,.12,.12);materials:[eye]}
-                Model {source:"#Sphere";z:6;x:Math.sin(rig.clock)*1.5;scale:Qt.vector3d(.046,.09,.035);materials:[black]}
+                Model { objectName:"eye:"+rig.enemy.id; pickable:rig.live;source:"#Sphere";scale:Qt.vector3d(rig.teacher ? .095 : .24,.12,.12);materials:[eye]}
+                Model { objectName:"eye:"+rig.enemy.id; pickable:rig.live;source:"#Sphere";z:6;x:Math.sin(rig.clock)*1.5;scale:Qt.vector3d(.046,.09,.035);materials:[black]}
                 Model {source:"#Cube";y:8;z:5;eulerRotation.z:modelData*(rig.angry ? 24 : -14);scale:Qt.vector3d(.26,.034,.05);materials:[fold]}
             }
         }

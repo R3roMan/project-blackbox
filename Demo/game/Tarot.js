@@ -71,7 +71,7 @@ var suits=[
         ["Take 10% less damage at night.",{nightArmor:.10}],
         ["Reduce perfect parry timing demands by 0.035 seconds.",{parry:.035}],
         ["Interrupt your first projectile each wave to earn 8 gold.",{},["intercept",1,"gold",8]],
-        ["Perfect parries also take 0.6 seconds off the next shield recovery.",{parryCredit:.6}],
+        ["Perfect parries also slow the shield drain for 0.6 seconds.",{parryCredit:.6}],
         ["Reduce active recovery time by 9%.",{cooldown:.09}],
         ["Deal 10% more weapon damage and add 0.20 to the critical multiplier against Overlords.",{bossDamage:.10,bossCrit:.20}]
     ]},

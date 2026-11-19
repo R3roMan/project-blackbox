@@ -119,7 +119,7 @@ On Arch the Qt components come from `qt6-declarative`, `qt6-quick3d` and `qt6-mu
 
 Sound effects use a bounded pool of Qt media players. Rain stops when the weather clears. In the Abyss, precipitation sounds softer and the daylight cycle gives way to constant underground lighting. Clear battles leave space for occasional distant voices and breathing. The Ambience slider controls weather and distant sounds, and the Effects slider controls enemy death sounds.
 
-Switch on **Auto** next to the speed button during a wave you have cleared before. Auto fights, takes random rewards, buys affordable shop stock and continues at the current speed through your best cleared wave, up to Wave 90. It switches off on defeat, a fresh run, or Continue. Enable **Keep battles running when unfocused** in Settings to let combat advance while you use another app. Battle audio stays quiet while the game is unfocused.
+Switch on **Auto** next to the speed button during a wave you have cleared before. Auto fights, takes random rewards, picks one random affordable shop item per visit and continues at the current speed through your best cleared wave, up to Wave 90. It switches off on defeat, a fresh run, or Continue. Enable **Keep battles running when unfocused** in Settings to let combat advance while you use another app. Battle audio stays quiet while the game is unfocused.
 
 Ordinary night still darkens the edges of the screen. It leaves accuracy at the normal 5% miss chance. Inflicted Blindness adds miss penalties of 3%, 8% and 15% by level. Blood Moon Night applies level II.
 
