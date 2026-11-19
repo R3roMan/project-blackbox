@@ -69,7 +69,7 @@ def activate(state):
     if not any(d["plugin"] == ID for d in desktops):
         target = next((d for d in desktops if d["id"] == state.get("_launchTarget")), None)
         if target is None:
-            target = next((d for d in desktops if d["screen"] == 0), desktops[0])
+            target = next((d for d in desktops if d.get("screen") == 0), desktops[0])
         key = target["id"]
         if target["plugin"]:
             state[key] = target["plugin"]

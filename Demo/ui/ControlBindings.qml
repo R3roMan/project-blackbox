@@ -25,7 +25,7 @@ ColumnLayout {
             const mouseId=id==="mouseFire" ? "mouseReload" : "mouseFire"
             notice=conflict ? Controls.sequence(replacement)+" is assigned to "+conflict.title.toLowerCase()+"."
                 : id.startsWith("mouse") ? "That button is assigned to "+(mouseId==="mouseFire" ? "fire." : "reload.")
-                : "That binding overlaps another action. Reset the conflicting action first."
+                : "That binding overlaps another action. Choose a different key or change the other binding."
             return false
         }
         notice=""
