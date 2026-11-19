@@ -56,8 +56,7 @@ var actions = {
         {title:"Recovery",detail:"Keep verified backups and recovery instructions in a separate, trusted location."}],
     media: [{title:"Full artwork",action:"clean",detail:"Hide the interface to view the current artwork."},
         {title:"Replace this image",action:"edit"}],
-    lab: [{title:"Develop · Ace Druggie",target:"code"},{title:"Assets",action:"edit"},
-        {title:"Builds",detail:"Link a build or export directory in the native integration phase."}],
+    lab: [{title:"Develop · Ace Druggie",target:"code"},{title:"Assets",action:"edit"}],
     code: [{title:"Project bench",target:"lab"},{title:"Research",target:"abyss"}]
 }
 

@@ -14,6 +14,8 @@ Template.Scene {
     property var forecast:Scenery.idleWeather(localTime,(localTime.getTime()-cycleOrigin)/1000,phaseMinutes)
     property var labAppearance:({})
     property bool mouseLook:false
+    property rect turnArea:Qt.rect(0,0,width,height)
+    readonly property string liveFront:Scenery.rooms[room] || "front"
     property string controlBindings:"{}"
     readonly property var bindings:Controls.read(controlBindings)
     navigationKeyHandler:function(event) {
@@ -38,12 +40,19 @@ Template.Scene {
         enabled:gallery.mouseLook && gallery.exposed && !gallery.drawerOpen && !gallery.clean
         acceptedDevices:PointerDevice.Mouse | PointerDevice.TouchPad
         onPointChanged:{
-            const gaps=[point.position.x,gallery.width-point.position.x,point.position.y,gallery.height-point.position.y]
-            const edge=gaps.indexOf(Math.min(...gaps))
-            if (gaps[edge]>28) gallery.mouseEdge=-1
-            else if (gaps[edge]<15 && gallery.mouseEdge!==edge) {
-                gallery.mouseEdge=edge
-                gallery.move(["left","right","up","down"][edge])
+            if (gallery.moving) return
+            const area=gallery.turnArea, position=point.position
+            const gaps=[position.x-area.x,area.x+area.width-position.x,
+                position.y-area.y,area.y+area.height-position.y]
+            const distance=Math.min(...gaps)
+            if (distance>28) {
+                gallery.mouseEdge=-1
+            } else if (distance>=0 && distance<17) {
+                const edge=gaps.indexOf(distance)
+                if (gallery.mouseEdge!==edge) {
+                    gallery.mouseEdge=edge
+                    gallery.move(["left","right","up","down"][edge])
+                }
             }
         }
     }

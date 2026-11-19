@@ -63,7 +63,7 @@ ColumnLayout {
     readonly property var relevantKits: {
         revision
         return Gear.kits.filter(function(kit) {
-            return Object.keys(Gear.limits).some(function(group) { return Gear.findSlot(run, group, kit[group]) >= 0 })
+            return Object.keys(Gear.limits).some(function(group) { return !!Gear.ownedItem(run,group,kit[group]) })
         })
     }
 
@@ -278,7 +278,7 @@ ColumnLayout {
         ScrollView {
             id: kitScroll
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(68, kitRows.implicitHeight)
+            Layout.preferredHeight:Math.min(Ui.UiMetrics.text(90),kitRows.implicitHeight)
             visible: kitRows.implicitHeight > 0
             contentWidth: availableWidth
             clip: true
@@ -290,15 +290,41 @@ ColumnLayout {
                 spacing: 4
                 Repeater {
                     model: overview.relevantKits
-                    delegate: Detail {
+                    delegate: ColumnLayout {
+                        id:kitRow
                         required property var modelData
-                        readonly property bool complete: { overview.revision; return Gear.completeKit(overview.run, modelData) }
-                        text: complete ? modelData.title + " ACTIVE · " + modelData.bonus
-                            : modelData.title + " · " + Gear.weapons[modelData.weapon].title + " + "
-                                + Gear.passives[modelData.passive].title + " + " + Gear.activeAbilities[modelData.active].title
-                                + "\nFull kit bonus: " + modelData.bonus
-                        color: complete ? "#ffe47b" : "#bdafc6"
-                        font.pixelSize: Ui.UiMetrics.text(12)
+                        Layout.fillWidth:true
+                        spacing:3
+                        readonly property bool complete:{overview.revision;return Gear.completeKit(overview.run,modelData)}
+                        readonly property var members:{overview.revision;return Gear.kitMembers(overview.run,modelData)}
+                        Detail {
+                            text:kitRow.modelData.title+(kitRow.complete ? " · Active" : "")
+                            color:kitRow.complete ? "#ffe47b" : "#e6cfdc"
+                            font.bold:true
+                            font.pixelSize:Ui.UiMetrics.text(12)
+                        }
+                        Flow {
+                            Layout.fillWidth:true
+                            spacing:8
+                            Repeater {
+                                model:kitRow.members
+                                Text {
+                                    required property var modelData
+                                    objectName:"kitPart-"+modelData.id
+                                    width:Math.min(implicitWidth,parent.width)
+                                    text:modelData.title
+                                    color:modelData.owned ? "#9de8ae" : "#bdafc6"
+                                    font.family:"Inter"
+                                    font.pixelSize:Ui.UiMetrics.text(12)
+                                    wrapMode:Text.Wrap
+                                }
+                            }
+                        }
+                        Detail {
+                            text:kitRow.modelData.bonus
+                            color:kitRow.complete ? "#ffe47b" : "#bdafc6"
+                            font.pixelSize:Ui.UiMetrics.text(12)
+                        }
                     }
                 }
             }

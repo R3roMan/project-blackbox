@@ -35,7 +35,7 @@ ColumnLayout {
 
     Text {
         Layout.fillWidth:true
-        text:"Choose an action and press a key or key combination. Escape cancels recording."
+        text:"Choose an action, then enter a key or mouse combination. Escape cancels recording."
         font.pixelSize:UiMetrics.text(14)
         color:"#d6c5d4"
         wrapMode:Text.Wrap
@@ -118,7 +118,7 @@ ColumnLayout {
                 objectName:"bind-"+row.action.id
                 Layout.fillWidth:true
                 Layout.minimumWidth:0
-                text:row.recording ? "Press a key…" : Controls.label(editor.profile,row.action.id)
+                text:row.recording ? (row.action.pointer ? "Click with any modifiers…" : "Press a key…") : Controls.label(editor.profile,row.action.id)
                 Accessible.name:row.action.title+" · "+text
                 primary:row.recording
                 Keys.priority:Keys.BeforeItem
@@ -128,6 +128,7 @@ ColumnLayout {
                     event.accepted=true
                     if (event.isAutoRepeat) return
                     if (event.key===Qt.Key_Escape) {editor.activeRow="";return}
+                    if (row.action.pointer) return
                     if (Controls.ownModifiers[event.key]) {
                         row.modifierCandidate=event.key
                         return
@@ -140,6 +141,17 @@ ColumnLayout {
                     event.accepted=true
                     row.modifierCandidate=0
                     row.commit(event.key,event.modifiers)
+                }
+                MouseArea {
+                    anchors.fill:parent
+                    enabled:row.recording && !!row.action.pointer
+                    acceptedButtons:Qt.AllButtons
+                    onClicked:function(mouse) {
+                        if (Controls.buttons.includes(mouse.button)) {
+                            editor.update(row.action.id,{button:mouse.button,mods:mouse.modifiers & Controls.modifierMask})
+                            editor.activeRow=""
+                        }
+                    }
                 }
                 onActiveFocusChanged:if (!activeFocus && row.recording) editor.activeRow=""
                 onClicked:{

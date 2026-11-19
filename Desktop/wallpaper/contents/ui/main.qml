@@ -1,7 +1,22 @@
 import QtQuick
 import org.kde.plasma.plasmoid
+import org.kde.plasma.core as PlasmaCore
 WallpaperItem {
     id:wallpaper
+    contextualActions: [
+        PlasmaCore.Action {
+            text:"Play"
+            icon.name:"media-playback-start"
+            visible:runtime.item?.idleActionsAvailable || false
+            onTriggered:Qt.callLater(runtime.item.requestQuickStart)
+        },
+        PlasmaCore.Action {
+            text:"Idle settings"
+            icon.name:"preferences-desktop-wallpaper"
+            visible:runtime.item?.idleActionsAvailable || false
+            onTriggered:Qt.callLater(runtime.item.openIdleSettings)
+        }
+    ]
     // During Play the interactive surface needs to be above the containment's
     // desktop click area. The real panels are separate Plasma windows.
     z:runtime.item?.home && runtime.item.claimed && ["play","idle"].includes(runtime.item.mode) ? 1 : -1

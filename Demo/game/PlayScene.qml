@@ -2497,7 +2497,7 @@ FocusScope {
                     radius: 3
                     Text {
                         anchors.centerIn: parent
-                        text: "SPACE"
+                        text:Controls.label(play.bindings,"shield").toUpperCase()
                         color: "#d8efff"
                         font.family: "IBM Plex Mono"
                         font.pixelSize: Ui.UiMetrics.text(11)
@@ -3020,6 +3020,8 @@ FocusScope {
                             onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
                             Layout.fillWidth:true
                             offer:rewardListing.modelData
+                            run:play.run
+                            revision:play.revision
                             flask:true
                             selected:play.selectedOffer===offer.id
                             compact:play.compactLayout
@@ -3116,7 +3118,7 @@ FocusScope {
                     return play.paused ? "Resume" : play.preparing ? "Begin wave " + play.upcomingStage.wave
                         : "Retry"
                 }
-                Accessible.description: "You can also press Enter."
+                Accessible.description:"You can also press "+Controls.label(play.bindings,"confirm")+"."
                 onClicked: play.mainAction()
             }
             Ui.ActionButton {

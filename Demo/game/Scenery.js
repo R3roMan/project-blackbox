@@ -44,18 +44,38 @@ function idleLighting(elapsedSeconds, minutes) {
     return {phase:idlePhases[step%idlePhases.length],step:step,solarTime:(elapsed%duration)/duration*240}
 }
 
-// Roll one forecast at each lighting change and share it across every room.
+function idleEffect(step,seed,origin,duration) {
+    const roll=Conditions.roll(step,seed,0x276f821d)
+    const month=new Date(origin+step*duration).getMonth()
+    const cold=[11,0,1].includes(month)
+    const phase=idlePhases[step%idlePhases.length]
+    return roll<.30 ? "clear" : roll<.47 ? "cloudy" : roll<.60 ? "rain"
+        : roll<.66 ? "thunder" : roll<.79 ? "fog" : roll<.88 ? "windy"
+        : cold ? "winter" : phase==="night" ? "windy" : "heatwave"
+}
+
+// Evaluate the stretch of weather since the last clear phase, so consecutive
+// effects differ and every room can recover the same forecast without saved state.
 function idleWeather(date,elapsedSeconds,minutes) {
     const elapsed=Math.max(0,elapsedSeconds || 0)
     const origin=date.getTime()-elapsed*1000
     const seed=Math.round(origin/1000)>>>0
     const light=idleLighting(elapsed,minutes)
-    const month=new Date(origin + light.step*Math.max(1,minutes || 10)*60000).getMonth()
-    const cold=[11,0,1].includes(month)
-    const roll=Conditions.roll(light.step,seed,0x276f821d)
-    const weather=roll<.30 ? "clear" : roll<.47 ? "cloudy" : roll<.60 ? "rain"
-        : roll<.66 ? "thunder" : roll<.79 ? "fog" : roll<.88 ? "windy"
-        : cold ? "winter" : light.phase==="night" ? "windy" : "heatwave"
+    const duration=Math.max(1,minutes || 10)*60000
+    let step=light.step
+    let weather=idleEffect(step,seed,origin,duration)
+    if (weather!=="clear") {
+        while (step>0 && idleEffect(step-1,seed,origin,duration)!=="clear") step--
+        let prior="clear"
+        for (;step<=light.step;step++) {
+            weather=idleEffect(step,seed,origin,duration)
+            if (weather===prior) {
+                const alternatives=["cloudy","rain","thunder","fog","windy"].filter(id=>id!==prior)
+                weather=alternatives[Math.floor(Conditions.roll(step,seed,0x97f4d4cf)*alternatives.length)]
+            }
+            prior=weather
+        }
+    }
     const stage={weather:weather,extraWeather:Conditions.companionWeather(weather,light.step,seed)}
     return {phase:light.phase,solarTime:light.solarTime,weather:weather,
         cloudy:Conditions.hasWeather(weather,stage,"cloudy"),windy:Conditions.hasWeather(weather,stage,"windy"),

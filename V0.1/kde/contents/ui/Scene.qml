@@ -48,6 +48,8 @@ FocusScope {
     property bool clean: false
     property bool externalChrome:false
     property real chromeOpacity:1
+    property real chromeBottom:0
+    property bool buildsOpen:false
     property var navigationKeyHandler:null
     property bool audioDemo: false
     property int demoCpu: 12
@@ -466,8 +468,8 @@ FocusScope {
                 GradientStop { position: 0; color: "#c4080b14" }
                 GradientStop { position: .19; color: "#00080b14" }
                 GradientStop { position: .49; color: "#00080b14" }
-                GradientStop { position: .74; color: "#84080b14" }
-                GradientStop { position: 1; color: "#f5080b14" }
+                GradientStop { position: .74; color: root.externalChrome ? "#00080b14" : "#84080b14" }
+                GradientStop { position: 1; color: root.externalChrome ? "#28080b14" : "#f5080b14" }
             }
         }
 
@@ -518,7 +520,7 @@ FocusScope {
                     onClicked: root.changeMode("performance")
                 }
                 BlackboxButton {
-                    text: "Edit"
+                    text: root.externalChrome ? "Scene editor" : "Edit"
                     objectName: "editButton"
                     compact: root.width < 740
                     onClicked: root.drawerOpen ? root.drawerOpen = false : root.openEditor()
@@ -537,13 +539,14 @@ FocusScope {
         }
 
         ColumnLayout {
+            objectName:"legacySceneDetails"
             anchors.left: parent.left
             anchors.right: directionPad.left
             anchors.bottom: dock.top
             anchors.leftMargin: root.width < 800 ? 14 : 24
             anchors.rightMargin: 16
             anchors.bottomMargin: 15
-            visible: !root.clean && !root.moving
+            visible: !root.externalChrome && !root.clean && !root.moving
             spacing: 8
             z: 1
 
@@ -603,9 +606,9 @@ FocusScope {
         GridLayout {
             id: directionPad
             anchors.right: parent.right
-            anchors.bottom: dock.top
+            anchors.bottom: root.externalChrome ? parent.bottom : dock.top
             anchors.rightMargin: root.width < 800 ? 14 : 24
-            anchors.bottomMargin: 15
+            anchors.bottomMargin: 15+root.chromeBottom
             columns: 3
             rowSpacing: 5
             columnSpacing: 5
@@ -640,7 +643,8 @@ FocusScope {
 
         Rectangle {
             id: dock
-            visible: !root.clean
+            objectName:"legacySceneDock"
+            visible: !root.externalChrome && !root.clean
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
@@ -751,6 +755,7 @@ FocusScope {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.margins: 12
+        anchors.bottomMargin:12+root.chromeBottom
         visible: root.drawerOpen
         color: "#111826"
         border.color: "#414c61"
@@ -778,6 +783,21 @@ FocusScope {
                         Layout.fillWidth: true
                     }
                     BlackboxButton { text: "Done"; objectName: "doneEditing"; compact: true; onClicked: root.drawerOpen = false }
+                }
+
+                BlackboxButton {
+                    text: "Builds"
+                    objectName: "sceneEditorBuilds"
+                    compact: true
+                    selected: root.buildsOpen
+                    onClicked: root.buildsOpen = !root.buildsOpen
+                }
+                Text {
+                    visible:root.buildsOpen
+                    Layout.fillWidth:true
+                    color:"#b4bfd2"
+                    wrapMode:Text.WordWrap
+                    text:"Build and export directories can be linked here when the native build integration is available."
                 }
 
                 Label { text: "Environment"; color: "#c8cfda" }

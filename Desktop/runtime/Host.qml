@@ -101,11 +101,14 @@ FocusScope {
     property bool idleToggleHeld:false
     property bool idleToggleAlone:false
     readonly property var bindings:Controls.read(options.controlBindings)
+    readonly property var quickPointer:Controls.quickPointer(bindings)
+    readonly property bool idleOverlay:bookOpen || vaultOpen || settingsDrawer.visible || !!galleryLoader.item?.drawerOpen
+    readonly property bool idleActionsAvailable:home && claimed && mode==="idle" && !idleOverlay && !quickCount
     readonly property double idleClockOrigin:Date.now()
     property int quickCount:0
     property bool quickQueued:false
     readonly property bool idleKeys:home && claimed && mode==="idle"
-        && !bookOpen && !vaultOpen && !settingsDrawer.visible && !galleryLoader.item?.drawerOpen
+        && !idleOverlay
     Behavior on idleOpacity {NumberAnimation {duration:220;easing.type:Easing.InOutQuad}}
     onIdleKeysChanged:if (!idleKeys) {
         idleToggleHeld=false
@@ -113,6 +116,8 @@ FocusScope {
         quickHold.stop()
         quickStart.stop()
         quickCount=0
+    } else {
+        Qt.callLater(restoreIdleFocus)
     }
     onBindingsChanged:{
         idleToggleHeld=false
@@ -153,18 +158,49 @@ FocusScope {
         idleToggleHeld=false
         if (idleKeys && idleToggleAlone && !quickCount) {
             idleControls=!idleControls
+            restoreIdleFocus()
             report()
         }
         idleToggleAlone=false
     }
+    function restoreIdleFocus() {
+        if (idleKeys) galleryLoader.item?.forceActiveFocus(Qt.MouseFocusReason)
+    }
+    function openIdleSettings() {
+        if (idleActionsAvailable) settingsDrawer.open()
+    }
+    function requestQuickStart() {
+        if (!idleActionsAvailable || !battle.item) return
+        quickHold.stop()
+        idleToggleAlone=false
+        quickCount=3
+        restoreIdleFocus()
+        menuSound.item?.play("takeover-tick",.69)
+        quickStart.start()
+        report()
+    }
     TapHandler {
-        enabled:host.idleKeys && host.idleOpacity<.95 && !host.quickCount
+        enabled:host.idleActionsAvailable
         acceptedButtons:Qt.LeftButton
+        acceptedModifiers:Qt.NoModifier
         gesturePolicy:TapHandler.DragThreshold
         onTapped:{
             host.Window.window?.requestActivate()
-            galleryLoader.item?.forceActiveFocus(Qt.MouseFocusReason)
+            host.restoreIdleFocus()
         }
+    }
+    MouseArea {
+        objectName:"idleQuickPointer"
+        anchors.fill:desktopControls
+        z:20
+        enabled:host.idleActionsAvailable
+        acceptedButtons:host.quickPointer.button
+        preventStealing:true
+        onPressed:function(mouse) {
+            mouse.accepted=(mouse.modifiers & Controls.modifierMask)===host.quickPointer.mods
+            if (mouse.accepted) host.idleToggleAlone=false
+        }
+        onClicked:host.requestQuickStart()
     }
     Shortcut {
         sequences:Controls.sequences(host.bindings,"quickStart");context:Qt.WindowShortcut
@@ -178,12 +214,7 @@ FocusScope {
     }
     Timer {
         id:quickHold;interval:420
-        onTriggered:if (host.idleKeys && battle.item) {
-            host.quickCount=3
-            menuSound.item?.play("takeover-tick",.69)
-            quickStart.start()
-            host.report()
-        }
+        onTriggered:host.requestQuickStart()
     }
     Timer {
         id:quickStart;interval:1000;repeat:true
@@ -251,13 +282,13 @@ FocusScope {
         const game=battle.item,run=game.run
         const actives=run.slots.active.map(function(slot,i){return slot.item ? {title:Gear.activeAbilities[slot.item.id].title,id:slot.item.id,cooldown:Rules.activeCooldown(run,slot.item.id),duration:Rules.abilityRecovery(run,slot)} : {title:"Empty",cooldown:0,duration:1}})
         Native.Desktop.publish({renderer:game.projectedMode ? "2D fallback" : "Qt Quick 3D",
-            idlePhase:galleryLoader.item?.forecast.phase || "",idleWeather:galleryLoader.item?.forecast.weather || "",previewing:game.previewing,canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,idleControls:host.idleControls,countdown:host.quickCount,weapon:Gear.current(run).id,pet:run.pet?.id || "",difficulty:run.difficulty,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
+            idleFront:galleryLoader.item?.liveFront || "",idlePhase:galleryLoader.item?.forecast.phase || "",idleWeather:galleryLoader.item?.forecast.weather || "",previewing:game.previewing,canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,idleControls:host.idleControls,idleChrome:idleQuickBar.visible,idleSettings:settingsDrawer.visible,countdown:host.quickCount,weapon:Gear.current(run).id,pet:run.pet?.id || "",difficulty:run.difficulty,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(home) {
         if (mode==="play" && battle.item) {
             battle.item.keyTargetFocus()
             Qt.callLater(beginQuickBattle)
-        } else galleryLoader.item?.forceActiveFocus()
+        } else restoreIdleFocus()
     }
     property int initialDetail:1
     Component.onCompleted: {initialDetail=options.detail;claimVisible();report()}
@@ -281,10 +312,12 @@ FocusScope {
             exposed:host.home
             enabled:host.home
             focus:host.mode!=="play"
-            mouseLook:host.options.mouseTurns
+            mouseLook:host.options.mouseTurns && host.idleActionsAvailable
+            turnArea:Qt.rect(host.areaLeft,host.areaTop,width-host.areaLeft-host.areaRight,height-host.areaTop-host.areaBottom)
             escapeBack:!host.quickCount
             externalChrome:true
-            chromeOpacity:host.idleOpacity
+            chromeBottom:host.areaBottom
+            chromeOpacity:host.idleOverlay || host.quickCount ? 0 : host.idleOpacity
             controlBindings:host.options.controlBindings
             phaseMinutes:host.options.idlePhaseMinutes
             cycleOrigin:host.idleClockOrigin
@@ -470,14 +503,16 @@ FocusScope {
         }
     }
     Row {
+        id:idleQuickBar
+        objectName:"idleQuickBar"
         anchors.right:parent.right;anchors.top:parent.top;anchors.rightMargin:host.areaRight+14;anchors.topMargin:host.areaTop+70;spacing:6;z:60
         opacity:host.idleOpacity
-        enabled:opacity>.95 && !host.quickCount
-        visible:host.home && !host.bookOpen && !host.vaultOpen && host.mode!=="play" && opacity>0
+        enabled:opacity>.95 && host.idleActionsAvailable
+        visible:host.idleActionsAvailable && opacity>0
         Ui.ActionButton {text:"Back to Play";primary:true;onClicked:Native.Desktop.command("play")}
         Ui.ActionButton {text:"Grimoire";onClicked:host.openBook("enemies","")}
         Ui.ActionButton {text:"Witch’s Vault";onClicked:{careerVault.reload();host.vaultOpen=true}}
-        Ui.ActionButton {text:"Desktop settings";onClicked:settingsDrawer.open()}
+        Ui.ActionButton {text:"Idle settings";onClicked:host.openIdleSettings()}
     }
     Rectangle {
         anchors.horizontalCenter:parent.horizontalCenter;anchors.top:parent.top;anchors.topMargin:20
@@ -512,5 +547,6 @@ FocusScope {
         width:Math.min(620,desktopControls.width)
         height:desktopControls.height
         edge:Qt.RightEdge;z:80
+        onClosed:Qt.callLater(host.restoreIdleFocus)
         DesktopOptions {anchors.fill:parent;onCloseRequested:settingsDrawer.close()}}
 }

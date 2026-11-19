@@ -444,6 +444,21 @@ function kitBonus(run, stat, id) {
     }, 0)
 }
 
+function kitMembers(run,kit) {
+    return ["weapon","passive","active"].map(function(group) {
+        const item=catalogs[group][kit[group]]
+        return {id:item.id,group:group,title:item.title,owned:!!ownedItem(run,group,item.id)}
+    })
+}
+
+function kitOwnership(run,group,id) {
+    if (!run) return ""
+    return kits.filter(kit=>kit[group]===id).map(function(kit) {
+        const other=kitMembers(run,kit).filter(part=>part.group!==group && part.owned)
+        return other.length ? kit.title+" · You own "+other.map(part=>part.title).join(" + ") : ""
+    }).filter(Boolean).join("\n")
+}
+
 function completeKit(run, kit) {
     return !!kit && Object.keys(limits).every(function(group) { return findSlot(run, group, kit[group]) >= 0 })
 }
@@ -1384,12 +1399,16 @@ function itemDetails(run,group,item) {
         if (spec.element) lines.push(Elements.kinds[spec.element].title+" "+stats.elementLevel)
     } else lines.push("Effective passive rank "+(run ? passiveRank(run,item.id) : 1+Number(level>=1)+Number(level>=3)*2))
     if (level) lines.push("Latest upgrade: "+upgradeText(spec,level))
+    const owned=kitOwnership(run,group,item.id)
+    if (owned) lines.push(owned)
     return lines.join("\n")
 }
 
-function offerDetails(offer) {
+function offerDetails(offer,run) {
     const group=groupOf(offer)
-    return catalogs[group]?.[offer.id] ? itemDetails(null,group,{id:offer.id,level:offer.upgradeLevel || 0}) : offer.description
+    if (!catalogs[group]?.[offer.id]) return offer.description
+    return [itemDetails(null,group,{id:offer.id,level:offer.upgradeLevel || 0}),
+        kitOwnership(run,group,offer.id)].filter(Boolean).join("\n")
 }
 
 var activeImpacts={shock:[5,1.5],sunfall:[8.25,2.3],immolate:[3.3,1],stormcall:[9,1.8],searingmark:[1.5,1],

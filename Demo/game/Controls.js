@@ -22,7 +22,8 @@ var keyboard = [
 ]
 var desktop = [
     {id:"idleControls",title:"Show or hide Idle controls",keys:[Qt.Key_Control]},
-    {id:"quickStart",title:"Hold to start a Normal run",keys:[Qt.Key_Space],mods:Qt.ControlModifier}
+    {id:"quickMouse",title:"Quick start mouse shortcut",pointer:true,button:Qt.LeftButton,mods:Qt.ControlModifier},
+    {id:"quickStart",title:"Quick start keyboard shortcut (hold)",keys:[Qt.Key_Space],mods:Qt.ControlModifier}
 ]
 var navigation = ["left","right","up","down"]
 var buttons = [Qt.LeftButton,Qt.RightButton,Qt.MiddleButton,Qt.BackButton,Qt.ForwardButton]
@@ -40,9 +41,10 @@ function definition(id) {
 }
 
 function binding(profile,id) {
+    const entry=definition(id)
+    if (entry?.pointer) return []
     const value=profile?.[id]
     if (value) return [value]
-    const entry=definition(id)
     return entry ? entry.keys.map(key=>({key:key,mods:entry.mods || 0})) : []
 }
 
@@ -78,18 +80,25 @@ function keyName(key) {
     return ""
 }
 
+function quickPointer(profile) {
+    const entry=definition("quickMouse")
+    return profile?.quickMouse || {button:entry.button,mods:entry.mods}
+}
+
 function sequence(chord) {
     const keys=[]
     if (chord.mods & Qt.ControlModifier) keys.push("Ctrl")
     if (chord.mods & Qt.AltModifier) keys.push("Alt")
     if (chord.mods & Qt.ShiftModifier) keys.push("Shift")
     if (chord.mods & Qt.MetaModifier) keys.push("Meta")
-    keys.push(keyName(chord.key))
+    keys.push(chord.button ? buttonNames[buttons.indexOf(chord.button)] : keyName(chord.key))
     return keys.join("+")
 }
 
 function sequences(profile,id) {return binding(profile,id).map(sequence)}
-function label(profile,id) {return sequences(profile,id).join(" / ") || "Unassigned"}
+function label(profile,id) {
+    return id==="quickMouse" ? sequence(quickPointer(profile)) : sequences(profile,id).join(" / ") || "Unassigned"
+}
 
 function conflict(profile,id,chord) {
     const inIdle=desktop.some(entry=>entry.id===id)
@@ -111,6 +120,9 @@ function valid(payload) {
             const item=data[id]
             if (id==="mouseFire" || id==="mouseReload") {
                 if (!buttons.includes(item)) return false
+            } else if (id==="quickMouse") {
+                if (!item || !buttons.includes(item.button) || !Number.isInteger(item.mods) || (item.mods & modifierMask)!==item.mods)
+                    return false
             } else if (!definition(id) || !item || !Number.isInteger(item.key) || !keyName(item.key)
                 || !Number.isInteger(item.mods) || item.mods!==normalizeModifiers(item.key,item.mods)
                 || conflict(data,id,item)) return false

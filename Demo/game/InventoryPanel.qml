@@ -95,8 +95,11 @@ ColumnLayout {
                 onEntryRequested:function(chapter,id) { inventory.entryRequested(chapter,id) }
                 hintStats: hovered && entry && entry.group==="weapon"
                     ? Gear.weaponComparison(inventory.run,Gear.current(inventory.run),entry.item) : []
-                hintText: storage.spec ? storage.text + " · " + Gear.groupLabels[storage.entry.group]
-                    + "\n" + Gear.itemDetails(inventory.run,storage.entry.group,storage.entry.item) : ""
+                hintText:{
+                    inventory.revision
+                    return storage.spec ? storage.text+" · "+Gear.groupLabels[storage.entry.group]
+                        +"\n"+Gear.itemDetails(inventory.run,storage.entry.group,storage.entry.item) : ""
+                }
                 z: dragGear.dragging ? 10 : 0
                 onClicked: {
                     if (!inventory.editable)

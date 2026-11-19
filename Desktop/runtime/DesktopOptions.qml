@@ -69,7 +69,11 @@ Item {
             contentWidth:availableWidth
             contentHeight:body.height
             ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
-            ScrollBar.vertical.policy:ScrollBar.AsNeeded
+            ScrollBar.vertical:ScrollBar {
+                id:scrollBar
+                policy:ScrollBar.AsNeeded
+                contentItem:Rectangle {implicitWidth:6;radius:3;color:scrollBar.pressed ? "#ffc398" : "#8e6b83"}
+            }
             Item {
                 id:body
                 width:scroller.availableWidth
@@ -109,6 +113,19 @@ Item {
             id:control
             Accessible.name:caption.text
             onClicked:parent.toggled(checked)
+            indicator:Rectangle {
+                implicitWidth:44;implicitHeight:25;radius:height/2
+                x:control.leftPadding;y:(control.height-height)/2
+                color:control.checked ? "#a4695e" : "#382a3b"
+                border.color:control.visualFocus ? settings.accent : "#806279"
+                Rectangle {
+                    x:control.checked ? parent.width-width-3 : 3
+                    anchors.verticalCenter:parent.verticalCenter
+                    width:17;height:17;radius:height/2
+                    color:control.checked ? "#ffe3c7" : "#c4b6c9"
+                    Behavior on x {NumberAnimation {duration:140}}
+                }
+            }
         }
     }
     component Select: ComboBox {
@@ -119,6 +136,12 @@ Item {
         implicitHeight:Math.max(42,selection.implicitHeight+12)
         popup.popupType:Popup.Item
         popup.width:select.width
+        indicator:Text {
+            x:select.width-width-12
+            anchors.verticalCenter:parent.verticalCenter
+            text:select.popup.visible ? "▴" : "▾"
+            color:settings.accent;font.pixelSize:Ui.UiMetrics.text(15)
+        }
         popup.background:Rectangle {radius:5;color:"#211924";border.color:"#806279"}
         contentItem:Text {
             id:selection
@@ -141,6 +164,27 @@ Item {
         }
     }
 
+    component NumberField:SpinBox {
+        id:number
+        Layout.fillWidth:true
+        implicitHeight:42
+        editable:true
+        palette.base:"#2b2130"
+        palette.text:settings.foreground
+        contentItem:TextInput {
+            text:number.textFromValue(number.value,number.locale)
+            font:number.font
+            color:settings.foreground
+            selectionColor:"#996d86"
+            horizontalAlignment:Qt.AlignHCenter
+            verticalAlignment:Qt.AlignVCenter
+            readOnly:!number.editable
+            validator:number.validator
+            inputMethodHints:number.inputMethodHints
+        }
+        background:Rectangle {radius:5;color:"#2b2130";border.color:number.activeFocus ? settings.accent : "#806279"}
+    }
+
     Component {
         id:desktopPage
         Stack {
@@ -152,10 +196,10 @@ Item {
                 onActivated:settings.set("mode",currentIndex ? "play" : "idle")
             }
             Copy {text:"Minutes per Idle lighting phase"}
-            SpinBox {
+            NumberField {
                 objectName:"idlePhaseMinutes"
                 Layout.fillWidth:true
-                from:1;to:120;editable:true
+                from:1;to:120
                 value:settings.options.idlePhaseMinutes
                 onValueModified:settings.set("idlePhaseMinutes",value)
             }
@@ -209,7 +253,7 @@ Item {
                 text:"Save the run and restart the preview or reload the wallpaper to fully apply the graphics preset."
             }
             Copy {text:"Frame limit"}
-            SpinBox {Layout.fillWidth:true;from:20;to:240;editable:true;value:settings.options.frameLimit;onValueModified:settings.set("frameLimit",value)}
+            NumberField {from:20;to:240;value:settings.options.frameLimit;onValueModified:settings.set("frameLimit",value)}
             Toggle {text:"Animation";checked:settings.options.motion;onToggled:value=>settings.set("motion",value)}
             Toggle {text:"Adapt graphics to GPU load";checked:settings.options.gpuEffects;onToggled:value=>settings.set("gpuEffects",value)}
             Title {text:"Accessibility"}

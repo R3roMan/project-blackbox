@@ -116,10 +116,13 @@ RowLayout {
                         entryChapter:spec ? (track.group==="weapon" ? "weapons" : "abilities") : "shop"
                         entryId:spec ? (spec.debugOnly ? "" : spec.id) : power.id || ""
                         onEntryRequested:function(chapter,id) { grid.entryRequested(chapter,id) }
-                        hintText: (grid.offerId.length && spec ? "Replace " : "") + text
+                        hintText:{
+                            grid.revision
+                            return (grid.offerId.length && spec ? "Replace " : "") + text
                             + (power.title ? "\nSlot effect · " + power.title + " · Lv " + power.level + "\n" + power.description
                                 +(powerLive ? "\nActive with this build." : "\nWaiting for a compatible build.") : "")
-                            + (spec ? "\n" + Gear.itemDetails(grid.run,track.group,item) : "")
+                                + (spec ? "\n" + Gear.itemDetails(grid.run,track.group,item) : "")
+                        }
                         onClicked: grid.select(track.group, index)
                         contentItem: ColumnLayout {
                             spacing: 2

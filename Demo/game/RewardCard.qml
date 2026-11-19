@@ -9,6 +9,8 @@ Ui.ActionButton {
     id: card
 
     required property var offer
+    property var run:null
+    property int revision:0
     property bool animate: true
     property bool selected: false
     property bool compact: false
@@ -28,9 +30,12 @@ Ui.ActionButton {
     hintDelay: 420
     entryChapter:offer.category==="Weapon" ? "weapons" : "abilities"
     entryId:["Weapon","Active","Passive"].includes(offer.category) ? offer.id : ""
-    hintText: offer.title + "\n" + Gear.offerDetails(offer)
-        + (offer.upgradeLevel ? "\nLv " + offer.upgradeLevel + " · " + offer.upgradeEffect : "")
-        + (offer.hint ? "\n" + offer.hint : "")
+    hintText:{
+        revision
+        return offer.title + "\n" + Gear.offerDetails(offer,run)
+            + (offer.upgradeLevel ? "\nLv " + offer.upgradeLevel + " · " + offer.upgradeEffect : "")
+            + (offer.hint ? "\n" + offer.hint : "")
+    }
     text: offer.title
     Accessible.description: [tier ? tier.label : "", offer.category, offer.description].join(" ").trim()
 
