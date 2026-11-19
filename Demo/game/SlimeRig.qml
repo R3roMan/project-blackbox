@@ -19,8 +19,11 @@ Node {
     readonly property real jiggle: motion ? Math.sin(age * 7) : 0
     readonly property real heave: motion ? Math.sin(age * 4) : .15
 
-    PrincipledMaterial {
+    LitSurface {
         id: flesh
+        surfaces:slime.surfaces
+        finish:"bone"
+        normalStrength:.27
         baseColor: slime.skin
         roughness: .23
         specularAmount: .78
@@ -34,8 +37,8 @@ Node {
     PrincipledMaterial { id: darkness; baseColor: "#171e0a"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: pupil; baseColor: "#21140c"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: glow; baseColor: slime.accent; lighting: PrincipledMaterial.NoLighting }
-    PrincipledMaterial { id: teeth; baseColor: "#d4c58a"; roughness: .52 }
-    LitSurface { surfaces:slime.surfaces; finish:"hide"; id:horn; baseColor: "#62522e"; roughness: .60 }
+    LitSurface {surfaces:slime.surfaces; finish:"bone"; id:teeth; baseColor:"#d4c58a"; roughness:.52}
+    LitSurface {surfaces:slime.surfaces; finish:"horn"; id:horn; baseColor:"#62522e"; roughness:.60}
 
     Model {
         source: "#Sphere"

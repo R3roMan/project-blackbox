@@ -15,7 +15,7 @@ View3D {
     renderMode: View3D.Offscreen
     explicitTextureWidth: Math.max(1,Math.round(Math.min(1550,width*Screen.devicePixelRatio)))
     explicitTextureHeight: Math.max(1,Math.round(explicitTextureWidth*height/Math.max(1,width)))
-    SurfaceSet {id:shopSurface; detailed:counter.detail===3; organic:false; bone:true; timber:true}
+    SurfaceSet {id:shopSurface; detailed:counter.detail===3; organic:false; bone:true; timber:true; grainAngle:90}
     environment: SceneEnvironment {
         backgroundMode: SceneEnvironment.Transparent
         antialiasingMode: SceneEnvironment.MSAA

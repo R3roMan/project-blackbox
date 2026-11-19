@@ -15,7 +15,7 @@ Node {
     LitSurface { surfaces:rig.surfaces; finish:"hide"; id:scales; baseColor: "#263b31"; roughness: .67; metalness: .22 }
     LitSurface { surfaces:rig.surfaces; finish:"hide"; id:ridge; baseColor: "#597059"; roughness: .76 }
     LitSurface { surfaces:rig.surfaces; finish:"hide"; id:hood; baseColor: "#17281e"; roughness: .56 }
-    PrincipledMaterial { id: fangs; baseColor: "#d6d3ac"; roughness: .42 }
+    LitSurface {surfaces:rig.surfaces; finish:"bone"; id:fangs; baseColor:"#d6d3ac"; roughness:.42}
     PrincipledMaterial {
         id: eyes
         baseColor: rig.charging ? "#f0ddff" : "#b4fd6f"

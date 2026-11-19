@@ -18,19 +18,22 @@ def wrinkles(frequency, wash):
             + np.cos(TAU * (Y * (frequency + 1) - X * 3) + np.sin(TAU * X * 5) * wash)) * .5
 
 
-def rgb(path, channels):
+def rgb(path, channels, size=SIZE):
     values = np.stack(channels, -1).clip(0, 1)
-    Image.fromarray(np.round(values * 255).astype("uint8")).save(DEST / path, lossless=True, method=6)
+    image = Image.fromarray(np.round(values * 255).astype("uint8"))
+    if size != SIZE:
+        image = image.resize((size, size), Image.Resampling.LANCZOS)
+    image.save(DEST / path, lossless=True, method=6)
 
 
-def maps(name, height, strength, roughness, reflectance):
+def maps(name, height, strength, roughness, reflectance, size=SIZE):
     dx = np.roll(height, 1, axis=1) - np.roll(height, -1, axis=1)
     dy = np.roll(height, -1, axis=0) - np.roll(height, 1, axis=0)
     dx *= strength
     dy *= strength
     length = np.sqrt(1 + dx**2 + dy**2)
-    rgb(name + "-normal.webp", (.5 + .5 * dx / length, .5 + .5 * dy / length, .5 + .5 / length))
-    rgb(name + "-surface.webp", (.73 + .27 * height, roughness, reflectance))
+    rgb(name + "-normal.webp", (.5 + .5 * dx / length, .5 + .5 * dy / length, .5 + .5 / length), size)
+    rgb(name + "-surface.webp", (.73 + .27 * height, roughness, reflectance), size)
 
 
 def reptile():
@@ -86,16 +89,16 @@ def horn():
     rings = np.cos(TAU*Y*17 + .44*wrinkles(6,1.9))**4
     weathering = wrinkles(80,.9)
     height = (.53 + .071*flutes - .087*rings + .03*weathering).clip(0,1)
-    maps("horn", height, 7.7, .47+.18*rings+.10*weathering, .72+.23*height)
+    maps("horn", height, 7.7, .47+.18*rings+.10*weathering, .72+.23*height, 512)
     tint = .91 - .22*rings - .085*flutes - .18*Y + .045*weathering
-    rgb("horn-color.webp",(tint,tint*.97,tint*.94))
+    rgb("horn-color.webp",(tint,tint*.97,tint*.94),512)
 
 
 def bone():
     pores = np.maximum(0, RNG.random(X.shape)-.92)
     fissures = np.maximum(0, wrinkles(71,2.3)-.63)
     height = (.72 + .11*wrinkles(11,1.7) - .10*fissures - .65*pores).clip(0,1)
-    maps("bone", height, 4.8, .32+.29*(1-height)+.63*pores, .82+.14*height)
+    maps("bone", height, 4.8, .32+.29*(1-height)+.63*pores, .82+.14*height, 512)
 
 
 def timber():
@@ -109,8 +112,17 @@ def timber():
     coarse = .5+.5*coarse
     height = (.30+.28*coarse+.068*fibres+.059*wrinkles(13,1.1)).clip(0,1)
     maps("wood", height, 5.9, .67-.25*coarse+.07*fibres, .75+.20*height)
-    tint = .61+.34*coarse+.10*fibres
+    tint = .54+.38*coarse+.10*fibres
     rgb("wood-color.webp",(tint,tint*.94,tint*.85))
+
+
+def stone():
+    mineral = wrinkles(34,4.4)*.14 + wrinkles(91,2.5)*.067
+    seam = wrinkles(12,3.6)+wrinkles(17,5.1)*.48
+    grooves = np.exp(-(seam / .049)**2) * (.48+.44*wrinkles(9,2.4))
+    pits = np.maximum(0,RNG.random(X.shape)-.84)
+    height = (.55+mineral-.26*grooves-.38*pits).clip(0,1)
+    maps("stone",height,6.4,.69+.19*grooves-mineral*.22,.77+height*.14,512)
 
 
 def probe():
@@ -144,4 +156,5 @@ if __name__ == "__main__":
     horn()
     bone()
     timber()
+    stone()
     probe()

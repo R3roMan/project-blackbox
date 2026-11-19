@@ -20,7 +20,7 @@ Node {
 
     LitSurface { surfaces:figure.surfaces; finish:"weave"; id:robe; baseColor: figure.skin; roughness: .82 }
     LitSurface { surfaces:figure.surfaces; finish:"weave"; id:seam; baseColor: figure.fallenBoss ? "#efa962" : "#c9c6c9"; roughness: .56; metalness: figure.fallenBoss ? .64 : 0 }
-    LitSurface { surfaces:figure.surfaces; finish:"bone"; id:carbon; baseColor:"#15121c"; roughness:.68 }
+    LitSurface { surfaces:figure.surfaces; finish:figure.kind==="jos" ? "stone" : "bone"; id:carbon; baseColor:"#15121c"; roughness:.68 }
     PrincipledMaterial { id: gleam; baseColor: figure.glow; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: bloodlight; baseColor: "#fb446c"; lighting: PrincipledMaterial.NoLighting }
     PrincipledMaterial { id: tears; baseColor: "#86b2cc"; metalness: .27; roughness: .20 }

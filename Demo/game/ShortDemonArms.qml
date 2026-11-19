@@ -7,10 +7,11 @@ Node {
     required property color skin
     required property real clock
     required property real strike
-    PrincipledMaterial {id:flesh; baseColor:Qt.lighter(arms.skin,1.22); roughness:.74}
-    PrincipledMaterial {id:knuckle; baseColor:Qt.darker(arms.skin,1.12); roughness:.64}
-    PrincipledMaterial {id:ridge; baseColor:Qt.lighter(arms.skin,1.48); roughness:.62}
-    PrincipledMaterial {id:nail; baseColor:"#bdaa97"; roughness:.64}
+    property var surfaces:null
+    LitSurface {surfaces:arms.surfaces; id:flesh; baseColor:Qt.lighter(arms.skin,1.22); roughness:.80}
+    LitSurface {surfaces:arms.surfaces; id:knuckle; baseColor:Qt.darker(arms.skin,1.12); roughness:.72}
+    LitSurface {surfaces:arms.surfaces; id:ridge; baseColor:Qt.lighter(arms.skin,1.48); roughness:.68}
+    LitSurface {surfaces:arms.surfaces; finish:"bone"; id:nail; baseColor:"#bdaa97"; roughness:.64}
 
     Repeater3D {
         model:[-1,1]

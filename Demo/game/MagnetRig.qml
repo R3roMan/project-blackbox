@@ -8,9 +8,10 @@ Node {
     required property bool warning
     required property real clock
 
-    PrincipledMaterial { id: silver; baseColor: "#c5c6ce"; metalness: .79; roughness: .31 }
-    PrincipledMaterial { id: graphite; baseColor: "#272733"; metalness: .66; roughness: .41 }
-    PrincipledMaterial { id: coil; baseColor: "#8d54c7"; metalness: .47; roughness: .34 }
+    property var surfaces:null
+    LitSurface {surfaces:rig.surfaces; finish:"steel"; id:silver; baseColor:"#c5c6ce"; metalness:.79; roughness:.31}
+    LitSurface {surfaces:rig.surfaces; finish:"steel"; id:graphite; baseColor:"#272733"; metalness:.66; roughness:.41}
+    LitSurface {surfaces:rig.surfaces; finish:"steel"; id:coil; baseColor:"#8d54c7"; metalness:.47; roughness:.34}
     PrincipledMaterial {
         id: charge
         baseColor: rig.warning ? "#fff5ff" : "#d5a6ff"

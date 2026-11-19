@@ -121,7 +121,7 @@ In 0.4.3, sound effects use a bounded pool of Qt media players. Rain stops when 
 
 Ordinary night still darkens the edges of the screen. It leaves accuracy at the normal 5% miss chance. Inflicted Blindness adds miss penalties of 3%, 8% and 15% by level. Blood Moon Night applies level II.
 
-Ultra adds separate surface maps for skin, wing membranes, horns, bone, metal, fabric and wood. Regenerate the maps with `python Demo/tools/make-surfaces.py` using NumPy and Pillow.
+Ultra adds separate surface maps for skin, wing membranes, horns, bone, metal, fabric, stone and wood. Regenerate the maps with `python Demo/tools/make-surfaces.py` using NumPy and Pillow.
 
 ## Learn your way around the source
 

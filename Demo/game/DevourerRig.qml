@@ -14,9 +14,9 @@ Node {
     LitSurface { surfaces:rig.surfaces; finish:"hide"; id:hide; baseColor: rig.hurt ? "#7d4c51" : "#513c40"; roughness: .86 }
     LitSurface { surfaces:rig.surfaces; finish:"weave"; id:fur; baseColor: "#2a262a"; roughness: 1 }
     LitSurface { surfaces:rig.surfaces; finish:"weave"; id:hair; baseColor: "#413238"; roughness: 1 }
-    PrincipledMaterial { id: gums; baseColor: "#621d34"; roughness: .47 }
+    LitSurface {surfaces:rig.surfaces; finish:"bone"; id:gums; baseColor:"#621d34"; roughness:.47}
     PrincipledMaterial { id: pit; baseColor: "#210912"; lighting: PrincipledMaterial.NoLighting }
-    PrincipledMaterial { id: tooth; baseColor: "#e0bd88"; roughness: .53 }
+    LitSurface {surfaces:rig.surfaces; finish:"bone"; id:tooth; baseColor:"#e0bd88"; roughness:.53}
     PrincipledMaterial {
         id: gaze
         baseColor: rig.healing > 0 ? "#b5f489" : "#ffcc91"

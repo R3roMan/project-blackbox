@@ -9,23 +9,26 @@ Node {
     required property real bite
     property int style:0
     property bool simplified:false
+    property var surfaces:null
     objectName:"bellyMaw"
     readonly property real wide:style===2 ? 44 : style===1 ? 42 : 43
     readonly property real tall:(style===2 ? 27 : style===1 ? 39 : 34)+bite*12
     readonly property real flex:Math.sin(clock*6.1)*.66
     readonly property int teeth:simplified ? 11 : style===1 ? 27 : 23
 
-    PrincipledMaterial {
+    LitSurface {
         id:gum
+        surfaces:maw.surfaces; finish:"bone"
+        normalStrength:.23
         baseColor:maw.style===1 ? "#693244" : maw.style===2 ? "#803b53" : Qt.darker(maw.hide,1.39)
         metalness:.05
         roughness:.28
     }
     PrincipledMaterial {id:throat; baseColor:"#1a0714"; lighting:PrincipledMaterial.NoLighting}
-    PrincipledMaterial {id:enamel; baseColor:"#efd3a8"; roughness:.47}
-    PrincipledMaterial {id:lip; baseColor:maw.style===1 ? "#c26868" : Qt.lighter(maw.hide,1.30); roughness:.58}
-    PrincipledMaterial {id:tongue; baseColor:maw.style===1 ? "#a73e79" : "#df586b"; roughness:.22}
-    PrincipledMaterial {id:crease; baseColor:"#8f294b"; roughness:.34}
+    LitSurface {surfaces:maw.surfaces; finish:"bone"; id:enamel; baseColor:"#efd3a8"; roughness:.47}
+    LitSurface {surfaces:maw.surfaces; id:lip; baseColor:maw.style===1 ? "#c26868" : Qt.lighter(maw.hide,1.30); roughness:.58}
+    LitSurface {surfaces:maw.surfaces; finish:"bone"; id:tongue; baseColor:maw.style===1 ? "#a73e79" : "#df586b"; roughness:.35}
+    LitSurface {surfaces:maw.surfaces; finish:"bone"; id:crease; baseColor:"#8f294b"; roughness:.40}
 
     Model {
         source:"#Sphere"

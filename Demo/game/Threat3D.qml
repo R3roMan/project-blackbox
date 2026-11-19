@@ -260,6 +260,7 @@ Node {
             Loader3D {
                 active: !!actor.creature.triad
                 sourceComponent: MagnetRig {
+                    surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     warning: actor.warning
@@ -279,6 +280,7 @@ Node {
             Loader3D {
                 active: !!actor.creature.sniper
                 sourceComponent: FetaRig {
+                    surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     clock: actor.animate ? actor.age : 0
@@ -353,6 +355,7 @@ Node {
             Loader3D {
                 active: actor.shade || actor.meteor || actor.saucer || actor.ninja || actor.ice || actor.enemy.type === "gendoustagus"
                 sourceComponent: CreatureDetails {
+                    surfaces:actor.surfaces
                     kind: actor.enemy.type
                     targetId: actor.enemy.id
                     skin: actor.creature.skin
@@ -486,6 +489,7 @@ Node {
                     y:-15
                     z:44
                     sourceComponent:BellyMaw {
+                        surfaces:actor.surfaces
                         hide:actor.creature.skin
                         clock:actor.animate ? actor.age : 0
                         bite:Math.min(1,actor.jawOpen*1.6)
@@ -496,6 +500,7 @@ Node {
                 Loader3D {
                     active:actor.creature.origin==="Hellborne" && !actor.dragon && !actor.ninja
                     sourceComponent:ShortDemonArms {
+                        surfaces:actor.surfaces
                         skin:actor.creature.skin
                         clock:actor.animate ? actor.age : 0
                         strike:actor.strike

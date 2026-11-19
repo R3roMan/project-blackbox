@@ -9,9 +9,10 @@ Node {
     required property bool aiming
     required property real recoil
 
-    PrincipledMaterial { id: alloy; baseColor: "#526078"; metalness: .76; roughness: .38 }
-    PrincipledMaterial { id: dark; baseColor: "#182334"; roughness: .64 }
-    PrincipledMaterial { id: wire; baseColor: "#f2a263"; metalness: .50; roughness: .37 }
+    property var surfaces:null
+    LitSurface {surfaces:rig.surfaces; finish:"steel"; id:alloy; baseColor:"#526078"; metalness:.76; roughness:.38}
+    LitSurface {surfaces:rig.surfaces; finish:"steel"; id:dark; baseColor:"#182334"; roughness:.64}
+    LitSurface {surfaces:rig.surfaces; finish:"steel"; id:wire; baseColor:"#f2a263"; metalness:.50; roughness:.37}
     PrincipledMaterial {
         id: optic
         baseColor: rig.aiming ? "#fff0ba" : "#ff635a"

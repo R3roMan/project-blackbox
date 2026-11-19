@@ -8,6 +8,7 @@ Node {
     property bool woven:true
     property bool bone:organic
     property bool timber:false
+    property real grainAngle:0
 
     property alias hideNormal:hideN
     property alias hideFinish:hideR
@@ -23,6 +24,8 @@ Node {
     property alias hornColor:hornC
     property alias boneNormal:boneN
     property alias boneFinish:boneR
+    property alias stoneNormal:stoneN
+    property alias stoneFinish:stoneR
     property alias woodNormal:woodN
     property alias woodFinish:woodR
     property alias woodColor:woodC
@@ -51,8 +54,10 @@ Node {
     Map {id:hornC;source:surfaces.detailed && surfaces.organic ? "../assets/surfaces/horn-color.webp" : ""}
     Map {id:boneN;source:surfaces.detailed && surfaces.bone ? "../assets/surfaces/bone-normal.webp" : ""}
     Map {id:boneR;source:surfaces.detailed && surfaces.bone ? "../assets/surfaces/bone-surface.webp" : ""}
-    Map {id:woodN;source:surfaces.detailed && surfaces.timber ? "../assets/surfaces/wood-normal.webp" : ""}
-    Map {id:woodR;source:surfaces.detailed && surfaces.timber ? "../assets/surfaces/wood-surface.webp" : ""}
-    Map {id:woodC;source:surfaces.detailed && surfaces.timber ? "../assets/surfaces/wood-color.webp" : ""}
+    Map {id:stoneN;source:surfaces.detailed && surfaces.organic ? "../assets/surfaces/stone-normal.webp" : ""}
+    Map {id:stoneR;source:surfaces.detailed && surfaces.organic ? "../assets/surfaces/stone-surface.webp" : ""}
+    Map {id:woodN;source:surfaces.detailed && surfaces.timber ? "../assets/surfaces/wood-normal.webp" : ""; rotationUV:surfaces.grainAngle}
+    Map {id:woodR;source:surfaces.detailed && surfaces.timber ? "../assets/surfaces/wood-surface.webp" : ""; rotationUV:surfaces.grainAngle}
+    Map {id:woodC;source:surfaces.detailed && surfaces.timber ? "../assets/surfaces/wood-color.webp" : ""; rotationUV:surfaces.grainAngle}
     Texture {id:studio;source:surfaces.detailed ? "../assets/surfaces/sky-light.hdr" : ""}
 }

@@ -12,17 +12,18 @@ Node {
     required property bool live
     required property bool anger
     property bool animate: true
+    property var surfaces:null
 
-    PrincipledMaterial { id: body; baseColor: figure.skin; roughness: .62 }
+    LitSurface {surfaces:figure.surfaces; id:body; baseColor:figure.skin; roughness:.62}
     PrincipledMaterial {
         id: light
         baseColor: figure.anger ? "#ff4d63" : figure.accent
         lighting: PrincipledMaterial.NoLighting
     }
-    PrincipledMaterial { id: voidSkin; baseColor: "#171023"; roughness: .86 }
-    PrincipledMaterial { id: whiteFur; baseColor: figure.anger ? "#ffe3eb" : "#e8f7fa"; roughness: .94 }
-    PrincipledMaterial { id: silver; baseColor: "#d8e7f2"; metalness: .84; roughness: .24 }
-    PrincipledMaterial { id: stone; baseColor: "#4a2d37"; roughness: .88 }
+    LitSurface {surfaces:figure.surfaces; id:voidSkin; baseColor:"#171023"; roughness:.86}
+    LitSurface {surfaces:figure.surfaces; finish:"weave"; id:whiteFur; baseColor:figure.anger ? "#ffe3eb" : "#e8f7fa"; roughness:.94}
+    LitSurface {surfaces:figure.surfaces; finish:"steel"; id:silver; baseColor:"#d8e7f2"; metalness:.84; roughness:.24}
+    LitSurface {surfaces:figure.surfaces; finish:"stone"; id:stone; baseColor:"#4a2d37"; roughness:.88}
     PrincipledMaterial { id: embers; baseColor: "#ff6b36"; lighting: PrincipledMaterial.NoLighting }
 
     Loader3D {
