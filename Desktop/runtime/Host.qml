@@ -128,6 +128,10 @@ FocusScope {
                 galleryLoader.item?.leaveEdge()
             }
         }
+        function onIdlePointerMoved(x,y) {
+            const point=host.mapFromItem(null,x,y)
+            host.trackIdleEdge(point.x,point.y)
+        }
     }
     Behavior on idleOpacity {NumberAnimation {duration:220;easing.type:Easing.InOutQuad}}
     onIdleKeysChanged:if (!idleKeys) {
@@ -191,6 +195,11 @@ FocusScope {
     function restoreIdleFocus() {
         if (idleKeys) galleryLoader.item?.forceActiveFocus(Qt.MouseFocusReason)
     }
+    function trackIdleEdge(x,y) {
+        if (idlePointerHeld || !idleActionsAvailable || !options.mouseTurns) return
+        if (Math.min(x-areaLeft,y-areaTop,width-areaRight-x,height-areaBottom-y)>28) idleEdgeArmed=true
+        if (idleEdgeArmed) galleryLoader.item?.trackEdge(Qt.point(x,y))
+    }
     function openIdleSettings() {
         if (idleActionsAvailable) settingsDrawer.open()
     }
@@ -228,7 +237,7 @@ FocusScope {
             width:parent.width-host.areaLeft-host.areaRight
             height:parent.height-host.areaTop-host.areaBottom
             enabled:host.idleActionsAvailable
-            hoverEnabled:enabled && host.options.mouseTurns
+            hoverEnabled:enabled && !host.idleWatch && host.options.mouseTurns
             acceptedButtons:host.quickPointer.button
             preventStealing:true
             onPressed:function(mouse) {
@@ -237,9 +246,7 @@ FocusScope {
             }
             onClicked:host.requestQuickStart()
             onPositionChanged:function(mouse) {
-                if (host.idlePointerHeld || mouse.buttons!==Qt.NoButton) return
-                if (Math.min(mouse.x,mouse.y,width-mouse.x,height-mouse.y)>28) host.idleEdgeArmed=true
-                if (host.idleEdgeArmed) galleryLoader.item?.trackEdge(Qt.point(x+mouse.x,y+mouse.y))
+                if (!host.idleWatch && mouse.buttons===Qt.NoButton) host.trackIdleEdge(x+mouse.x,y+mouse.y)
             }
             onExited:galleryLoader.item?.leaveEdge()
         }
