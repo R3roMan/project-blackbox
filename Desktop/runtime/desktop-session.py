@@ -96,10 +96,16 @@ def activate(state):
 
 def restore_wallpapers(state, all_activities=False):
     desktops = "desktops()" if all_activities else "desktopsForActivity(currentActivity())"
-    desktop_script(
-        f"var before={json.dumps(state)};{desktops}.forEach(d=>{{if(d.wallpaperPlugin==={json.dumps(ID)})"
-        f"{{d.wallpaperPlugin=before[String(d.id)]||{json.dumps(DEFAULT)}}}}})"
+    before = {key: value for key, value in state.items() if key.isdigit() and isinstance(value, str)
+              and value != ID and re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", value)}
+    result = desktop_script(
+        f"var before={json.dumps(before)};var rooms={desktops};rooms.forEach(d=>{{if(d.wallpaperPlugin==={json.dumps(ID)})"
+        f"{{d.wallpaperPlugin=before[String(d.id)]||{json.dumps(DEFAULT)}}}}});"
+        f"print(JSON.stringify({{desktops:rooms.length,remaining:rooms.filter(d=>d.wallpaperPlugin==={json.dumps(ID)}).length}}));"
     )
+    report = json.loads(result)
+    if not report["desktops"] or report["remaining"]:
+        raise RuntimeError("Plasma has not restored its wallpapers yet.")
 
 
 def installed_wallpapers(layout):
@@ -134,7 +140,7 @@ def recover(state, restart_shell):
         restore_wallpapers(state, all_activities=True)
         print("Restored the KDE wallpaper. Blackbox saves and application windows were kept.")
         return
-    except (subprocess.SubprocessError, OSError):
+    except (subprocess.SubprocessError, OSError, ValueError, RuntimeError):
         if not restart_shell:
             raise SystemExit("Plasma Shell did not answer. Run recovery again with --restart-shell from a terminal.") from None
     if os.environ.get("BLACKBOX_PREVIEW") or str(CONFIG).startswith("/tmp/project-blackbox-preview."):
@@ -153,7 +159,7 @@ def recover(state, restart_shell):
         print(f"Saved the original Plasma layout to {backup.name}", flush=True)
         for target in targets:
             previous = state.get(target)
-            wallpaper = previous if isinstance(previous, str) and previous and previous != ID else DEFAULT
+            wallpaper = previous if isinstance(previous, str) and previous != ID and re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", previous) else DEFAULT
             subprocess.run(["kwriteconfig6", "--file", str(layout), "--group", "Containments", "--group", target,
                             "--key", "wallpaperplugin", wallpaper], check=True, timeout=7)
         if list(installed_wallpapers(layout)):
