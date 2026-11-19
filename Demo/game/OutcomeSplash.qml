@@ -5,6 +5,7 @@ Item {
     objectName: "outcomeSplash"
     required property bool loss
     property bool motion:true
+    property string message:""
     readonly property color ink:loss ? "#abed4d" : "#f52545"
     readonly property color shadow:loss ? "#294417" : "#630c22"
     Rectangle {anchors.fill:parent;color:"#b9070810"}
@@ -45,7 +46,7 @@ Item {
     }
     Text {
         anchors.centerIn:parent
-        text:splash.loss ? "LOSE" : "WIN"
+        text:splash.message || (splash.loss ? "LOSE" : "WIN")
         color:splash.ink
         style:Text.Outline
         styleColor:splash.shadow

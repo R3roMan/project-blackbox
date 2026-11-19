@@ -25,7 +25,7 @@ Item {
     readonly property var company: stage.groups.filter(function(group) { return group.rank !== "Overlord" })
     readonly property string overlord: Mission.boss(stage.wave)
     readonly property var placements:Muster.placements(company,stage.wave*7919,overlord.length>0)
-    readonly property real cameraRadius:Muster.radius(company,placements,parade.width/Math.max(1,parade.height))
+    readonly property real cameraRadius:Muster.radius(company,parade.width/Math.max(1,parade.height))
     implicitHeight:paradeHeight+38
     Rectangle {
         anchors.left:parent.left

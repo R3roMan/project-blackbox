@@ -52,11 +52,19 @@ QtObject {
         return Meta.turnCard(ledger,id) && replace(ledger)
     }
 
-    function reserve(id) {
+    function reserve(id,quick) {
         reload()
         const ledger=Meta.read(JSON.stringify(state))
-        const terms=Meta.begin(ledger,id)
+        const terms=Meta.begin(ledger,id,quick)
         return terms && replace(ledger) ? terms : null
+    }
+
+    function markAuto(id) {
+        reload()
+        const terms=state.started[id]
+        if (!terms || terms.autoUsed) return
+        terms.autoUsed=true
+        replace(state)
     }
 
     function deposit(id,claims) {

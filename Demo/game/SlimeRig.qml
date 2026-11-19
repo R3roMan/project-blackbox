@@ -152,8 +152,8 @@ Node {
             eulerRotation.z: -modelData * 24
             Model {
                 source: "#Cone"
-                objectName: String(slime.targetId)
-                pickable: slime.live
+                objectName:"outer:"+slime.targetId
+                pickable:slime.live
                 scale: Qt.vector3d(.41,.73,.32)
                 materials: slime.iceMaterial ? [slime.iceMaterial] : ([horn])
             }

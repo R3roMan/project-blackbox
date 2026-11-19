@@ -46,6 +46,8 @@ FocusScope {
     property int constellationSeed: 0
     property bool drawerOpen: false
     property bool clean: false
+    property bool externalChrome:false
+    property real chromeOpacity:1
     property bool audioDemo: false
     property int demoCpu: 12
     property int demoGpu: 20
@@ -381,334 +383,341 @@ FocusScope {
     }
 
     Item {
-        id: constellation
-        anchors.fill: parent
-        visible: root.room === "sky" && !root.moving && !root.clean && !root.drawerOpen
-        objectName: "constellation"
-
-        Canvas {
-            id: constellationLines
+        anchors.fill:parent
+        z:1
+        opacity:root.chromeOpacity
+        visible:opacity>0
+        enabled:!root.externalChrome || opacity>.95
+        Item {
+            id: constellation
             anchors.fill: parent
-            visible: !root.performance
-            onWidthChanged: requestPaint()
-            onHeightChanged: requestPaint()
-            onVisibleChanged: if (visible) requestPaint()
-            Connections {
-                target: root
-                function onConstellationSeedChanged() { constellationLines.requestPaint() }
-            }
-            onPaint: {
-                var ctx = getContext("2d")
-                ctx.clearRect(0, 0, width, height)
-                ctx.beginPath()
-                ctx.lineWidth = 1
-                ctx.strokeStyle = "#9ab5ef"
-                ctx.globalAlpha = .52
-                Rooms.stars.forEach(function(star, index) {
-                    var point = root.starPoint(star, index)
-                    if (index === 0)
-                        ctx.moveTo(point.x * width, point.y * height)
-                    else
-                        ctx.lineTo(point.x * width, point.y * height)
-                })
-                ctx.stroke()
-            }
-        }
+            visible: root.room === "sky" && !root.moving && !root.clean && !root.drawerOpen
+            objectName: "constellation"
 
-        Repeater {
-            model: Rooms.stars
-            Button {
-                id: starButton
-                required property var modelData
-                required property int index
-                objectName: "star-" + index
-                readonly property point starPosition: root.starPoint(modelData, index)
-                x: constellation.width * starPosition.x - width / 2
-                y: constellation.height * starPosition.y - height / 2
-                width: 44
-                height: 44
-                text: modelData.title
-                hoverEnabled: true
-                Accessible.name: text
-                ToolTip.visible: hovered || activeFocus
-                ToolTip.text: text
-                onClicked: {
-                    root.selectedStar = root.selectedStar === index ? -1 : index
-                    root.detail = ""
+            Canvas {
+                id: constellationLines
+                anchors.fill: parent
+                visible: !root.performance
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+                onVisibleChanged: if (visible) requestPaint()
+                Connections {
+                    target: root
+                    function onConstellationSeedChanged() { constellationLines.requestPaint() }
                 }
-                contentItem: Item {}
-                background: Rectangle {
-                    anchors.centerIn: parent
-                    width: root.selectedStar === starButton.index || starButton.hovered || starButton.visualFocus ? 20 : 12
-                    height: width
-                    radius: width / 2
-                    color: "#e8eaff"
-                    border.width: 4
-                    border.color: "#8d90ce"
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.clearRect(0, 0, width, height)
+                    ctx.beginPath()
+                    ctx.lineWidth = 1
+                    ctx.strokeStyle = "#9ab5ef"
+                    ctx.globalAlpha = .52
+                    Rooms.stars.forEach(function(star, index) {
+                        var point = root.starPoint(star, index)
+                        if (index === 0)
+                            ctx.moveTo(point.x * width, point.y * height)
+                        else
+                            ctx.lineTo(point.x * width, point.y * height)
+                    })
+                    ctx.stroke()
                 }
             }
-        }
-    }
 
-    Rectangle {
-        anchors.fill: parent
-        visible: !root.clean
-        gradient: Gradient {
-            GradientStop { position: 0; color: "#c4080b14" }
-            GradientStop { position: .19; color: "#00080b14" }
-            GradientStop { position: .49; color: "#00080b14" }
-            GradientStop { position: .74; color: "#84080b14" }
-            GradientStop { position: 1; color: "#f5080b14" }
-        }
-    }
-
-    RowLayout {
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: root.width < 800 ? 14 : 24
-        spacing: 9
-        visible: !root.clean
-        z: 2
-
-        ColumnLayout {
-            spacing: 4
-            Layout.fillWidth: true
-            Text {
-                text: "PROJECT BLACKBOX"
-                font.pixelSize: root.width < 640 ? 13 : 15
-                font.weight: Font.DemiBold
-                font.letterSpacing: 2.1
-                color: "#f2f0f4"
-            }
-            Text {
-                text: root.preview ? "Звезден Дъщ  /  Desktop simulation" : "Звезден Дъщ"
-                color: "#bdc5d5"
-                font.pixelSize: 12
-                visible: root.width >= 595
-            }
-        }
-
-        Row {
-            spacing: 8
-            Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-            BlackboxButton {
-                text: "Wallpaper"
-                objectName: "wallpaperMode"
-                selected: !root.performance
-                accent: root.accent
-                compact: root.width < 740
-                onClicked: root.changeMode("wallpaper")
-            }
-            BlackboxButton {
-                text: "Performance"
-                objectName: "performanceMode"
-                selected: root.performance
-                accent: root.accent
-                compact: root.width < 740
-                onClicked: root.changeMode("performance")
-            }
-            BlackboxButton {
-                text: "Edit"
-                objectName: "editButton"
-                compact: root.width < 740
-                onClicked: root.drawerOpen ? root.drawerOpen = false : root.openEditor()
-            }
-        }
-    }
-
-    Text {
-        anchors.centerIn: parent
-        visible: root.moving && !root.clean
-        text: root.transitionLabel
-        color: "#f2f1fa"
-        font.pixelSize: 16
-        font.letterSpacing: 1.2
-        opacity: Math.sin(root.progress * Math.PI)
-    }
-
-    ColumnLayout {
-        anchors.left: parent.left
-        anchors.right: directionPad.left
-        anchors.bottom: dock.top
-        anchors.leftMargin: root.width < 800 ? 14 : 24
-        anchors.rightMargin: 16
-        anchors.bottomMargin: 15
-        visible: !root.clean && !root.moving
-        spacing: 8
-        z: 1
-
-        Text {
-            text: root.activeTitle
-            font.pixelSize: root.width < 800 ? 33 : 49
-            font.weight: Font.DemiBold
-            color: "#f2f3fa"
-            elide: Text.ElideRight
-            Layout.fillWidth: true
-        }
-        Text {
-            text: root.current.subtitle
-            font.pixelSize: 14
-            color: "#d0d6e3"
-            wrapMode: Text.WordWrap
-            Layout.fillWidth: true
-        }
-        Flow {
-            spacing: 7
-            Layout.fillWidth: true
             Repeater {
-                model: (Rooms.actions[root.room] || []).filter(function(action){return action.action!=="variant" || !root.roomArtwork.abyss})
-                BlackboxButton {
+                model: Rooms.stars
+                Button {
+                    id: starButton
                     required property var modelData
+                    required property int index
+                    objectName: "star-" + index
+                    readonly property point starPosition: root.starPoint(modelData, index)
+                    x: constellation.width * starPosition.x - width / 2
+                    y: constellation.height * starPosition.y - height / 2
+                    width: 44
+                    height: 44
                     text: modelData.title
-                    compact: true
-                    accent: root.accent
-                    onClicked: root.run(modelData)
-                }
-            }
-            BlackboxButton {
-                visible: root.room === "sky"
-                text: "New constellation"
-                objectName: "reshuffleStars"
-                compact: true
-                onClicked: root.constellationSeed = (root.constellationSeed + 1) % 9999
-            }
-            BlackboxButton {
-                visible: root.room === "sky" && root.selectedStar >= 0
-                text: root.selectedStar >= 0 ? Rooms.stars[root.selectedStar].title + "  ↗" : ""
-                compact: true
-                accent: root.accent
-                onClicked: root.go(Rooms.stars[root.selectedStar].target)
-            }
-        }
-        Text {
-            visible: text.length > 0
-            text: root.imageError || root.detail || (root.selectedStar >= 0 ? Rooms.stars[root.selectedStar].detail : "")
-            font.pixelSize: 13
-            color: "#ecedf5"
-            wrapMode: Text.WordWrap
-            Layout.fillWidth: true
-        }
-    }
-
-    GridLayout {
-        id: directionPad
-        anchors.right: parent.right
-        anchors.bottom: dock.top
-        anchors.rightMargin: root.width < 800 ? 14 : 24
-        anchors.bottomMargin: 15
-        columns: 3
-        rowSpacing: 5
-        columnSpacing: 5
-        visible: !root.clean && !root.moving
-        z: 1
-
-        Repeater {
-            model: [
-                { key: "up", symbol: "↑", row: 0, column: 1 },
-                { key: "left", symbol: "←", row: 1, column: 0 },
-                { key: "home", symbol: "⌂", row: 1, column: 1 },
-                { key: "right", symbol: "→", row: 1, column: 2 },
-                { key: "down", symbol: "↓", row: 2, column: 1 }
-            ]
-            BlackboxButton {
-                required property var modelData
-                objectName: "nav-" + modelData.key
-                text: modelData.symbol
-                Layout.row: modelData.row
-                Layout.column: modelData.column
-                Layout.preferredWidth: 36
-                compact: true
-                enabled: modelData.key === "home" || !!Rooms.routes[root.room][modelData.key]
-                Accessible.name: modelData.key === "home" ? "Return to Home Shrine" : "Move " + modelData.key
-                ToolTip.visible: hovered && enabled
-                ToolTip.text: modelData.key === "home" ? "Return to Home Shrine"
-                    : enabled ? Rooms.title(Rooms.routes[root.room][modelData.key], root.edits) : ""
-                onClicked: modelData.key === "home" ? root.go("shrine", true) : root.move(modelData.key)
-            }
-        }
-    }
-
-    Rectangle {
-        id: dock
-        visible: !root.clean
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: dockFlow.implicitHeight + 17
-        color: "#ec101624"
-        z: 1
-
-        Rectangle { width: parent.width; height: 1; color: "#3c4658" }
-
-        Flow {
-            id: dockFlow
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.margins: 9
-            anchors.top: parent.top
-            spacing: 6
-
-            Repeater {
-                model: Rooms.order
-                BlackboxButton {
-                    required property string modelData
-                    objectName: "room-" + modelData
-                    text: Rooms.title(modelData, root.edits)
-                    compact: true
-                    selected: root.room === modelData
-                    accent: root.accent
-                    width: Math.min(implicitWidth, 150)
-                    onClicked: root.go(modelData)
-                }
-            }
-            BlackboxButton {
-                text: root.audioDemo ? "Pause demo pulse" : "Demo pulse"
-                objectName: "audioDemo"
-                compact: true
-                enabled: !root.performance
-                onClicked: root.audioDemo = !root.audioDemo
-            }
-            BlackboxButton {
-                visible: root.audioDemo && !root.performance
-                text: root.demoTracks[root.demoTrack] + "  ›"
-                compact: true
-                ToolTip.visible: hovered
-                ToolTip.text: "Simulated now playing · switch demo track"
-                onClicked: root.demoTrack = (root.demoTrack + 1) % root.demoTracks.length
-            }
-            Rectangle {
-                width: 54
-                height: 34
-                radius: 6
-                color: "#1a2130"
-                visible: root.audioDemo && !root.performance
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 3
-                    Repeater {
-                        model: 5
-                        Rectangle {
-                            width: 4
-                            height: 4 + (20 - Math.abs(index - 2) * 4) * root.signalLevel
-                            radius: 2
-                            color: root.accent
-                            anchors.bottom: parent.bottom
-                        }
+                    hoverEnabled: true
+                    Accessible.name: text
+                    ToolTip.visible: hovered || activeFocus
+                    ToolTip.text: text
+                    onClicked: {
+                        root.selectedStar = root.selectedStar === index ? -1 : index
+                        root.detail = ""
+                    }
+                    contentItem: Item {}
+                    background: Rectangle {
+                        anchors.centerIn: parent
+                        width: root.selectedStar === starButton.index || starButton.hovered || starButton.visualFocus ? 20 : 12
+                        height: width
+                        radius: width / 2
+                        color: "#e8eaff"
+                        border.width: 4
+                        border.color: "#8d90ce"
                     }
                 }
             }
-            BlackboxButton {
-                visible: root.loadDemo
-                enabled: false
-                text: "Demo  CPU " + root.demoCpu + "%  ·  GPU " + root.demoGpu + "%"
-                compact: true
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: !root.clean
+            gradient: Gradient {
+                GradientStop { position: 0; color: "#c4080b14" }
+                GradientStop { position: .19; color: "#00080b14" }
+                GradientStop { position: .49; color: "#00080b14" }
+                GradientStop { position: .74; color: "#84080b14" }
+                GradientStop { position: 1; color: "#f5080b14" }
             }
-            BlackboxButton {
-                text: "Artwork only"
-                objectName: "cleanButton"
-                compact: true
-                onClicked: root.clean = true
+        }
+
+        RowLayout {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: root.width < 800 ? 14 : 24
+            spacing: 9
+            visible: !root.clean
+            z: 2
+
+            ColumnLayout {
+                spacing: 4
+                Layout.fillWidth: true
+                Text {
+                    text: "PROJECT BLACKBOX"
+                    font.pixelSize: root.width < 640 ? 13 : 15
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: 2.1
+                    color: "#f2f0f4"
+                }
+                Text {
+                    text: root.preview ? "Звезден Дъщ  /  Desktop simulation" : "Звезден Дъщ"
+                    color: "#bdc5d5"
+                    font.pixelSize: 12
+                    visible: root.width >= 595
+                }
+            }
+
+            Row {
+                spacing: 8
+                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                BlackboxButton {
+                    text: "Wallpaper"
+                    objectName: "wallpaperMode"
+                    selected: !root.performance
+                    accent: root.accent
+                    compact: root.width < 740
+                    onClicked: root.changeMode("wallpaper")
+                }
+                BlackboxButton {
+                    text: "Performance"
+                    objectName: "performanceMode"
+                    selected: root.performance
+                    accent: root.accent
+                    compact: root.width < 740
+                    onClicked: root.changeMode("performance")
+                }
+                BlackboxButton {
+                    text: "Edit"
+                    objectName: "editButton"
+                    compact: root.width < 740
+                    onClicked: root.drawerOpen ? root.drawerOpen = false : root.openEditor()
+                }
+            }
+        }
+
+        Text {
+            anchors.centerIn: parent
+            visible: root.moving && !root.clean
+            text: root.transitionLabel
+            color: "#f2f1fa"
+            font.pixelSize: 16
+            font.letterSpacing: 1.2
+            opacity: Math.sin(root.progress * Math.PI)
+        }
+
+        ColumnLayout {
+            anchors.left: parent.left
+            anchors.right: directionPad.left
+            anchors.bottom: dock.top
+            anchors.leftMargin: root.width < 800 ? 14 : 24
+            anchors.rightMargin: 16
+            anchors.bottomMargin: 15
+            visible: !root.clean && !root.moving
+            spacing: 8
+            z: 1
+
+            Text {
+                text: root.activeTitle
+                font.pixelSize: root.width < 800 ? 33 : 49
+                font.weight: Font.DemiBold
+                color: "#f2f3fa"
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+            }
+            Text {
+                text: root.current.subtitle
+                font.pixelSize: 14
+                color: "#d0d6e3"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            Flow {
+                spacing: 7
+                Layout.fillWidth: true
+                Repeater {
+                    model: (Rooms.actions[root.room] || []).filter(function(action){return action.action!=="variant" || !root.roomArtwork.abyss})
+                    BlackboxButton {
+                        required property var modelData
+                        text: modelData.title
+                        compact: true
+                        accent: root.accent
+                        onClicked: root.run(modelData)
+                    }
+                }
+                BlackboxButton {
+                    visible: root.room === "sky"
+                    text: "New constellation"
+                    objectName: "reshuffleStars"
+                    compact: true
+                    onClicked: root.constellationSeed = (root.constellationSeed + 1) % 9999
+                }
+                BlackboxButton {
+                    visible: root.room === "sky" && root.selectedStar >= 0
+                    text: root.selectedStar >= 0 ? Rooms.stars[root.selectedStar].title + "  ↗" : ""
+                    compact: true
+                    accent: root.accent
+                    onClicked: root.go(Rooms.stars[root.selectedStar].target)
+                }
+            }
+            Text {
+                visible: text.length > 0
+                text: root.imageError || root.detail || (root.selectedStar >= 0 ? Rooms.stars[root.selectedStar].detail : "")
+                font.pixelSize: 13
+                color: "#ecedf5"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+        }
+
+        GridLayout {
+            id: directionPad
+            anchors.right: parent.right
+            anchors.bottom: dock.top
+            anchors.rightMargin: root.width < 800 ? 14 : 24
+            anchors.bottomMargin: 15
+            columns: 3
+            rowSpacing: 5
+            columnSpacing: 5
+            visible: !root.clean && !root.moving
+            z: 1
+
+            Repeater {
+                model: [
+                    { key: "up", symbol: "↑", row: 0, column: 1 },
+                    { key: "left", symbol: "←", row: 1, column: 0 },
+                    { key: "home", symbol: "⌂", row: 1, column: 1 },
+                    { key: "right", symbol: "→", row: 1, column: 2 },
+                    { key: "down", symbol: "↓", row: 2, column: 1 }
+                ]
+                BlackboxButton {
+                    required property var modelData
+                    objectName: "nav-" + modelData.key
+                    text: modelData.symbol
+                    Layout.row: modelData.row
+                    Layout.column: modelData.column
+                    Layout.preferredWidth: 36
+                    compact: true
+                    enabled: modelData.key === "home" || !!Rooms.routes[root.room][modelData.key]
+                    Accessible.name: modelData.key === "home" ? "Return to Home Shrine" : "Move " + modelData.key
+                    ToolTip.visible: hovered && enabled
+                    ToolTip.text: modelData.key === "home" ? "Return to Home Shrine"
+                        : enabled ? Rooms.title(Rooms.routes[root.room][modelData.key], root.edits) : ""
+                    onClicked: modelData.key === "home" ? root.go("shrine", true) : root.move(modelData.key)
+                }
+            }
+        }
+
+        Rectangle {
+            id: dock
+            visible: !root.clean
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: dockFlow.implicitHeight + 17
+            color: "#ec101624"
+            z: 1
+
+            Rectangle { width: parent.width; height: 1; color: "#3c4658" }
+
+            Flow {
+                id: dockFlow
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 9
+                anchors.top: parent.top
+                spacing: 6
+
+                Repeater {
+                    model: Rooms.order
+                    BlackboxButton {
+                        required property string modelData
+                        objectName: "room-" + modelData
+                        text: Rooms.title(modelData, root.edits)
+                        compact: true
+                        selected: root.room === modelData
+                        accent: root.accent
+                        width: Math.min(implicitWidth, 150)
+                        onClicked: root.go(modelData)
+                    }
+                }
+                BlackboxButton {
+                    text: root.audioDemo ? "Pause demo pulse" : "Demo pulse"
+                    objectName: "audioDemo"
+                    compact: true
+                    enabled: !root.performance
+                    onClicked: root.audioDemo = !root.audioDemo
+                }
+                BlackboxButton {
+                    visible: root.audioDemo && !root.performance
+                    text: root.demoTracks[root.demoTrack] + "  ›"
+                    compact: true
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Simulated now playing · switch demo track"
+                    onClicked: root.demoTrack = (root.demoTrack + 1) % root.demoTracks.length
+                }
+                Rectangle {
+                    width: 54
+                    height: 34
+                    radius: 6
+                    color: "#1a2130"
+                    visible: root.audioDemo && !root.performance
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 3
+                        Repeater {
+                            model: 5
+                            Rectangle {
+                                width: 4
+                                height: 4 + (20 - Math.abs(index - 2) * 4) * root.signalLevel
+                                radius: 2
+                                color: root.accent
+                                anchors.bottom: parent.bottom
+                            }
+                        }
+                    }
+                }
+                BlackboxButton {
+                    visible: root.loadDemo
+                    enabled: false
+                    text: "Demo  CPU " + root.demoCpu + "%  ·  GPU " + root.demoGpu + "%"
+                    compact: true
+                }
+                BlackboxButton {
+                    text: "Artwork only"
+                    objectName: "cleanButton"
+                    compact: true
+                    onClicked: root.clean = true
+                }
             }
         }
     }
@@ -717,7 +726,7 @@ FocusScope {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: 13
-        visible: root.clean
+        visible: root.clean && !root.externalChrome
         text: "Show controls"
         objectName: "showControls"
         compact: true

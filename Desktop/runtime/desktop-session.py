@@ -63,7 +63,7 @@ def activate(state):
     remember(state)
     desktop_script(f"desktops().forEach(d=>{{d.wallpaperPlugin={json.dumps(ID)}}})")
     for _ in range(20):
-        response = subprocess.run(BRIDGE[:-1] + [BRIDGE[-1] + "Configure", "mode", '"play"'],
+        response = subprocess.run(BRIDGE[:-1] + [BRIDGE[-1] + "Configure", "mode", '"idle"'],
                                   capture_output=True, timeout=2)
         if response.returncode == 0:
             subprocess.run(BRIDGE[:-1] + [BRIDGE[-1] + "Workspace", "front"], capture_output=True, timeout=2)

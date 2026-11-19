@@ -8,6 +8,7 @@ Node {
     property bool woven:true
     property bool bone:organic
     property bool timber:false
+    property bool ice:false
     property real grainAngle:0
 
     property alias hideNormal:hideN
@@ -30,6 +31,10 @@ Node {
     property alias woodFinish:woodR
     property alias woodColor:woodC
     property alias lightProbe:studio
+
+    property alias iceNormal:iceN
+    property alias iceFinish:iceR
+    property alias iceColor:iceC
 
     component Map: Texture {
         generateMipmaps:true
@@ -59,5 +64,8 @@ Node {
     Map {id:woodN;source:surfaces.detailed && surfaces.timber ? "../assets/surfaces/wood-normal.webp" : ""; rotationUV:surfaces.grainAngle}
     Map {id:woodR;source:surfaces.detailed && surfaces.timber ? "../assets/surfaces/wood-surface.webp" : ""; rotationUV:surfaces.grainAngle}
     Map {id:woodC;source:surfaces.detailed && surfaces.timber ? "../assets/surfaces/wood-color.webp" : ""; rotationUV:surfaces.grainAngle}
+    Map {id:iceN;source:surfaces.detailed && surfaces.ice ? "../assets/surfaces/ice-normal.webp" : ""}
+    Map {id:iceR;source:surfaces.detailed && surfaces.ice ? "../assets/surfaces/ice-surface.webp" : ""}
+    Map {id:iceC;source:surfaces.detailed && surfaces.ice ? "../assets/surfaces/ice-color.webp" : ""}
     Texture {id:studio;source:surfaces.detailed ? "../assets/surfaces/sky-light.hdr" : ""}
 }

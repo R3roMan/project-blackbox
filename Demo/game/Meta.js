@@ -2,7 +2,7 @@
 .import "Tarot.js" as Tarot
 
 var families=["F","D","C","B","A","S"]
-var thresholds=[0,23,40,55,70,84,100]
+var thresholds=[0,23,42,55,70,84,100]
 var grades=[]
 for (const family of families) {
     if (family==="F") grades.push("F")
@@ -96,7 +96,13 @@ function buy(state,id,random,unlimited) {
     state.gems-=paid
     if (state.sale.free===id) state.sale.free=""
     state.purchases++
-    if (id===reading.id) state.reading={cards:Tarot.draw(random || Math.random),chosen:""}
+    if (id===reading.id) {
+        const cards=Tarot.draw(random || Math.random)
+        if (cards.every((card,index)=>card===state.lastReading?.[index]))
+            cards.push(cards.shift())
+        state.lastReading=cards.slice()
+        state.reading={cards:cards,chosen:""}
+    }
     else if (offer.cap) {
         if (!state.receipts[id]) state.receipts[id]=[]
         state.receipts[id].push(paid)
@@ -142,12 +148,14 @@ function contract(state) {
     return terms
 }
 
-function begin(state,id) {
+function begin(state,id,quick) {
     if (!id || state.settled[id] || state.closed[id]) return null
     if (state.started[id]) return state.started[id]
-    const terms=contract(state)
-    state.pending={}
-    if (terms.tarot) state.reading=null
+    const terms=quick ? {ranks:Object.assign({},state.ranks),pending:{}} : contract(state)
+    if (!quick) {
+        state.pending={}
+        if (terms.tarot) state.reading=null
+    }
     state.started[id]=terms
     return terms
 }
@@ -178,6 +186,19 @@ function grade(score) {
     if (band===0) return "F"
     const fraction=(score-thresholds[band])/(thresholds[band+1]-thresholds[band])
     return families[band]+(fraction<1/3 ? "-" : fraction<2/3 ? "" : "+")
+}
+
+function expeditionBonus(mark,difficulty,cleared) {
+    if (!cleared) return {grade:0,difficulty:0}
+    const relative=(grades.indexOf(mark)-grades.indexOf("B"))/3
+    const grade=Math.floor(cleared*.19*Math.pow(1.35,relative))
+    const difficultyBonus=difficulty==="insane" ? 50*Math.pow(2.60,relative)
+        : difficulty==="hard" ? 24*Math.pow(1.95,relative) : 0
+    return {grade:grade,difficulty:Math.round(difficultyBonus)}
+}
+
+function autoTaxRate(mark) {
+    return .22+.021*Math.max(0,grades.indexOf(mark))
 }
 
 function report(run, reason, load) {
@@ -216,18 +237,23 @@ function report(run, reason, load) {
     const overall=perfect ? "SSS" : grade(score)
     const eligible=!run.debug && !run.training && !run.rehearsal && !!run.attemptId
     // Side awards scale with cleared waves so combat farming cannot outpay progress.
-    const quality=overall==="SSS" ? 1 : (grades.indexOf(overall)+1)/grades.length
-    const bonus=Math.floor(cleared*.40*quality)
+    const award=expeditionBonus(overall,run.difficulty,cleared)
+    const bonus=award.grade+award.difficulty
     const lootGems=fieldGems(run.fieldGems)
     const waveGems=cleared
     const combatGems=Math.min(Math.floor(cleared*.20),Math.floor(bosses*.8+Math.sqrt(kills)*.16+seals*.20+risk*.25))
-    const gems=eligible ? waveGems+combatGems+bonus : 0
+    const payout=waveGems+combatGems+bonus
+    const taxRate=run.usedAuto ? autoTaxRate(overall) : 0
+    const tax=eligible ? Math.round((payout+lootGems)*taxRate) : 0
+    const gems=eligible ? Math.max(0,payout-tax) : 0
     return {id:run.attemptId,date:Math.floor(Date.now()/1000),reason:reason,difficulty:run.difficulty,wave:stage,cleared:cleared,
         grades:{skill:grade(skill),finance:grade(finance),survival:grade(survival),overall:overall},
         points:{skill:skill,finance:finance,survival:survival,overall:score}, gems:gems,bonus:eligible ? bonus : 0,eligible:eligible,
         stats:{accuracy:round(accuracy*100),shots:shots,hits:hits,damage:round(damage),contacts:contacts,kills:kills,bosses:bosses,
             seals:seals,blocks:blocks,parries:parries,intercepts:intercepts,purchases:purchases,earned:gained,spent:spent,wallet:wallet,
-            flawless:flawless,items:load.items,upgrades:load.upgrades,restraint:restraint,waveScore:waveScore,fieldGems:lootGems,waveGems:waveGems,combatGems:combatGems}}
+            flawless:flawless,items:load.items,upgrades:load.upgrades,restraint:restraint,waveScore:waveScore,fieldGems:lootGems,waveGems:waveGems,combatGems:combatGems,
+            difficultyBonus:eligible ? award.difficulty : 0,autoTax:tax,autoTaxRate:eligible ? round(taxRate*100) : 0,
+            autoRecoup:Math.max(0,tax-payout)}}
 }
 
 function rotation(state,id) {
@@ -251,9 +277,10 @@ function settle(state,card) {
     if (!card.eligible || state.settled[card.id] || state.closed[card.id]) return false
     state.settled[card.id]=card.grades.overall
     delete state.started[card.id]
+    const recoup=Math.min(state.gems,fieldGems(state.field[card.id]),card.stats.autoRecoup || 0)
     delete state.field[card.id]
-    state.gems+=card.gems
-    state.earned+=card.gems
+    state.gems+=card.gems-recoup
+    state.earned=Math.max(0,state.earned+card.gems-recoup)
     state.sale=rotation(state,card.id)
     state.last=card
     const best=state.best
@@ -304,6 +331,7 @@ function validId(id) {return typeof id === "string" && /^[a-z0-9-]{8,64}$/.test(
 
 function validTerms(data) {
     return object(data) && object(data.ranks) && object(data.pending)
+        && (data.autoUsed===undefined || typeof data.autoUsed==="boolean")
         && (data.tarot===undefined || typeof data.tarot==="string" && !!Tarot.card(data.tarot))
         && Object.keys(data.ranks).every(function(id) {
             const item=vows.find(function(offer) {return offer.id===id})
@@ -330,6 +358,7 @@ function decode(data) {
         || (data.earned!==undefined && (!Number.isSafeInteger(data.earned) || data.earned<0))
         || (data.purchases!==undefined && (!Number.isSafeInteger(data.purchases) || data.purchases<0))
         || (data.reading!=null && !validReading(data.reading))
+        || (data.lastReading!==undefined && !validReading({cards:data.lastReading,chosen:""}))
         || (data.sale!==undefined && !validSale(data.sale))
         || (data.field!==undefined && (!object(data.field) || !Object.keys(data.field).every(function(id) {
             return validId(id) && !data.settled[id] && validField(data.field[id])

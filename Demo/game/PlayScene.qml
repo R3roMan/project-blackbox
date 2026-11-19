@@ -354,6 +354,7 @@ FocusScope {
             : { color: "transparent", strength: 0 }
     }
     readonly property real powerFlash: { revision; return run.powerFlash }
+    readonly property string frozenFront:{revision;return run.frozenTime>0 ? run.frozenFront : ""}
     readonly property var turns: ({
         left: Rules.turnFrom(frontId, "left"),
         right: Rules.turnFrom(frontId, "right"),
@@ -502,7 +503,7 @@ FocusScope {
     }
 
     function publish() {
-        if (run.phase==="ready" && !run.debug && !run.training && !run.covenant)
+        if (run.phase==="ready" && !run.debug && !run.training && !run.covenant && !run.quickStart)
             run.entryWave=vault ? Meta.startWave(vault.state) : 1
         if (run.phase === "ready" || run.phase === "between")
             Rules.prepareStage(run)
@@ -614,6 +615,7 @@ FocusScope {
         turnRatio=1
         paused=restored.phase==="combat"
         run=restored
+        if (vault?.state.started[run.attemptId]?.autoUsed) run.usedAuto=true
         frontId=previousFront=restored.playerFront
         reportedMetrics=Object.assign({},restored.metrics)
         reportedProgress=restored.progress
@@ -638,7 +640,7 @@ FocusScope {
         if (skipPet && run.phase==="ready") run.petChoice=""
         if (!run.attemptId) run.attemptId=newAttemptId()
         if (run.phase==="ready" && !run.debug && !run.training && !run.covenant) {
-            if (vault) Rules.applyCovenant(run,vault.reserve(run.attemptId))
+            if (vault) Rules.applyCovenant(run,vault.reserve(run.attemptId,run.quickStart))
         }
         if (!Rules.startWave(run))
             return
@@ -646,11 +648,24 @@ FocusScope {
         saveCheckpoint(true)
     }
 
+    function beginQuickRun() {
+        if (Rules.canEditLoadout(run) || run.phase==="combat")
+            if (!run.debug && run.wave) saveCheckpoint(false)
+        resetRun()
+        run.quickStart=true
+        run.entryWave=1
+        run.nextStage=null
+        Rules.chooseStarter(run,run.starterOffers[Math.floor(Math.random()*run.starterOffers.length)])
+        Rules.choosePet(run,run.petOffers[Math.floor(Math.random()*run.petOffers.length)])
+        startWave()
+    }
+
     function newAttemptId() {
         return Date.now().toString(36)+"-"+Math.floor(Math.random()*0xffffffff).toString(36)+"-"+run.seed.toString(36)
     }
 
     function finishAttempt() {
+        if (vault?.state.started[run.attemptId]?.autoUsed) run.usedAuto=true
         attemptReport=Meta.report(run,run.finishReason || "death",Gear.loadRating(run))
         attemptArchived=false
         const legacyId="legacy-run-"+run.seed
@@ -855,6 +870,8 @@ FocusScope {
         if (autoPlaying) stopAuto()
         else if (fighting && autoEligible) {
             autoPlaying=true
+            run.usedAuto=true
+            if (!run.debug && vault && run.attemptId) vault.markAuto(run.attemptId)
             autoPlan=({})
             autoShopEdition=-1
             autoDecisionAt=run.time+.24
@@ -1043,6 +1060,7 @@ FocusScope {
     }
     onFightingChanged: {
         if (!fighting) {
+            queuedAbility=-1
             sealing = false
             fireHeld = false
             shotFlash = 0
@@ -1232,15 +1250,15 @@ FocusScope {
     Shortcut {
         sequences: ["Return", "Enter"]
         context: Qt.WindowShortcut
-        enabled: play.allowed && !play.bookVisible && !play.fighting && primaryAction.activeFocus && primaryAction.visible
+        enabled: play.interactive && play.allowed && !play.bookVisible && !play.fighting && primaryAction.activeFocus && primaryAction.visible
         onActivated: play.mainAction()
     }
 
-    Shortcut {sequence:".";enabled:play.allowed && !play.bookVisible;onActivated:play.timerRequested(!play.showTimer)}
+    Shortcut {sequence:".";enabled:play.interactive && play.allowed && !play.bookVisible;onActivated:play.timerRequested(!play.showTimer)}
 
     Shortcut {
         sequence: "T"
-        enabled: play.allowed && !play.bookVisible && (play.fighting || play.lab || play.paused || play.phase === "between" || play.phase === "ready")
+        enabled: play.interactive && play.allowed && !play.bookVisible && (play.fighting || play.lab || play.paused || play.phase === "between" || play.phase === "ready")
         onActivated: {
             if (play.paused && play.pauseTab === "inventory")
                 play.mainAction()
@@ -1251,7 +1269,7 @@ FocusScope {
 
     Shortcut {
         sequence:"I"
-        enabled:play.allowed && !play.bookVisible
+        enabled:play.interactive && play.allowed && !play.bookVisible
         onActivated:play.codexRequested("enemies","")
     }
 
@@ -1346,7 +1364,7 @@ FocusScope {
                 actors:play.actors;bolts:play.bolts;axes:play.axes;gifts:play.gifts
                 flyingPet:play.flyingPet;guestPet:play.guestPet;tarotPet:play.tarotPet;smokes:play.smokes
                 frontId:play.previousFront;revision:play.revision;motion:play.motion;elapsed:play.elapsed
-                blindness:play.blindness;obscurity:play.obscurity;hypnotised:play.hypnotised
+                blindness:play.blindness;obscurity:play.obscurity;hypnotised:play.hypnotised;frozenFront:play.frozenFront
                 readonly property bool cameraTurn:play.transitionStyle==="cinematic" && play.previousFront!=="down" && play.frontId!=="down"
                 opacity:cameraTurn ? 1 : 1-play.turnRatio
                 transform:Matrix4x4 {
@@ -1410,6 +1428,7 @@ FocusScope {
             darkSky:play.sky.dark
             warmSky:play.sky.warm
             obscurity:play.obscurity
+            frozenFront:play.frozenFront
             abilityEvents:{play.revision;return play.run.abilityEvents}
             gore:{play.revision;return play.run.gore}
             transitionStyle:play.transitionStyle
@@ -1446,6 +1465,7 @@ FocusScope {
             objectName: "projectedWorld"
             clip:cameraTurn
             obscurity:play.obscurity
+            frozenFront:play.frozenFront
             actors: play.actors
             bolts: play.bolts
             axes: play.axes

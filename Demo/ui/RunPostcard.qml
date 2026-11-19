@@ -112,7 +112,8 @@ Rectangle {
         }
         Text {
             Layout.fillWidth:true
-            text:card.report?.eligible ? "◆ "+card.report.gems+" dark gems  ·  "+card.report.bonus+" grade bonus"
+            text:card.report?.eligible ? "◆ "+card.report.gems+" dark gems  ·  "+card.report.bonus+" expedition bonus"
+                +(card.report.stats.autoTaxRate ? "  ·  Auto tax "+card.report.stats.autoTaxRate+"%" : "")
                 : "Practice report · no dark gems awarded"
             color:"#e9c0fa"
             font.bold:true
@@ -139,7 +140,7 @@ Rectangle {
                             ["Unblocked hits",s.contacts],["Demons killed",s.kills],["Bosses defeated",s.bosses],["Abyss seals",s.seals],
                             ["Shield blocks",s.blocks],["Perfect parries",s.parries],["Projectiles intercepted",s.intercepts],["Shop purchases",s.purchases],
                             ["Gold earned",s.earned],["Gold spent in shops",s.spent],["Gold left",s.wallet],["Hitless waves",s.flawless],
-                            ["Items owned",s.items],["Gear and slot upgrades",s.upgrades],["Light-loadout bonus","+"+s.restraint],["Wave score",s.waveScore===undefined ? "—" : s.waveScore+" / 100"]].concat(s.waveGems===undefined ? [] : [["Wave clear gems",s.waveGems],["Combat gems",s.combatGems],["Field gems banked",s.fieldGems || 0]])
+                            ["Items owned",s.items],["Gear and slot upgrades",s.upgrades],["Light-loadout bonus","+"+s.restraint],["Wave score",s.waveScore===undefined ? "—" : s.waveScore+" / 100"]].concat(s.waveGems===undefined ? [] : [["Wave clear gems",s.waveGems],["Combat gems",s.combatGems],["Field gems banked",s.fieldGems || 0],["Difficulty bonus",s.difficultyBonus || 0],["Auto tax",s.autoTax ? "−"+s.autoTax : "0"]])
                     }
                     RowLayout {
                         required property var modelData

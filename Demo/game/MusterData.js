@@ -48,7 +48,7 @@ function displaySize(spec) {
     return Math.max(.88,Math.min(1.42,spec.size))
 }
 
-function radius(groups, positions, aspect) {
+function radius(groups, aspect) {
     const spacing = groups.length<=2 ? 210 : 242
     return spacing * Math.max(1,1.3/Math.max(.6,aspect))
 }

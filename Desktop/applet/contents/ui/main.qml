@@ -9,9 +9,14 @@ import "../../../../../project-blackbox/Demo/game/Loadout.js" as Gear
 PlasmoidItem {
     id:applet
     Plasmoid.title:"Blackbox"
+    readonly property bool showing:Native.Desktop.config.mode==="play" || !!Native.Desktop.state.idleControls
+    onShowingChanged:if (!showing) expanded=false
     preferredRepresentation:compactRepresentation
     compactRepresentation:RowLayout {
         id:panelControls
+        opacity:applet.showing ? 1 : 0
+        enabled:applet.showing
+        Behavior on opacity {NumberAnimation {duration:220}}
         spacing:3
         Button {text:Native.Desktop.state.wave ? "BB · "+Native.Desktop.state.wave : "BLACKBOX";onClicked:applet.expanded=!applet.expanded}
         Repeater {

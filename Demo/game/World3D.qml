@@ -37,7 +37,7 @@ View3D {
     readonly property bool crowded:hypnotised || actors.length+bolts.length>18
     readonly property bool busy:crowded || voidIncursion
     readonly property bool cinematicEffects:ultra && !busy && (quality>0 || dynamicCap>=1440)
-    SurfaceSet {id:worldSurfaces;detailed:world.ultra}
+    SurfaceSet {id:worldSurfaces;ice:true;detailed:world.ultra}
     Timer {
         interval:1400;repeat:true
         running:world.ultra && !world.quality && world.visible && world.elapsed>2
@@ -68,6 +68,7 @@ View3D {
     property real darkSky:0
     property real warmSky:0
     property real obscurity:0
+    property string frozenFront:""
     readonly property int autoHeight:detail===0 ? 900 : ultra ? Math.min(dynamicCap,busy ? 1440 : 2160)
         : detail===1 && busy ? 1080 : 1440
     readonly property real renderScale: Math.min(pixelRatio,(quality || autoHeight)/Math.max(1,height))
@@ -521,6 +522,7 @@ View3D {
                     animate:world.motion && actorNode.visible
                     blindness: world.blindness
                     viewedFront: world.frontId
+                    fieldFrozen:enemy.front===world.frozenFront && !Rules.statusImmune(enemy,"freeze")
                     grabId: world.grabId
                     surfaces:world.ultra ? worldSurfaces : null
                     simplified:{
@@ -537,6 +539,7 @@ View3D {
                         enemy:actorNode.enemy
                         revision:world.revision
                         animate:world.motion
+                        fieldFrozen:enemy.front===world.frozenFront && !Rules.statusImmune(enemy,"freeze")
                         visibility:1-world.blindness*.93
                         surfaces:world.ultra ? worldSurfaces : null
                     }

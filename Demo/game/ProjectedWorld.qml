@@ -20,6 +20,7 @@ Item {
     property var tarotPet: null
     property var smokes: []
     property real blindness: 0
+    property string frozenFront:""
     property real obscurity:0
     property real elapsed: 0
     property real lungeDepth: 0
@@ -833,7 +834,7 @@ Item {
                         ctx.fillRect(.476 + i * .023, .716, .006, .023)
                 }
 
-                if (enemy.elements.frozen>0) {
+                if (enemy.elements.frozen>0 || enemy.front===world.frozenFront && !Rules.statusImmune(enemy,"freeze")) {
                     ctx.globalCompositeOperation="source-atop"
                     ctx.globalAlpha=.73
                     ctx.fillStyle="#9ad8f4"
@@ -880,6 +881,7 @@ Item {
             enemy: record.type === "hasasasa" ? record : ({ turrets:[], hp:0, warp:0, wreck:0, barrier:0 })
             revision: world.revision
             time: world.motion ? world.elapsed : 0
+            frozen:{world.revision;return record.elements?.frozen>0 || record.front===world.frozenFront && !Rules.statusImmune(record,"freeze")}
             visible: { world.revision; return !world.hypnotised && !record.waitingBoss && record.type === "hasasasa" && record.front === world.frontId }
             opacity: (1-world.blindness*.94)*(1-.42*world.obscurity*(1-Conditions.fogVisibility(enemy.depth)))
             readonly property var point: {

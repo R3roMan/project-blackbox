@@ -7,6 +7,7 @@ Item {
     required property int revision
     required property real time
     property bool silhouette:false
+    property bool frozen:false
     readonly property bool live: { revision; return enemy.hp > 0 && enemy.warp <= 0 }
     readonly property bool coreOpen: { revision; return enemy.turrets.every(function(part) { return part.hp <= 0 }) }
     readonly property real wreck: { revision; return enemy.wreck || 0 }
@@ -33,8 +34,8 @@ Item {
         width: parent.width * .95
         height: parent.height * .50
         radius: height * .47
-        color: ship.silhouette ? "#050407" : "#383e5c"
-        border.color: ship.silhouette ? "#050407" : "#8a9abb"
+        color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : "#383e5c"
+        border.color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : "#8a9abb"
         border.width: 2
     }
     Rectangle {
@@ -43,8 +44,8 @@ Item {
         width: parent.width * .81
         height: parent.height * .33
         radius: height * .49
-        color: ship.silhouette ? "#050407" : "#5e6789"
-        border.color: ship.silhouette ? "#050407" : "#b0bfdc"
+        color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : "#5e6789"
+        border.color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : "#b0bfdc"
         border.width: 2
     }
     Rectangle {
@@ -53,7 +54,7 @@ Item {
         width: parent.width * .75
         height: parent.height * .055
         radius: height * .44
-        color: ship.silhouette ? "#050407" : "#ffac60"
+        color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : "#ffac60"
         opacity: ship.wreck ? .2 + .75 * Math.abs(Math.sin(ship.time * 17)) : .87
     }
     Repeater {
@@ -71,8 +72,8 @@ Item {
             width: parent.width * .105
             height: parent.height * .145
             radius: height * .38
-            color: ship.silhouette ? "#050407" : "#252a40"
-            border.color: ship.silhouette ? "#050407" : part.tint
+            color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : "#252a40"
+            border.color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : part.tint
             border.width: 2
             Rectangle {
                 readonly property real dx: ship.width*(.50+(tube.part.baseLane ?? (tube.index-1)*238)/870)-tube.x-tube.width*.5
@@ -84,8 +85,8 @@ Item {
                 rotation: -Math.atan2(dx,dy)*180/Math.PI
                 width: tube.width*.30
                 height: Math.hypot(dx,dy)
-                color: ship.silhouette ? "#050407" : "#303143"
-                border.color: ship.silhouette ? "#050407" : "#8c8693"
+                color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : "#303143"
+                border.color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : "#8c8693"
                 border.width: 1
                 radius: width*.37
             }
@@ -94,7 +95,7 @@ Item {
                 width: parent.width * (.65 + tube.recoil * .55)
                 height: parent.height * (.64 + tube.recoil * .5)
                 radius: height * .45
-                color: ship.silhouette ? "#050407" : tube.part.tint
+                color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : tube.part.tint
                 opacity: .53 + tube.recoil
             }
             Rectangle {
@@ -102,7 +103,7 @@ Item {
                 y: parent.height + 3
                 width: { ship.revision; return parent.width * tube.part.hp / tube.part.maximum }
                 height: 2
-                color: ship.silhouette ? "#050407" : tube.part.tint
+                color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : tube.part.tint
             }
         }
     }
@@ -114,8 +115,8 @@ Item {
         width: parent.width * .19
         height: parent.height * .49
         radius: height / 2
-        color: ship.silhouette ? "#050407" : "#fff2aa"
-        border.color: ship.silhouette ? "#050407" : "#eb844d"
+        color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : "#fff2aa"
+        border.color: ship.silhouette ? "#050407" : ship.frozen ? "#aacfee" : "#eb844d"
         border.width: 4
     }
     Rectangle {

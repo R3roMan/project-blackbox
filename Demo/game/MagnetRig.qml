@@ -33,6 +33,7 @@ Node {
         materials: rig.iceMaterial ? [rig.iceMaterial] : ([silver])
     }
     Model {
+        objectName:"eye:"+rig.targetId;pickable:rig.live
         source: "#Sphere"
         z: 43
         scale: Qt.vector3d(.32,.32,.19)
@@ -54,15 +55,15 @@ Node {
             eulerRotation.z: -modelData * (11 + Math.sin(rig.clock*6)*6 + (rig.warning ? 16 : 0))
 
             Model {
-                objectName: String(rig.targetId)
-                pickable: rig.live
+                objectName:"outer:"+rig.targetId
+                pickable:rig.live
                 source: "#Cube"
                 scale: Qt.vector3d(.26,.82,.41)
                 materials: rig.iceMaterial ? [rig.iceMaterial] : ([silver])
             }
             Model {
-                objectName: String(rig.targetId)
-                pickable: rig.live
+                objectName:"outer:"+rig.targetId
+                pickable:rig.live
                 source: "#Cube"
                 x: -modelData * 16
                 y: -44

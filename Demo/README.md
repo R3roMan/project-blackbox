@@ -26,7 +26,7 @@ Choose **New game**, choose a difficulty, then pick a companion and a starting w
 | Hold F | Look into the Abyss and hold for fourteen seconds to seal the rift for this wave. Progress stays when you look away. |
 | T | Pause and open the combined Loadout. Inspect gear at any time in Pause and move it between waves. |
 | Esc | Pause or resume. The menu has Loadout, Waves, Settings, Save run, Restart run and Quit to Home. Unlock all gear in Debug to show the Debug gear tab. |
-| . | Toggle the wave timer. The corner speed button cycles 1×, 2× and 0.5×. |
+| . | Toggle the wave timer. The corner speed button cycles 1×, 2×, 3×, 5× and 0.5×. |
 | F11 | Toggle full screen on the current display. |
 
 The five dots in the bottom corner show your current view in mint and threatened views in red. Click a reachable dot or use the turn keys. Red triangles point to offscreen threats. When a boss is waiting, follow the yellow exclamation arrow and siren. An orange ring fills around a demon during its attack windup. A hit splashes blood along the display, and the edges pulse below 35% health. **Mouse edge turns** is on for new profiles. Toggle it in Settings. Move a short distance away from an edge to use it again.
@@ -96,9 +96,9 @@ Turn on **Debug** at run setup to practise from a tenth wave, up to wave 150. Ch
 - Gendoustagus curses its killer for the wave. A player curse increases damage taken by 20% and gives an eligible shot a 13% chance to misfire. Misfires leave the round in the magazine. Further curses leave the penalty at the same strength.
 - Enemies with **Dodge** react when you hold aim close to them. Higher tiers react and recover sooner. Shots still hit if you track their movement.
 - Hold **Space** to raise the field shield. The notch marks the 20% minimum to raise it. Raising it spends 10%, holding it up drains the meter, and ordinary hits spend additional charge. It drops when empty and recharges while lowered. Raise it just before impact for a parry and an immediate full refill. Shield transformations and equipment alter drain, recovery and block costs.
-- Land a shot directly on a demon’s eye to guarantee a critical hit against that demon. An enemy’s critical resistance still applies. The ammunition dial shows individual bullets around the magazine, and switches to a charge ring for staffs or weapons with heat.
+- Land a shot on an eye for a guaranteed critical roll. Wings, horns and equivalent exposed parts take 80% damage. These hit zones apply to each shotgun pellet individually. Melee strikes use neither hit-zone nor critical multipliers. The ammunition dial shows individual bullets around the magazine, and switches to a charge ring for staffs or weapons with heat.
 - A barrier is the separate blue health filter. Temporary barriers come from gear or supplies. The shop also sells a core with up to four charges per installation. Any barrier absorbs the whole hit that breaks it. Surviving charges carry through turns and waves while the timer or core lasts. Buy another rank or use a barrier-granting ability to get fresh protection.
-- Weapon attacks start with a 5% critical chance at ×2 damage. Precision weapons and equipment can increase those values. Critical hits against you can be blocked with the field shield. Block five across one run to unlock Soft landing.
+- Gunfire starts with a 5% critical chance at ×1.5 damage. Precision weapons and equipment can increase those values. The field shield blocks direct hits from the current wallpaper. Block five across one run to unlock Soft landing.
 - Shoot gifts before they fade. Five out of six ordinary gifts help. Cursed gifts can reverse turn inputs for six seconds, tax cooldowns or weaken a combat stat. Mega gifts are larger purple and gold crates with a bright rim. They can grant gold, a refresh, a temporary pet, infinite ammo, upgraded weapons, a blast or a few dark gems. Every regular campaign boss drops one to four dark gems. Field gems enter the Vault immediately.
 
 ## Weather

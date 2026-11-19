@@ -16,6 +16,7 @@ Node {
     property int grabId: 0
     property var surfaces:null
     property bool simplified:false
+    property bool fieldFrozen:false
     readonly property var creature: Rules.enemyTypes[enemy.type]
     readonly property bool angel: creature.role === "angel" || !!creature.angel
     readonly property bool shade: enemy.type === "mystery"
@@ -48,15 +49,17 @@ Node {
     readonly property bool dragon: enemy.type === "gigafinterus"
     readonly property bool prince: enemy.type === "princoratus"
     readonly property string condition: { revision; return Elements.visible(enemy.elements) }
-    readonly property bool frozen: { revision; return !!enemy.elements && enemy.elements.frozen > 0 }
+    readonly property bool frozen: { revision; return fieldFrozen || !!enemy.elements && enemy.elements.frozen > 0 }
     readonly property Material iceMaterial:frozen ? frostShell : null
     readonly property color conditionColor: condition ? Elements.kinds[condition].color : creature.accent
     readonly property real shatter: { revision; return enemy.shatter || 0 }
     readonly property real size: Rules.enemySize(enemy)
     property bool animate: true
-    PrincipledMaterial {
-        id: frostShell
-        baseColor:"#abdafa";roughness:.23;metalness:.14;specularAmount:.82;cullMode:Material.NoCulling
+    LitSurface {
+        id:frostShell
+        surfaces:actor.surfaces;finish:"ice"
+        baseColor:"#b3dcfa";roughness:.23;metalness:detailed ? .30 : .14
+        specularAmount:.89;cullMode:Material.NoCulling
     }
     property bool preview:false
     readonly property real age: { revision; return enemy.age }

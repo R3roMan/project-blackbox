@@ -126,6 +126,8 @@ Node {
             eulerRotation.y: -36+Math.sin(beast.clock*2-index*.5)*21
             Model {
                 source: "#Sphere"
+                objectName:"outer:"+beast.enemy.id
+                pickable:beast.live
                 scale: Qt.vector3d(coil.taper*(beast.leviathan ? 1.42 : .76),coil.taper*(beast.leviathan ? .98 : .57),coil.taper*(beast.leviathan ? 1.47 : .95))
                 opacity: beast.leviathan ? .50 : 1
                 materials: beast.iceMaterial ? [beast.iceMaterial] : ([skin])

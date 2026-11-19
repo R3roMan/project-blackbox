@@ -70,7 +70,7 @@ function create(seed, unlocks) {
         nextStage:null,stage:null,desktop:null,training:null,abilityEvents:[],passiveFxReady:{},salvoTime:0,salvoBonus:0,runeReady:0,sprayTime:0,vampireReady:0,
         careerUnlocks:unlocks || [], playerFront:"front", viewReady:true, weatherEffect:"clear", nextFirePulse:0,
         skyPhase:"daytime",bloodMoonSeen:false,takeoverTime:0,stormAt:0,stormBursts:[],
-        attemptId:"",covenant:null,entryWave:1,omenCounts:{},tarotPet:null,rehearsal:false,finishReason:"",
+        attemptId:"",usedAuto:false,quickStart:false,covenant:null,entryWave:1,omenCounts:{},tarotPet:null,rehearsal:false,finishReason:"",
         fieldGems:{},gemSerial:0,lootEvents:[],lootSerial:0,
         abyssSeal:{progress:0,closed:false}, grab:null, hypnosis:null, inkStains:false, dizzyLeft:0,
         fearCut:false, souls:0, scytheSouls:0, boneTime:0, boneRank:0, windAt:20, gustLeft:0,scareTime:0,
@@ -372,6 +372,7 @@ function criticalRoll(run, chance) {
 }
 
 function criticalProfile(run, weapon) {
+    if (weapon.melee) return {chance:0,power:1}
     return {
         chance:.05 + (weapon.crit || 0) + rank(run,"criticalLens")*.07 + Gear.perk(run,"critChance")
             + (run.boneTime > 0 ? .24 + (run.boneRank-1)*.045 : 0)
@@ -381,7 +382,7 @@ function criticalProfile(run, weapon) {
     }
 }
 
-function weaponCritical(run, weapon, gun, enemy) {
+function weaponCritical(run, weapon, enemy) {
     const base = criticalProfile(run,weapon)
     const chance = base.chance + (run.criticalRoll > 0 ? .36 : 0)
         + (enemy && enemy.criticalMark > 0 ? .27 : 0)
@@ -1472,7 +1473,7 @@ function remove(run, index, paid, source) {
             const kind=mega && random(run)<.13 ? "gems" : sample(run,mega ? megaGifts : Object.keys(cursed ? curses : giftNames))
             run.gifts.push({ id:run.nextId++, kind:kind,
                 mega:mega, cursed:cursed, front:enemy.front, lane:lanePosition(enemy) * .84,
-                depth:Math.max(320, enemy.depth), remaining:5, flashes:true })
+                depth:Math.max(320, enemy.depth), remaining:5 })
             run.giftRoster += 1
         }
     }
@@ -1489,7 +1490,7 @@ function callGuest(run, view, seconds) {
 }
 
 function giftVisibility(gift) {
-    return gift.flashes && gift.remaining <= 3 && Math.floor(gift.remaining*7)%2===0 ? 0 : 1
+    return !gift.token && gift.remaining <= 3 && Math.floor(gift.remaining*7)%2===0 ? 0 : 1
 }
 
 function claimMega(run, gift) {
@@ -3140,7 +3141,7 @@ function shoot(run, hits, view, aim, continuation) {
     }
     const scoped = !!aim?.scoped && Gear.hasGunSights(weapon)
     const primary = hits.find(function(id) { return id > 0 }) || 0
-    const critical = weaponCritical(run,weapon,gun,target(run,primary))
+    const critical = weaponCritical(run,weapon,target(run,primary))
     function criticalAt(id) {
         return aim?.eyeTargets?.includes(id) || aim?.contacts?.some(contact => contact.id===id && contact.zone==="eye")
             ? Math.max(critical,criticalProfile(run,weapon).power) : critical
@@ -5456,7 +5457,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
         enemy.dodgeIn = Math.max(0, enemy.dodgeIn - dt)
         enemy.dodgeAge = Math.max(0, enemy.dodgeAge - dt)
         if (enemy.type === "hasasasa") {
-            if (!enemy.hitStop)
+            if (!enemy.hitStop && !frozenPose)
                 Ship.sway(enemy)
             for (const part of enemy.turrets)
                 part.flash = Math.max(0, part.flash - dt)
@@ -5549,6 +5550,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
                 beginWarp(enemy, "flee", .47)
             continue
         }
+        if (frozenPose && (enemy.eyesTime > 0 || enemy.type==="seraphijus")) continue
         if (enemy.eyesTime > 0) {
             stepAbyss(run,enemy,dt,aim)
             continue

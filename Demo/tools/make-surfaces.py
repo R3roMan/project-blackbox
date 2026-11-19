@@ -1,6 +1,8 @@
 """Build the shared Ultra material maps and the neutral workshop light probe."""
 from pathlib import Path
 
+import sys
+
 import numpy as np
 from PIL import Image
 
@@ -125,6 +127,39 @@ def stone():
     maps("stone",height,6.4,.69+.19*grooves-mineral*.22,.77+height*.14,512)
 
 
+def ice():
+    # Broken crystal faces, hairline cracks and pale pockets of trapped frost.
+    size = 11
+    u = X * size + .06 * wrinkles(7, 1.4)
+    v = Y * size + .06 * wrinkles(8, 2.4)
+    cell_x, cell_y = np.floor(u), np.floor(v)
+    rng = np.random.default_rng(9372)
+    sites = rng.random((size, size, 2), dtype=np.float32) * .73 + .135
+    first = np.full_like(X, 20)
+    second = first.copy()
+    face = np.zeros_like(X)
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            px, py = cell_x + dx, cell_y + dy
+            site = sites[py.astype(int) % size, px.astype(int) % size]
+            distance = (u - px - site[..., 0])**2 + (v - py - site[..., 1])**2
+            closer = distance < first
+            face = np.where(closer, site[..., 1], face)
+            second = np.where(closer, first, np.minimum(second, distance))
+            first = np.minimum(first, distance)
+    crack = np.exp(-((second - first) / .043)**2)
+    crystals = np.maximum(0, wrinkles(133, 2.6) - .45)**2
+    frost = (.48 + .36 * wrinkles(13, 3.2) + rim_ice(crack)).clip(0, 1)
+    height = (.57 + .21 * face - .29 * crack + crystals * .09 + .10 * frost).clip(0, 1)
+    maps("ice", height, 4.7, .085 + .39 * frost + .12 * crack, .79 + .19 * face)
+    tone = .63 + .23 * face + .18 * frost - .26 * crack + .23 * crystals
+    rgb("ice-color.webp", (tone * .86, tone * .97, tone * 1.12))
+
+
+def rim_ice(crack):
+    return .38 * np.sqrt(crack) + .07 * wrinkles(63, 2.1)
+
+
 def probe():
     w, h = 512, 256
     x, y = np.meshgrid(np.linspace(-np.pi,np.pi,w,endpoint=False), np.linspace(0,np.pi,h,endpoint=False))
@@ -149,12 +184,16 @@ def probe():
 
 
 if __name__ == "__main__":
-    reptile()
-    steel()
-    fabric()
-    wing()
-    horn()
-    bone()
-    timber()
-    stone()
-    probe()
+    if "--ice-only" in sys.argv:
+        ice()
+    else:
+        reptile()
+        steel()
+        fabric()
+        wing()
+        horn()
+        bone()
+        timber()
+        stone()
+        ice()
+        probe()

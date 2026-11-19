@@ -36,7 +36,7 @@ View3D {
         }
         return selected
     }
-    readonly property real radius:Muster.radius(company,placements,width/Math.max(1,height))
+    readonly property real radius:Muster.radius(company,width/Math.max(1,height))
     explicitTextureWidth: Math.max(1,Math.round(Math.min(scene.ultra ? 3840 : 2560,width*Screen.devicePixelRatio)))
     explicitTextureHeight: Math.max(1,Math.round(explicitTextureWidth*height/Math.max(1,width)))
     camera:previewCamera

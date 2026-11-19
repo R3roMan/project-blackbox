@@ -8,6 +8,13 @@ Node {
     required property var enemy
     required property int revision
     property bool animate: true
+    property bool fieldFrozen:false
+    readonly property bool frozen:{revision;return fieldFrozen || enemy.elements?.frozen>0}
+    LitSurface {
+        id:ice
+        surfaces:ship.surfaces;finish:"ice";baseColor:"#acd6ef"
+        roughness:.23;metalness:detailed ? .31 : .22;specularAmount:.89
+    }
     property real visibility: 1
     readonly property bool coreOpen: { revision; return enemy.turrets.every(function(part) { return !part.hp }) }
     readonly property real wreck: { revision; return enemy.wreck }
@@ -35,21 +42,21 @@ Node {
         Model {
             source: "#Sphere"
             scale: Qt.vector3d(8.65, 2.24, 2.33)
-            materials: [armor]
+            materials: ship.frozen ? [ice] : [armor]
         }
         Model {
             source: "#Sphere"
             y: 40
             z: 27
             scale: Qt.vector3d(7.2, 1.64, 1.95)
-            materials: [panels]
+            materials: ship.frozen ? [ice] : [panels]
         }
         Model {
             source: "#Cube"
             y: -23
             z: 61
             scale: Qt.vector3d(5.71, .18, .43)
-            materials: [ports]
+            materials: ship.frozen ? [ice] : [ports]
         }
         Repeater3D {
             model: 6
@@ -62,7 +69,7 @@ Node {
                 z: 31
                 eulerRotation.y: wing * 9
                 scale: Qt.vector3d(.33,.08,.91)
-                materials: [index % 2 ? ports : panels]
+                materials: ship.frozen ? [ice] : [index % 2 ? ports : panels]
             }
         }
         Repeater3D {
@@ -74,15 +81,15 @@ Node {
                 y: Math.abs(outer)*-18
                 z: 71-Math.abs(outer)*43
                 eulerRotation.z: outer*21
-                Model { source:"#Cube"; scale:Qt.vector3d(.77,.31,1.22); materials:[ports] }
-                Model { source:"#Cone"; y:24; z:-18; scale:Qt.vector3d(.32, .79, .57); materials:[panels] }
-                Model { source:"#Cube"; y:-8; z:63; scale:Qt.vector3d(.52,.06,.065); materials:[hazard] }
+                Model { source:"#Cube"; scale:Qt.vector3d(.77,.31,1.22); materials:ship.frozen ? [ice] : [ports] }
+                Model { source:"#Cone"; y:24; z:-18; scale:Qt.vector3d(.32, .79, .57); materials:ship.frozen ? [ice] : [panels] }
+                Model { source:"#Cube"; y:-8; z:63; scale:Qt.vector3d(.52,.06,.065); materials:ship.frozen ? [ice] : [hazard] }
                 Model {
                     source:"#Cone"
                     y:-34; z:34
                     eulerRotation.z:180
                     scale:Qt.vector3d(.18,.54,.22)
-                    materials:[armor]
+                    materials:ship.frozen ? [ice] : [armor]
                 }
             }
         }
@@ -96,7 +103,7 @@ Node {
                 z: 85
                 scale: Qt.vector3d(.26, .065, .08)
                 opacity: ship.wreck ? .25 + .75 * Math.abs(Math.sin(ship.clock * 17 + index)) : .8
-                materials: [warning]
+                materials: ship.frozen ? [ice] : [warning]
             }
         }
         Repeater3D {
@@ -124,13 +131,13 @@ Node {
                     z: -17
                     eulerRotation.z: -Math.atan2(turret.part.baseLane-turret.x,-30-turret.y)*180/Math.PI
                     scale: Qt.vector3d(.31, turret.span/100 + .1, .37)
-                    materials: [ports]
+                    materials: ship.frozen ? [ice] : [ports]
                 }
                 Model {
                     visible: !turret.broken
                     source: "#Sphere"
                     scale: Qt.vector3d(.99,.76,.97)
-                    materials: [panels]
+                    materials: ship.frozen ? [ice] : [panels]
                 }
                 Model {
                     objectName: String(turret.part.targetId)
@@ -140,7 +147,7 @@ Node {
                     z: 38
                     eulerRotation.x: 90
                     scale: Qt.vector3d(.79, .29, .65)
-                    materials: [ports]
+                    materials: ship.frozen ? [ice] : [ports]
                 }
                 Model {
                     visible: !turret.broken
@@ -148,14 +155,14 @@ Node {
                     z: 57 + 22 * turret.recoil
                     scale: Qt.vector3d(.49 + turret.recoil, .47 + turret.recoil, .09 + turret.recoil)
                     opacity: .45 + turret.recoil
-                    materials: [conductor]
+                    materials: ship.frozen ? [ice] : [conductor]
                 }
                 Model {
                     visible: turret.broken
                     source: "#Sphere"
                     z: 11
                     scale: Qt.vector3d(.87, .71, .61)
-                    materials: [ports]
+                    materials: ship.frozen ? [ice] : [ports]
                 }
             }
         }
@@ -169,14 +176,14 @@ Node {
                 source: "#Cylinder"
                 eulerRotation.x: 90
                 scale: Qt.vector3d(1.30, 1.23, 1.05)
-                materials: [ports]
+                materials: ship.frozen ? [ice] : [ports]
             }
             Model {
                 source: "#Sphere"
                 z: 65
                 scale: Qt.vector3d(.84, .84, .28)
                 opacity: ship.wreck ? .5 : (.74 + Math.sin(ship.clock * 5) * .25)
-                materials: [warning]
+                materials: ship.frozen ? [ice] : [warning]
             }
         }
         Model {
@@ -185,7 +192,7 @@ Node {
             y: -54
             scale: Qt.vector3d(9.1, 4.82, 3.47)
             opacity: .19
-            materials: [field]
+            materials: ship.frozen ? [ice] : [field]
         }
         Repeater3D {
             model: 10
@@ -201,7 +208,7 @@ Node {
                 scale: Qt.vector3d(.08 + cycle * .49, .06 + cycle * .32, .08 + cycle * .31)
                 opacity: 1 - cycle
                 eulerRotation.z: index * 32
-                materials: [ship.wreck ? warning : field]
+                materials: ship.frozen ? [ice] : [ship.wreck ? warning : field]
             }
         }
     }

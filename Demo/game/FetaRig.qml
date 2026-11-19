@@ -38,6 +38,7 @@ Node {
         materials: rig.iceMaterial ? [rig.iceMaterial] : ([dark])
     }
     Model {
+        objectName:"eye:"+rig.targetId;pickable:rig.live
         source: "#Cube"
         y: 47
         z: 43
@@ -58,7 +59,7 @@ Node {
             scale: Qt.vector3d(.45,.29,.63)
             materials: rig.iceMaterial ? [rig.iceMaterial] : ([dark])
         }
-        Model { source:"#Cube"; z:54; y:8; scale:Qt.vector3d(.25,.13,1.19); materials:rig.iceMaterial ? [rig.iceMaterial] : ([alloy])}
+        Model { objectName:"outer:"+rig.targetId;pickable:rig.live;source:"#Cube"; z:54; y:8; scale:Qt.vector3d(.25,.13,1.19); materials:rig.iceMaterial ? [rig.iceMaterial] : ([alloy])}
         Model { source:"#Cube"; z:111; y:8; scale:Qt.vector3d(.32,.27,.31); materials:rig.iceMaterial ? [rig.iceMaterial] : ([dark])}
         Model { source:"#Cube"; z:128; y:8; scale:Qt.vector3d(.09,.075,.08); materials:rig.iceMaterial ? [rig.iceMaterial] : ([optic])}
         Model { source:"#Cube"; z:38; y:25; scale:Qt.vector3d(.16,.11,.31); materials:rig.iceMaterial ? [rig.iceMaterial] : ([optic])}

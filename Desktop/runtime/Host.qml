@@ -95,6 +95,73 @@ FocusScope {
     readonly property bool here:!options.linkDesktops || !!linkedFront
     readonly property bool home:(standaloneWindow ? activeFocus || Window.active : Native.Desktop.atHome)
         && !Native.Desktop.sessionLocked && visible && here && !editingDesktop
+    property bool idleControls:false
+    property real idleOpacity:idleControls ? 1 : 0
+    property bool ctrlAlone:false
+    property int quickCount:0
+    readonly property bool idleKeys:home && claimed && mode==="idle"
+        && !bookOpen && !vaultOpen && !settingsDrawer.visible && !galleryLoader.item?.drawerOpen
+    Behavior on idleOpacity {NumberAnimation {duration:220;easing.type:Easing.InOutQuad}}
+    onIdleKeysChanged:if (!idleKeys) {
+        ctrlAlone=false
+        quickHold.stop()
+        quickStart.stop()
+        quickCount=0
+    }
+
+    Keys.onPressed:function(event) {
+        if (!idleKeys || event.isAutoRepeat) return
+        if (event.key===Qt.Key_Control) {
+            ctrlAlone=event.modifiers===Qt.NoModifier || event.modifiers===Qt.ControlModifier
+        } else {
+            ctrlAlone=false
+            if (event.key===Qt.Key_Space && event.modifiers===Qt.ControlModifier && !quickCount) {
+                quickHold.restart()
+                event.accepted=true
+            } else {
+                quickHold.stop()
+            }
+        }
+    }
+    Keys.onReleased:function(event) {
+        if (event.key===Qt.Key_Space) quickHold.stop()
+        if (event.key!==Qt.Key_Control || event.isAutoRepeat) return
+        quickHold.stop()
+        if (idleKeys && ctrlAlone && !quickCount) {
+            idleControls=!idleControls
+            report()
+        }
+        ctrlAlone=false
+    }
+    Shortcut {
+        sequence:"Escape";context:Qt.WindowShortcut
+        enabled:host.idleKeys && host.quickCount>0
+        onActivated:{quickStart.stop();host.quickCount=0}
+    }
+    Timer {
+        id:quickHold;interval:420
+        onTriggered:if (host.idleKeys && battle.item) {
+            galleryLoader.item?.go("shrine",true)
+            host.quickCount=3
+            menuSound.item?.play("takeover-tick",.69)
+            quickStart.start()
+        }
+    }
+    Timer {
+        id:quickStart;interval:1000;repeat:true
+        onTriggered:{
+            host.quickCount-=1
+            if (host.quickCount>0) {
+                menuSound.item?.play(host.quickCount===1 ? "takeover-final" : "takeover-tick",.69)
+                return
+            }
+            stop()
+            host.idleControls=false
+            Native.Desktop.setOption("mode","play")
+            battle.item?.beginQuickRun()
+            host.report()
+        }
+    }
     property bool gpuBudgetLimited:false
     property bool workspaceSyncQueued:false
     property string requestedWorkspace:""
@@ -120,6 +187,7 @@ FocusScope {
         onTriggered:host.requestedWorkspace=""
     }
     onModeChanged:{
+        if (mode==="idle") idleControls=false
         if (options.linkDesktops && mode==="play" && battle.item) Native.Desktop.switchWorkspace(battle.item.frontId)
         else Qt.callLater(syncWorkspace)
     }
@@ -137,7 +205,7 @@ FocusScope {
         const game=battle.item,run=game.run
         const actives=run.slots.active.map(function(slot,i){return slot.item ? {title:Gear.activeAbilities[slot.item.id].title,id:slot.item.id,cooldown:Rules.activeCooldown(run,slot.item.id),duration:Rules.abilityRecovery(run,slot)} : {title:"Empty",cooldown:0,duration:1}})
         Native.Desktop.publish({renderer:game.projectedMode ? "2D fallback" : "Qt Quick 3D",
-            canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
+            canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,idleControls:host.idleControls,countdown:host.quickCount,weapon:Gear.current(run).id,pet:run.pet?.id || "",difficulty:run.difficulty,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(home) {
         if (mode==="play" && battle.item) battle.item.keyTargetFocus()
@@ -167,6 +235,8 @@ FocusScope {
             focus:host.mode!=="play"
             mouseLook:host.options.mouseTurns
             escapeBack:true
+            externalChrome:true
+            chromeOpacity:host.idleOpacity
             ambientFps:Math.min(24,host.options.frameLimit)
             sceneryDetail:host.options.detail
             motionAllowed:host.options.motion
@@ -347,7 +417,9 @@ FocusScope {
     }
     Row {
         anchors.right:parent.right;anchors.top:parent.top;anchors.rightMargin:host.areaRight+14;anchors.topMargin:host.areaTop+70;spacing:6;z:60
-        visible:host.home && !host.bookOpen && !host.vaultOpen && host.mode!=="play"
+        opacity:host.idleOpacity
+        enabled:opacity>.95 && !host.quickCount
+        visible:host.home && !host.bookOpen && !host.vaultOpen && host.mode!=="play" && opacity>0
         Ui.ActionButton {text:"Back to Play";primary:true;onClicked:Native.Desktop.command("play")}
         Ui.ActionButton {text:"Grimoire";onClicked:host.openBook("enemies","")}
         Ui.ActionButton {text:"Witch’s Vault";onClicked:{careerVault.reload();host.vaultOpen=true}}
@@ -355,12 +427,12 @@ FocusScope {
     }
     Rectangle {
         anchors.horizontalCenter:parent.horizontalCenter;anchors.top:parent.top;anchors.topMargin:20
-        visible:!Native.Desktop.visibilityReady
+        visible:!Native.Desktop.visibilityReady && (host.mode==="play" || host.idleOpacity>.01)
         width:Math.min(650,parent.width-30);height:54;color:"#ef211823";radius:6;border.color:"#c89b61";z:70
         Text {anchors.fill:parent;anchors.margins:9;wrapMode:Text.WordWrap;color:"#f2dfbf";text:"Enable the Blackbox desktop visibility helper in System Settings → Window Management → KWin Scripts. It tells Blackbox when the wallpaper has focus."}
     }
     Row {
-        anchors.bottom:parent.bottom;anchors.horizontalCenter:parent.horizontalCenter;spacing:3;visible:host.home && host.options.musicReactive;z:9
+        anchors.bottom:parent.bottom;anchors.horizontalCenter:parent.horizontalCenter;spacing:3;visible:host.home && host.options.musicReactive && (host.mode==="play" || host.idleOpacity>.01);z:9
         Repeater {model:Native.Desktop.bands
             Rectangle {required property var modelData;width:12;height:4+modelData*60;anchors.bottom:parent.bottom;color:"#c788ed";opacity:.65}}
     }
@@ -370,6 +442,15 @@ FocusScope {
         anchors.leftMargin:host.areaLeft; anchors.rightMargin:host.areaRight
         anchors.topMargin:host.areaTop; anchors.bottomMargin:host.areaBottom
         z:80
+    }
+    Loader {
+        anchors.fill:desktopControls;z:90
+        active:host.quickCount>0
+        sourceComponent:Game.OutcomeSplash {
+            loss:false
+            motion:host.options.motion
+            message:String(host.quickCount)
+        }
     }
     Drawer {id:settingsDrawer
         popupType:Popup.Item
