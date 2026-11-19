@@ -23,7 +23,7 @@ FocusScope {
     id: play
     objectName: "playScene"
     focus: true
-    clip: true
+    clip: wallpaperInsets===Qt.rect(0,0,0,0)
 
     required property url artDirectory
     required property bool allowed
@@ -35,6 +35,11 @@ FocusScope {
     property int frameLimit:60
     property bool showTimer:false
     property real gameSpeed:1
+    readonly property var speedSteps:[1,2,3,5,.5]
+    property bool escapeBack:false
+    property rect wallpaperInsets:Qt.rect(0,0,0,0)
+    property int queuedAbility:-1
+    property real queuedAbilityUntil:0
     property int autoLimit:0
     property bool autoPlaying:false
     property bool autoScoped:false
@@ -456,6 +461,23 @@ FocusScope {
             publish()
     }
 
+    function activateAbility(index, physical) {
+        if (!fighting || bookVisible || trainingBlocked || autoPlaying)
+            return false
+        const slot=physical ? Rules.slotInput(run,index) : index
+        const id=run.slots.active[slot]?.item?.id
+        const remaining=id ? Rules.activeCooldown(run,id) : 0
+        if (id && (turning || remaining>0 && remaining<.24)) {
+            queuedAbility=slot
+            queuedAbilityUntil=run.time+(turning ? .65 : .25)
+            return false
+        }
+        const point=worldItem ? {x:pointer.x/width,y:pointer.y/height} : null
+        const cast=Rules.useAbility(run,slot,frontId,point ? aimAt(pointer.x,pointer.y) : 0,point)
+        publish()
+        return cast
+    }
+
     function abilityTile(index) {
         const slot = run.slots.active[index] || null
         if (!slot || !slot.item)
@@ -733,7 +755,7 @@ FocusScope {
             || !destination || !Rules.lookFront(run,destination)) return
         keyTargetFocus()
         sealing = false
-        turnMs = Math.round(Rules.turnDuration(run)/gameSpeed)
+        turnMs = Math.max(90,Math.round(Rules.turnDuration(run)/gameSpeed))
         if (audio.item)
             audio.item.play("turn")
         previousFront = frontId
@@ -782,23 +804,24 @@ FocusScope {
             const px = x + offset[0] * play.height * pattern
             const py = y + offset[1] * play.height * pattern
             let hitIds = []
-            const eyes=new Set()
+            const eyes=new Set(), outer=new Set()
             if (px >= 0 && px < play.width && py >= 0 && py < play.height) {
                 const point = worldItem.mapFromItem(aim, px, py)
                 if (weapon.penetration) {
-                    const targets = worldItem.pickTargets(point.x, point.y,eyes)
+                    const targets = worldItem.pickTargets(point.x, point.y,eyes,outer)
                     const intercept = targets.findIndex(function(id) { return shipShots.has(id) })
                     const reach = intercept < 0 ? weapon.penetration : Math.min(weapon.penetration, intercept + 1)
                     hitIds = targets.slice(0, reach)
                 } else {
-                    hitIds = worldItem.pickTargets(point.x,point.y,eyes).slice(0,1)
+                    hitIds = worldItem.pickTargets(point.x,point.y,eyes,outer).slice(0,1)
                 }
             }
-            return { x:px, y:py, dx:px-x, dy:py-y, hit:hitIds[0] || 0, targets:hitIds,eyes:hitIds.filter(id=>eyes.has(id)) }
+            return { x:px, y:py, dx:px-x, dy:py-y, hit:hitIds[0] || 0, targets:hitIds,eyes:hitIds.filter(id=>eyes.has(id)),
+                contacts:hitIds.map(id=>({id:id,zone:eyes.has(id) ? "eye" : outer.has(id) ? "outer" : "body"})) }
         })
         const targets = weapon.melee ? swingTargets(x, y, Math.max(weapon.aim, height * weapon.aim / 650) * .74)
             : traces.reduce(function(all, trace) { return all.concat(trace.targets) }, [])
-        commitShot(targets,traces,{x:x/width,y:y/height,scoped:aimingGun,eyeTargets:traces.reduce((all,ray)=>all.concat(ray.eyes),[])},continuation)
+        commitShot(targets,traces,{x:x/width,y:y/height,scoped:aimingGun,contacts:traces.reduce((all,ray)=>all.concat(ray.contacts),[])},continuation)
     }
 
     function commitShot(targets,traces,point,continuation) {
@@ -854,7 +877,7 @@ FocusScope {
             if (!gunSights || !autoPlan.enemy) autoScoped=false
             else if (run.time>=autoAimUntil) {
                 autoScoped=Math.random()<(autoPlan.point.depth>1000 ? .52 : .30)
-                autoAimUntil=run.time+.7+Math.random()*.85
+                autoAimUntil=run.time+(.8+Math.random()*1.2)*gameSpeed
             }
             Rules.holdShield(run,autoPlan.guard)
             if (autoPlan.direction && !run.shield.raised) {
@@ -865,13 +888,15 @@ FocusScope {
         }
         sealing=!!autoPlan.seal
         if (!autoPlan.point || !worldItem) return null
-        const point=autoPlan.point
-        const projected=worldItem.projection(point.lane,point.elevation,point.depth)
+        const point=autoPlan.enemy && !autoPlan.enemy.turrets ? Rules.arcPoint(autoPlan.enemy) : autoPlan.point
+        const projected=Optics.project(worldItem.width,worldItem.height,point.lane,point.elevation,point.depth,Qt.point(.5,.5),1)
         const screen=worldItem.mapToItem(aim,projected.x,projected.y)
         const x=Math.max(3,Math.min(width-3,screen.x))
         const y=Math.max(3,Math.min(height-3,screen.y))
         if (!Number.isFinite(x) || !Number.isFinite(y)) return null
-        updateAim(glitchInput ? width-x : x,glitchInput ? height-y : y,frameTime)
+        const follow=1-Math.exp(-frameTime*13)
+        aimX+=(x-aimX)*follow
+        aimY+=(y-aimY)*follow
         const sight={x:pointer.x/width,y:pointer.y/height,aspect:width/height,scoped:aimingGun}
         const gun=Gear.current(run)
         const hits=[autoPlan.id]
@@ -939,7 +964,9 @@ FocusScope {
 
     function handleEscape() {
         if (outcomeKind) return
-        if (paused)
+        if (!paused && fighting && escapeBack && frontId!=="front" && !turning)
+            turnTo("front",Rules.directionToward(frontId,"front"))
+        else if (paused)
             mainAction()
         else if (phase === "combat" || phase === "between" || phase === "ready" || lab)
             pauseRun("build")
@@ -1105,13 +1132,22 @@ FocusScope {
             const now=Date.now()
             const frameTime=Math.min(.08,Math.max(0,(now-previous)/1000))
             previous=now
-            play.accumulated+=frameTime*play.gameSpeed
+            play.accumulated=Math.min(.4,play.accumulated+frameTime*play.gameSpeed)
             const step=1/60
             if (play.interactive && !play.autoPlaying) play.updateAim(aim.mouseX,aim.mouseY,frameTime)
             const sight=play.autoPlaying ? play.autoCombat(frameTime) : play.interactive && aim.containsMouse && !play.turning && !play.stunned
                 ? {x:play.pointer.x/play.width,y:play.pointer.y/play.height,aspect:play.width/play.height} : null
+            if (play.queuedAbility>=0 && !play.turning) {
+                const slot=play.queuedAbility
+                const id=play.run.slots.active[slot]?.item?.id
+                if (!id || play.run.time>play.queuedAbilityUntil) play.queuedAbility=-1
+                else if (!Rules.activeCooldown(play.run,id)) {
+                    play.queuedAbility=-1
+                    play.activateAbility(slot,false)
+                }
+            }
             let steps=0
-            while (play.accumulated>=step && play.run.phase==="combat" && steps++<12) {
+            while (play.accumulated+1e-7>=step && play.run.phase==="combat" && steps++<24) {
                 Tutorial.update(play.run,step,play.sealing && !!play.sealState && !play.turning,(play.fireHeld || play.autoPlaying) && !!sight,sight,!play.turning)
                 play.accumulated-=step
             }
@@ -1133,6 +1169,10 @@ FocusScope {
         if (!fighting || bookVisible || !interactive || autoPlaying)
             return
         if (trainingBlocked) return
+        if (event.isAutoRepeat && [Qt.Key_A,Qt.Key_Left,Qt.Key_D,Qt.Key_Right,Qt.Key_W,Qt.Key_Up,Qt.Key_S,Qt.Key_Down].includes(event.key)) {
+            event.accepted=true
+            return
+        }
         switch (event.key) {
         case Qt.Key_A: case Qt.Key_Left: turnView("left"); break
         case Qt.Key_D: case Qt.Key_Right: turnView("right"); break
@@ -1157,12 +1197,7 @@ FocusScope {
                 setShiftKey(event.nativeScanCode, true)
             break
         case Qt.Key_Q: case Qt.Key_E:
-            if (!event.isAutoRepeat && !play.turning) {
-                const point = aim.containsMouse ? { x:pointer.x / width, y:pointer.y / height } : null
-                Rules.useAbility(run, Rules.slotInput(run,event.key === Qt.Key_Q ? 0 : 1), frontId,
-                    point && worldItem ? aimAt(pointer.x, pointer.y) : 0, point)
-                publish()
-            }
+            if (!event.isAutoRepeat) play.activateAbility(event.key===Qt.Key_Q ? 0 : 1,true)
             break
         case Qt.Key_F:
             if (!event.isAutoRepeat && !stunned && frontId === "down" && !play.turning)
@@ -1190,7 +1225,7 @@ FocusScope {
     }
     Shortcut {
         sequence: "Escape"
-        enabled: !play.bookVisible
+        enabled: play.interactive && !play.bookVisible
         context: Qt.WindowShortcut
         onActivated: play.handleEscape()
     }
@@ -1221,7 +1256,7 @@ FocusScope {
     }
 
     HoverHandler {
-        enabled: play.fighting && !play.bookVisible && play.mouseTurns
+        enabled: play.fighting && play.interactive && !play.autoPlaying && !play.bookVisible && play.mouseTurns
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         blocking: false
         onPointChanged: play.edgeTurn(point.position.x,point.position.y)
@@ -1241,6 +1276,10 @@ FocusScope {
         }
         WallpaperTurn {
             anchors.fill: parent
+            anchors.leftMargin:-play.wallpaperInsets.x
+            anchors.topMargin:-play.wallpaperInsets.y
+            anchors.rightMargin:-play.wallpaperInsets.width
+            anchors.bottomMargin:-play.wallpaperInsets.height
             visible: play.phase !== "shop"
             artDirectory: play.artDirectory
             sources:play.backgroundFiles
@@ -1320,7 +1359,7 @@ FocusScope {
             anchors.fill:parent
             active:play.graphicsDetail>=2 && !play.projectedMode && play.fighting && !play.turning
                 && !play.hypnotised && play.frontId==="left" && play.magnification<1.01
-                && !play.backgroundFiles.left && !!play.worldItem
+                && play.weather!=="winter" && !play.backgroundFiles.left && !!play.worldItem
             sourceComponent:LakeMirror {
                 field:play.worldItem
                 framing:play.wallpaperFit
@@ -1450,7 +1489,7 @@ FocusScope {
         condition: play.fighting && (play.weather!=="incursion" || play.takeover)
             ? Scenery.roomWeather(play.weather,play.frontId) : "clear"
         gust: { play.revision; return play.run.gustLeft }
-        opacity:1-play.blindness
+        opacity:(condition==="fog" && play.frontId==="left" ? .62 : 1)*(1-play.blindness)
         time: play.elapsed
         motion: play.motion
     }
@@ -1816,8 +1855,7 @@ FocusScope {
         onEntered: play.updateAim(mouseX, mouseY, 0)
         onPositionChanged: function(mouse) {
             play.updateAim(mouse.x, mouse.y, 0)
-            if (pressed)
-                play.edgeTurn(mouse.x, mouse.y)
+            if (pressed) play.edgeTurn(mouse.x, mouse.y)
         }
         onExited: play.fireHeld = false
         onCanceled: play.fireHeld = false
@@ -1846,9 +1884,9 @@ FocusScope {
         chargedSlash: play.chargedStrike
         combo: play.combo
         pointer: play.pointer
-        spreadMultiplier: { play.revision; return Rules.spread(play.run) }
+        spreadMultiplier: { play.revision; return Rules.spread(play.run,play.aimingGun)*play.accuracy }
         muzzle: heldWeapon.muzzle
-        aiming: aim.containsMouse
+        aiming: aim.containsMouse || play.autoPlaying
         scoped: play.gunSights && play.magnification > 1.01
         cycling: (play.shotTime > 0 || play.prepTime > 0 || play.cooling > 0) && !play.reloadTime && play.canShoot && !play.stunned
         readiness: play.shotReady
@@ -2148,7 +2186,7 @@ FocusScope {
                 objectName:"gameSpeed"
                 text:play.gameSpeed+"×"
                 hintText:"Change simulation speed"
-                onClicked:{play.gameSpeed=play.gameSpeed===1 ? 2 : play.gameSpeed===2 ? .5 : 1;play.keyTargetFocus()}
+                onClicked:{play.gameSpeed=play.speedSteps[(play.speedSteps.indexOf(play.gameSpeed)+1)%play.speedSteps.length];play.keyTargetFocus()}
             }
         }
         Text {
@@ -2367,6 +2405,7 @@ FocusScope {
             objectName: "activeHUD-Q"
             abilityState: { play.revision; return play.abilityTile(Rules.slotInput(play.run,0)) }
             shortcut: "Q"
+            onCastRequested:{play.activateAbility(0,true);play.keyTargetFocus()}
             motion: play.motion
             details:ability ? Gear.itemDetails(play.run,"active",{id:ability.id,level:abilityState.level}) : ""
             onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
@@ -2486,6 +2525,7 @@ FocusScope {
             objectName: "activeHUD-E"
             abilityState: { play.revision; return play.abilityTile(Rules.slotInput(play.run,1)) }
             shortcut: "E"
+            onCastRequested:{play.activateAbility(1,true);play.keyTargetFocus()}
             motion: play.motion
             details:ability ? Gear.itemDetails(play.run,"active",{id:ability.id,level:abilityState.level}) : ""
             onEntryRequested:function(chapter,id) {play.codexRequested(chapter,id)}
@@ -2726,6 +2766,8 @@ FocusScope {
                 startAt: { play.revision; return play.run.startAt }
                 build: { play.revision; return play.run.debugBuild }
                 unlockAll: { play.revision; return play.run.debugUnlockAll }
+                debugWeapon:{play.revision;return play.run.debugWeapon}
+                onDebugWeaponRequested:function(id) {if (Rules.setDebugWeapon(play.run,id)) play.publish()}
                 bloodMoon: { play.revision; return play.run.debugWeather === "bloodMoon" }
                 weatherLayer:{play.revision;return play.run.debugLayer}
                 unlimitedMoney:{play.revision;return play.run.debug && play.run.debugMoney}

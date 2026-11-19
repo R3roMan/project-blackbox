@@ -4,6 +4,7 @@ import QtQuick3D
 
 Node {
     id:maw
+    property Material iceMaterial:null
     required property color hide
     required property real clock
     required property real bite
@@ -33,13 +34,13 @@ Node {
     Model {
         source:"#Sphere"
         scale:Qt.vector3d((maw.wide+6)*.02,(maw.tall+6)*.02,.25)
-        materials:[gum]
+        materials:maw.iceMaterial ? [maw.iceMaterial] : ([gum])
     }
     Model {
         source:"#Sphere"
         z:9
         scale:Qt.vector3d(maw.wide*.0205,maw.tall*.0205,.077)
-        materials:[throat]
+        materials:maw.iceMaterial ? [maw.iceMaterial] : ([throat])
     }
 
     Repeater3D {
@@ -51,7 +52,7 @@ Node {
             position:Qt.vector3d(Math.cos(phase)*(maw.wide+3),Math.sin(phase)*(maw.tall+3),3)
             eulerRotation.z:phase*180/Math.PI-90
             scale:Qt.vector3d(.065,.20,.065)
-            materials:[lip]
+            materials:maw.iceMaterial ? [maw.iceMaterial] : ([lip])
         }
     }
     Repeater3D {
@@ -62,7 +63,7 @@ Node {
             y:modelData*(maw.tall+6)
             z:6
             scale:Qt.vector3d(.87,.07,.12)
-            materials:[lip]
+            materials:maw.iceMaterial ? [maw.iceMaterial] : ([lip])
         }
     }
     Repeater3D {
@@ -77,7 +78,7 @@ Node {
             z:10+index%2*2.7
             eulerRotation.z:phase*180/Math.PI+90
             scale:Qt.vector3d(.060,index%3 ? .073 : .096,.072)
-            materials:[enamel]
+            materials:maw.iceMaterial ? [maw.iceMaterial] : ([enamel])
         }
     }
 
@@ -91,12 +92,12 @@ Node {
             source:"#Sphere"; y:3
             eulerRotation.x:-24
             scale:Qt.vector3d(maw.style===2 ? .22 : .26,.32+maw.bite*.11,.11)
-            materials:[tongue]
+            materials:maw.iceMaterial ? [maw.iceMaterial] : ([tongue])
         }
         Model {
             source:"#Sphere"; y:10; z:2
             scale:Qt.vector3d(.022,.17,.035)
-            materials:[crease]
+            materials:maw.iceMaterial ? [maw.iceMaterial] : ([crease])
         }
         Repeater3D {
             model:maw.style===2 ? [-1,1] : [0]
@@ -108,7 +109,7 @@ Node {
                 z:3+maw.bite*4
                 eulerRotation.z:-modelData*(23+maw.flex*12)
                 scale:Qt.vector3d(maw.style===2 ? .108 : .19,.155+maw.bite*.10,.084)
-                materials:[tongue]
+                materials:maw.iceMaterial ? [maw.iceMaterial] : ([tongue])
             }
         }
     }

@@ -4,6 +4,7 @@ import QtQuick3D
 
 Node {
     id: vessel
+    property Material iceMaterial:null
     property var surfaces:null
     required property int targetId
     required property bool live
@@ -24,7 +25,7 @@ Node {
         objectName: String(vessel.targetId)
         pickable: vessel.live
         scale: Qt.vector3d(.91,.53,1.25)
-        materials: [hull]
+        materials: vessel.iceMaterial ? [vessel.iceMaterial] : ([hull])
     }
     Model {
         source: "#Cone"
@@ -33,7 +34,7 @@ Node {
         z: 16
         eulerRotation.x: 91
         scale: Qt.vector3d(.93,1.5,.66)
-        materials: [armour]
+        materials: vessel.iceMaterial ? [vessel.iceMaterial] : ([armour])
     }
     Repeater3D {
         model: [-1, 1]
@@ -49,16 +50,18 @@ Node {
                 pickable: vessel.live
                 eulerRotation.z: wing.modelData * 18
                 scale: Qt.vector3d(.78,.26,1.09)
-                materials: [hull]
+                materials: vessel.iceMaterial ? [vessel.iceMaterial] : ([hull])
             }
             Model {
                 source: "#Cube"
+                objectName:"outer:"+vessel.targetId
+                pickable:vessel.live
                 x: wing.modelData * 32
                 z: -9
                 y: 12
                 eulerRotation.z: wing.modelData * 49
                 scale: Qt.vector3d(.17,.82,.88)
-                materials: [armour]
+                materials: vessel.iceMaterial ? [vessel.iceMaterial] : ([armour])
             }
             Model {
                 source: "#Cube"
@@ -66,7 +69,7 @@ Node {
                 y: 25
                 z: 8
                 scale: Qt.vector3d(.10,.065,.72)
-                materials: [seam]
+                materials: vessel.iceMaterial ? [vessel.iceMaterial] : ([seam])
             }
             Model {
                 source: "#Cylinder"
@@ -75,7 +78,7 @@ Node {
                 z: 45
                 eulerRotation.x: 90
                 scale: Qt.vector3d(.19,.26,.19)
-                materials: [seam]
+                materials: vessel.iceMaterial ? [vessel.iceMaterial] : ([seam])
             }
         }
     }
@@ -87,14 +90,14 @@ Node {
         z: 49
         eulerRotation.x: 90
         scale: Qt.vector3d(.37,.59,.35)
-        materials: [armour]
+        materials: vessel.iceMaterial ? [vessel.iceMaterial] : ([armour])
     }
     Model {
         source: "#Sphere"
         y: -9
         z: 80
         scale: Qt.vector3d(.22,.22,.09)
-        materials: [hot]
+        materials: vessel.iceMaterial ? [vessel.iceMaterial] : ([hot])
     }
     Repeater3D {
         model: 5
@@ -105,7 +108,7 @@ Node {
             z: 43
             y: 23
             scale: Qt.vector3d(.09,.05,.32)
-            materials: [hot]
+            materials: vessel.iceMaterial ? [vessel.iceMaterial] : ([hot])
         }
     }
 }

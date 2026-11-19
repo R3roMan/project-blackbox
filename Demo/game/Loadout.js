@@ -670,6 +670,25 @@ function ownedItem(run, group, id) {
     return stored >= 0 ? run.inventory[stored].item : null
 }
 
+function upgradeTargets(run) {
+    const choices = []
+    for (const group of Object.keys(catalogs)) {
+        run.slots[group].forEach(function(slot,index) {
+            if (slot.item && slot.item.level<3)
+                choices.push({index:index,group:group,item:slot.item,place:groupLabels[group]+" "+(index+1)})
+        })
+    }
+    run.inventory.forEach(function(entry,index) {
+        if (entry && entry.item.level<3)
+            choices.push({group:entry.group,item:entry.item,place:"Inventory "+(index+1)})
+    })
+    return choices.map(function(choice) {
+        const spec=catalogs[choice.group][choice.item.id]
+        return {key:choice.group+"/"+spec.id,item:choice.item,
+            title:spec.title+" · "+choice.place+" · Lv "+choice.item.level+" → "+(choice.item.level+1)}
+    })
+}
+
 function canStore(run) {
     return run.inventory.includes(null)
 }
@@ -700,7 +719,7 @@ function describeOffer(run, card) {
     const kit = kitFor(group, card.id)
     const level = owned ? owned.level + 1 : 0
     const place = bagIndex(run, group, card.id) >= 0 ? "In inventory · " : ""
-    return Object.assign({}, card, { hint:place + (kit ? kit.title : ""), upgradeLevel:level, upgradeEffect:upgradeText(card, level) })
+    return Object.assign({}, card, { hint:place + (kit ? kit.title : ""), upgradeLevel:level, upgradeEffect:upgradeText(card, level), storedUpgrade:!!owned && bagIndex(run,group,card.id)>=0 })
 }
 
 function equip(run, card, preferred) {
@@ -912,7 +931,7 @@ function replacementKey(power) {
 
 function shopCategory(action) {
     return ({shop:"Shop guide",power:"Slot effect","power-upgrade":"Slot rank",upgrade:"Equipment rank",gear:"Equipment",
-        "shop-quality":"Stock quality","expand-shop":"Counter space",unlock:"Equipment slot",inventory:"Storage",
+        "item-upgrade":"Equipment upgrade","shop-quality":"Stock quality","expand-shop":"Counter space",unlock:"Equipment slot",inventory:"Storage",
         mystery:"Sealed cache","repeat-upgrade":"Stock affinity",pet:"Companion",
         "barrier-core":"Protection","shield-upgrade":"Protection",scramble:"Rebuild","shop-stat":"Run stat"})[action] || "Supplies"
 }
@@ -941,6 +960,7 @@ function shopEntries() {
         {id:"repeat-upgrade",title:"Repeat luck",action:"repeat-upgrade",description:"Once a rarity is picked, an eligible item you own has extra weight inside that rarity. Special crates still use their own rarity roll.",price:"430 / 585 / 740 gold"},
         {id:"mystery-cache",title:"Wrapped mystery cache",action:"mystery",rarity:"epic",description:"Unwrap one eligible Epic item (80%) or Legendary item (20%). Then choose its destination.",price:"670 gold"},
         {id:"loaded-dice",title:"Loaded dice",action:"scramble",description:"Replace equipped gear with matching-rarity gear at Lv 0. Inventory and slot effects remain.",price:"560 gold"},
+        {id:"item-upgrade-token",title:"Item upgrade token",action:"item-upgrade",description:"Upgrade any equipped or stored item once, up to Lv 3.",price:"510 gold"},
         {id:"expand-inventory",title:"Expand inventory",action:"inventory",description:"One extra bag space for this run, up to ten.",price:"310 gold"},
         {id:"pet-token",title:"Pet upgrade token",action:"pet",description:"Train your current companion up to three times. Each rank increases its damage and duty time and shortens rest.",price:"360 / 500 / 640 gold"},
         {id:"shield-upgrade",title:"Shield upgrade",action:"shield-upgrade",description:"Each rank cuts 0.65 seconds from the time to fully recharge. Rank II also reduces the charge spent per block.",price:"390 / 575 / 760 gold"},
@@ -1070,7 +1090,7 @@ function makeShop(run, random, excluded, maximum) {
         if (stock.length < limit)
             stock.push(dice)
         else if (limit >= 5) {
-            const replaceable = stock.filter(function(card) { return !["gear","pet","power","shop-quality"].includes(card.action) })
+            const replaceable = stock.filter(function(card) { return !["gear","pet","power","shop-quality","item-upgrade"].includes(card.action) })
             if (replaceable.length)
                 stock[stock.indexOf(replaceable[Math.floor(random()*replaceable.length)])] = dice
         }
@@ -1080,6 +1100,13 @@ function makeShop(run, random, excluded, maximum) {
         if (!available.length)
             break
         draw(available)
+    }
+    if (!blocked.includes("item-upgrade-token") && upgradeTargets(run).length && random()<.34) {
+        const substitute=stock.findIndex(card=>["supply","upgrade","repeat-upgrade","shop-stat"].includes(card.action))
+        const token={id:"item-upgrade-token",title:"Item upgrade token",action:"item-upgrade",rarity:"rare",cost:510,
+            description:"Choose one weapon or ability in your loadout or inventory. Raises it by one level, up to Lv 3."}
+        if (stock.length < limit) stock.push(token)
+        else if (substitute>=0) stock[substitute]=token
     }
     return stock.map(function(card) { return Object.assign({ sold:false }, card, { cost:shopPrice(run,card.cost) }) })
 }
@@ -1163,6 +1190,13 @@ function buy(run, id, preferred, random, confirmed) {
     const abilityRank=["gear","upgrade"].includes(card.action) && ["active","passive"].includes(card.group)
         ? ownedItem(run,card.group,card.gearId) : null
     switch (card.action) {
+    case "item-upgrade": {
+        const choice=upgradeTargets(run).find(entry=>entry.key===confirmed)
+        if (!choice)
+            return false
+        choice.item.level+=1
+        break
+    }
     case "scramble":
         if (!random || !scramble(run,random))
             return false

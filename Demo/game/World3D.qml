@@ -140,17 +140,19 @@ View3D {
         return rayPickAll(eye.scenePosition,eye.mapDirectionToScene(direction).normalized())
     }
 
-    function pickTargets(x, y, eyeHits) {
+    function pickTargets(x, y, eyeHits, outerHits) {
         const ids = new Set()
         const intersections = magnification > 1.001 ? scopedIntersections(x,y) : pickAll(x,y)
         for (let index = 0; index < intersections.length; index += 1) {
             const model = intersections[index].objectHit
             const label=model?.objectName || ""
-            const isEye=label.startsWith("eye:")
-            const id=Number(isEye ? label.slice(4) : label)
-            if (id>0) {
+            const split=label.indexOf(":")
+            const zone=split<0 ? "body" : label.slice(0,split)
+            const id=Number(label.slice(split+1))
+            if (id>0 && !ids.has(id)) {
                 ids.add(id)
-                if (isEye && eyeHits) eyeHits.add(id)
+                if (zone==="eye") eyeHits?.add(id)
+                if (zone==="outer") outerHits?.add(id)
             }
         }
         const hits = []
@@ -509,7 +511,7 @@ View3D {
             visible: { world.revision; return !enemy.waitingBoss && (enemy.front === world.frontId
                 || world.turnRatio < 1 && enemy.front === world.previousFront) && (!world.hypnotised || enemy.type === "hallucination") }
             active: visible
-            opacity:{world.revision;return 1-world.obscurity*(1-Conditions.fogVisibility(enemy.depth))}
+            opacity:{world.revision;return 1-.36*world.obscurity*(1-Conditions.fogVisibility(enemy.depth))}
             sourceComponent: enemy.type === "hasasasa" ? warship : demon
             Component {
                 id: demon
@@ -707,7 +709,7 @@ View3D {
             required property int actorId
             readonly property var gift: giftList.records[actorId]
             visible: !world.hypnotised
-            opacity: { world.revision; return Math.min(1, gift.remaining / .72) * (1 - world.blindness * .94) }
+            opacity: { world.revision; return Rules.giftVisibility(gift) * (1 - world.blindness * .94) }
             eulerRotation: {
                 const location = Rules.front(gift.front)
                 return Qt.vector3d(location.pitch, location.yaw, 0)

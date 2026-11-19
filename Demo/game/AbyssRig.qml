@@ -5,6 +5,7 @@ import "Rules.js" as Rules
 
 Node {
     id: beast
+    property Material iceMaterial:null
     property var surfaces:null
     required property var enemy
     required property int revision
@@ -75,7 +76,7 @@ Node {
             : beast.kind === "hallucination" ? Qt.vector3d(.69+beast.enemy.illusionForm*.11,.93+(beast.enemy.illusionForm%3)*.3,.71)
             : Qt.vector3d(1.06,.83,.97)
         opacity: beast.leviathan ? .60 : beast.ink ? .82 : 1
-        materials: [beast.skull ? pale : skin]
+        materials: beast.iceMaterial ? [beast.iceMaterial] : ([beast.skull ? pale : skin])
     }
 
     Loader3D {
@@ -102,13 +103,13 @@ Node {
                 objectName:String(beast.enemy.id)
                 pickable:beast.live
                 eulerRotation:Qt.vector3d(13+beast.clock*8,beast.clock*29,19)
-                materials:[glass]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([glass])
             }
             Model {
                 geometry:facets
                 eulerRotation:Qt.vector3d(46-beast.clock*53,28-beast.clock*63,-beast.clock*28)
                 scale:Qt.vector3d(.49,.55,.49)
-                materials:[heart]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([heart])
             }
         }
     }
@@ -127,13 +128,13 @@ Node {
                 source: "#Sphere"
                 scale: Qt.vector3d(coil.taper*(beast.leviathan ? 1.42 : .76),coil.taper*(beast.leviathan ? .98 : .57),coil.taper*(beast.leviathan ? 1.47 : .95))
                 opacity: beast.leviathan ? .50 : 1
-                materials: [skin]
+                materials: beast.iceMaterial ? [beast.iceMaterial] : ([skin])
             }
             Model {
                 source: "#Sphere"
                 y: coil.taper*32
                 scale: Qt.vector3d(coil.taper*.54,coil.taper*.077,.64)
-                materials: [beast.leviathan ? blue : beast.eel ? glow : pale]
+                materials: beast.iceMaterial ? [beast.iceMaterial] : ([beast.leviathan ? blue : beast.eel ? glow : pale])
                 opacity: beast.leviathan ? .72 : .65
             }
             Model {
@@ -143,7 +144,7 @@ Node {
                 eulerRotation.z: -27
                 scale: Qt.vector3d(.15,coil.taper*.67,.13)
                 opacity: .70
-                materials: [beast.eel ? glow : skin]
+                materials: beast.iceMaterial ? [beast.iceMaterial] : ([beast.eel ? glow : skin])
             }
         }
     }
@@ -158,7 +159,7 @@ Node {
         Model {
             source:"#Sphere"
             scale:Qt.vector3d(maw.breadth,.27+beast.jaw*.99,.32)
-            materials:[voidSkin]
+            materials:beast.iceMaterial ? [beast.iceMaterial] : ([voidSkin])
         }
         Repeater3D {
             model: 2
@@ -169,7 +170,7 @@ Node {
                 y: side*maw.gape*.47
                 z: 8
                 eulerRotation.x: side*beast.jaw*37
-                Model { source:"#Sphere"; y:jawRow.side*8; scale:Qt.vector3d(maw.breadth,beast.skull ? .12 : .23,beast.skull ? .26 : .58); materials:[beast.skull ? pale : skin]; opacity:beast.leviathan ? .80 : 1 }
+                Model { source:"#Sphere"; y:jawRow.side*8; scale:Qt.vector3d(maw.breadth,beast.skull ? .12 : .23,beast.skull ? .26 : .58); materials:beast.iceMaterial ? [beast.iceMaterial] : ([beast.skull ? pale : skin]); opacity:beast.leviathan ? .80 : 1 }
                 Repeater3D {
                     model: beast.skull ? 0 : beast.leviathan ? 16 : beast.eel ? 13 : 9
                     delegate: Model {
@@ -182,7 +183,7 @@ Node {
                         y: -jawRow.side*5
                         eulerRotation.z: jawRow.side > 0 ? 180 : 0
                         scale: Qt.vector3d(.074, .095+index%3*.027+beast.jaw*.082,.078)
-                        materials:[pale]
+                        materials:beast.iceMaterial ? [beast.iceMaterial] : ([pale])
                     }
                 }
             }
@@ -192,7 +193,7 @@ Node {
             source:"#Cone"
             y:-6; z:12
             scale:Qt.vector3d(.14,.18+beast.jaw*.37,.10)
-            materials:[flame]
+            materials:beast.iceMaterial ? [beast.iceMaterial] : ([flame])
         }
     }
 
@@ -215,18 +216,18 @@ Node {
                 y:12*eye.scaleFactor; z:14
                 eulerRotation.z:eye.side*(-24-beast.hurtFace*16)
                 scale:Qt.vector3d(.45*eye.scaleFactor,.045,.07)
-                materials:[voidSkin]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([voidSkin])
             }
             Model { objectName:"eye:"+beast.enemy.id; pickable:beast.live && eye.exposed;
                 source:"#Sphere"
                 scale:Qt.vector3d(.45*eye.scaleFactor,(beast.leviathan ? .23 : .40)*eye.scaleFactor,.16)
-                materials:[pupil]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([pupil])
             }
             Model { objectName:"eye:"+beast.enemy.id; pickable:beast.live && eye.exposed;
                 source:"#Sphere"; z:9
                 scale:Qt.vector3d((beast.doll ? .125 : .28)*eye.scaleFactor,
                     (beast.leviathan ? .09 : beast.doll ? .14 : .22)*eye.scaleFactor,.075)
-                materials:[beast.crufix ? pupil : beast.doll || beast.furious ? red : beast.skull ? flameCore : glow]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([beast.crufix ? pupil : beast.doll || beast.furious ? red : beast.skull ? flameCore : glow])
             }
             Model {
                 visible: beast.leviathan
@@ -234,7 +235,7 @@ Node {
                 y: 11
                 z: 1
                 scale: Qt.vector3d(.70,.15,.21)
-                materials:[skin]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([skin])
             }
             Model {
                 visible: beast.furious
@@ -243,7 +244,7 @@ Node {
                 z:13
                 eulerRotation.z: eye.side*59
                 scale:Qt.vector3d(.12,.40,.11)
-                materials:[blue]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([blue])
             }
         }
     }
@@ -252,7 +253,7 @@ Node {
         source:"#Sphere"
         y:57; z:31
         scale:Qt.vector3d(1.01,1.22,.83)
-        materials:[voidSkin]
+        materials:beast.iceMaterial ? [beast.iceMaterial] : ([voidSkin])
     }
     Model {
         visible:beast.harvester
@@ -282,13 +283,13 @@ Node {
             z:Math.sin(index*2.4)*47
             eulerRotation.z:180+(index-5.5)*3
             scale:Qt.vector3d(.26,.52+index%3*.21,.16)
-            materials:[index%3 ? skin : voidSkin]
+            materials:beast.iceMaterial ? [beast.iceMaterial] : ([index%3 ? skin : voidSkin])
         }
     }
     Node {
         visible:beast.crufix
-        Model {source:"#Sphere"; y:63; z:6; scale:Qt.vector3d(.54,.71,.44); materials:[pale]}
-        Model {source:"#Sphere"; y:47; z:28; scale:Qt.vector3d(.21,.10+beast.tell*.11,.06); materials:[voidSkin]}
+        Model {source:"#Sphere"; y:63; z:6; scale:Qt.vector3d(.54,.71,.44); materials:beast.iceMaterial ? [beast.iceMaterial] : ([pale])}
+        Model {source:"#Sphere"; y:47; z:28; scale:Qt.vector3d(.21,.10+beast.tell*.11,.06); materials:beast.iceMaterial ? [beast.iceMaterial] : ([voidSkin])}
         Repeater3D {
             model:8
             delegate:Model {
@@ -300,7 +301,7 @@ Node {
                 z:18
                 eulerRotation.z:side*19
                 scale:Qt.vector3d(.28,.042,.10)
-                materials:[pale]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([pale])
             }
         }
         Repeater3D {
@@ -313,7 +314,7 @@ Node {
                 y:index<2 ? -5 : -78
                 eulerRotation.z:index<2 ? side*(11+beast.tell*20) : side*7
                 scale:Qt.vector3d(.047,index<2 ? .96 : .77,.047)
-                materials:[pale]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([pale])
             }
         }
         Repeater3D {
@@ -326,7 +327,7 @@ Node {
                 z:27+Math.sin(index)*2
                 eulerRotation.z:(beast.enemy.id*17+index*67)%180
                 scale:Qt.vector3d(.009,.073+index%3*.023,.009)
-                materials:[pupil]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([pupil])
             }
         }
         Repeater3D {
@@ -340,7 +341,7 @@ Node {
                 z:37
                 opacity:(1-drift)*.89
                 scale:Qt.vector3d(.045,.055+drift*.095,.029)
-                materials:[red]
+                materials:beast.iceMaterial ? [beast.iceMaterial] : ([red])
             }
         }
     }
@@ -353,7 +354,7 @@ Node {
             y:10; z:49
             eulerRotation.z:index ? 23 : -23
             scale:Qt.vector3d(.059,.13,.047)
-            materials:[pupil]
+            materials:beast.iceMaterial ? [beast.iceMaterial] : ([pupil])
         }
     }
     Repeater3D {
@@ -367,7 +368,7 @@ Node {
             z: 44+Math.sin(index*2.399)*55
             opacity: (1-drift)*.83
             scale: Qt.vector3d(.026+index%4*.014,.12+index%5*.036,.036)
-            materials: [beast.furious ? index%3 ? red : blue : index%3 ? flame : flameCore]
+            materials: beast.iceMaterial ? [beast.iceMaterial] : ([beast.furious ? index%3 ? red : blue : index%3 ? flame : flameCore])
         }
     }
     Node {
@@ -376,9 +377,9 @@ Node {
         y: -5
         z: 42
         eulerRotation.z: -23-beast.tell*61+Math.sin(beast.clock*2.3)*6
-        Model { source:"#Cylinder"; scale:Qt.vector3d(.07,2.07,.07); materials:[voidSkin] }
-        Model { source:"#Sphere"; y:103; x:30; eulerRotation.z:-17; scale:Qt.vector3d(.95,.21,.10); materials:[glow] }
-        Model { source:"#Cone"; y:89; x:71; eulerRotation.z:-137; scale:Qt.vector3d(.26,.85,.11); materials:[glow] }
+        Model { source:"#Cylinder"; scale:Qt.vector3d(.07,2.07,.07); materials:beast.iceMaterial ? [beast.iceMaterial] : ([voidSkin])}
+        Model { source:"#Sphere"; y:103; x:30; eulerRotation.z:-17; scale:Qt.vector3d(.95,.21,.10); materials:beast.iceMaterial ? [beast.iceMaterial] : ([glow])}
+        Model { source:"#Cone"; y:89; x:71; eulerRotation.z:-137; scale:Qt.vector3d(.26,.85,.11); materials:beast.iceMaterial ? [beast.iceMaterial] : ([glow])}
     }
 
     Repeater3D {
@@ -398,7 +399,7 @@ Node {
             eulerRotation.z: side*(32+Math.sin(beast.clock*2+arm+joint)*22)
             scale: Qt.vector3d(.26-joint*.031,.38+reach*.003,.23-joint*.028)
             opacity: beast.ink ? .63 : 1
-            materials:[joint%3 ? skin : voidSkin]
+            materials:beast.iceMaterial ? [beast.iceMaterial] : ([joint%3 ? skin : voidSkin])
         }
     }
     Repeater3D {
@@ -412,19 +413,19 @@ Node {
             eulerRotation:Qt.vector3d(index*53,index*28,-index*69)
             scale: beast.crystal ? Qt.vector3d(.055,.19,.079) : Qt.vector3d(.13,.31+index%4*.059,.12)
             opacity: beast.crystal || beast.ink ? .58 : 1
-            materials:[index%5 ? (beast.crystal || beast.ink ? voidSkin : skin) : glow]
+            materials:beast.iceMaterial ? [beast.iceMaterial] : ([index%5 ? (beast.crystal || beast.ink ? voidSkin : skin) : glow])
         }
     }
 
     Model {
         visible: beast.kind === "lantis"
         source:"#Cylinder"; x:15; y:65; z:64; eulerRotation.z:-32
-        scale:Qt.vector3d(.065,.66,.065); materials:[skin]
+        scale:Qt.vector3d(.065,.66,.065); materials:beast.iceMaterial ? [beast.iceMaterial] : ([skin])
     }
     Model {
         visible: beast.kind === "lantis"
         source:"#Sphere"; x:32; y:91; z:77
-        scale:Qt.vector3d(.25,.25,.25); materials:[beast.lamp ? glow : voidSkin]
+        scale:Qt.vector3d(.25,.25,.25); materials:beast.iceMaterial ? [beast.iceMaterial] : ([beast.lamp ? glow : voidSkin])
     }
     PointLight { visible:beast.lamp; brightness:beast.lamp ? 5.7 : 0; color:"#ffbd65"; x:32; y:85; z:80; quadraticFade:.38 }
 
@@ -432,12 +433,12 @@ Node {
         visible: beast.kind === "shadow"
         source:"#Cube"; x:42+beast.tell*34; y:-19; z:53+beast.tell*32
         eulerRotation.z: -47+beast.tell*137
-        scale:Qt.vector3d(.085,1.02,.075); materials:[glow]
+        scale:Qt.vector3d(.085,1.02,.075); materials:beast.iceMaterial ? [beast.iceMaterial] : ([glow])
     }
     Model {
         visible: beast.halfAngel
         source:"#Cone"; y:-24; z:-27; eulerRotation.z:169+Math.sin(beast.clock*4)*13
-        scale:Qt.vector3d(1.51,1.75,.31); materials:[voidSkin]
+        scale:Qt.vector3d(1.51,1.75,.31); materials:beast.iceMaterial ? [beast.iceMaterial] : ([voidSkin])
     }
     Loader3D {
         active:beast.halfAngel
@@ -448,10 +449,10 @@ Node {
                 model:[-1,1]
                 Model {
                     required property int modelData
-                    geometry:horn
+                    objectName:"outer:"+beast.enemy.id; pickable:beast.live; geometry:horn
                     x:modelData*24; y:23; z:19
                     scale:Qt.vector3d(modelData*.61,.70,.67)
-                    materials:[keratin]
+                    materials:beast.iceMaterial ? [beast.iceMaterial] : ([keratin])
                 }
             }
             Repeater3D {
@@ -461,14 +462,14 @@ Node {
                     readonly property real angle:index*Math.PI/10
                     source:"#Sphere"
                     x:Math.cos(angle)*44; y:81+Math.sin(angle)*16; z:Math.sin(angle)*29
-                    scale:Qt.vector3d(.17,.077,.145); materials:[voidSkin]
+                    scale:Qt.vector3d(.17,.077,.145); materials:beast.iceMaterial ? [beast.iceMaterial] : ([voidSkin])
                 }
             }
         }
     }
     Model {
         visible: beast.mirror
-        source:"#Sphere"; scale:Qt.vector3d(1.65,1.8,.98); opacity:.22; materials:[gold]
+        source:"#Sphere"; scale:Qt.vector3d(1.65,1.8,.98); opacity:.22; materials:beast.iceMaterial ? [beast.iceMaterial] : ([gold])
     }
     Repeater3D {
         model: beast.doll ? 8 : 0
@@ -480,7 +481,7 @@ Node {
             z:index > 4 ? 9 : -8
             scale:Qt.vector3d(.23,.53,.24)
             eulerRotation.z:(index%2 ? 1 : -1)*(28+beast.tell*45)
-            materials:[index%2 ? glow : skin]
+            materials:beast.iceMaterial ? [beast.iceMaterial] : ([index%2 ? glow : skin])
         }
     }
 }

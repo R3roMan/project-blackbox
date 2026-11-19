@@ -4,6 +4,7 @@ import "AttackArt.js" as Art
 
 Node {
     id: figure
+    property Material iceMaterial:null
     property var surfaces:null
     required property int targetId
     required property string kind
@@ -37,7 +38,7 @@ Node {
         source: "#Cone"
         y: -22
         scale: Qt.vector3d(1.70, 1.82, .80)
-        materials: [robe]
+        materials: figure.iceMaterial ? [figure.iceMaterial] : ([robe])
     }
     Model {
         objectName: String(figure.targetId)
@@ -45,7 +46,7 @@ Node {
         source: "#Sphere"
         y: 34
         scale: Qt.vector3d(1.08, .95, .83)
-        materials: [robe]
+        materials: figure.iceMaterial ? [figure.iceMaterial] : ([robe])
     }
     Repeater3D {
         model: 5
@@ -58,7 +59,7 @@ Node {
             eulerRotation.z: (index - 2) * -12
             scale: Qt.vector3d(.035, 1.16, .05)
             opacity: .52
-            materials: [index === 2 ? seam : carbon]
+            materials: figure.iceMaterial ? [figure.iceMaterial] : ([index === 2 ? seam : carbon])
         }
     }
     Model {
@@ -68,7 +69,7 @@ Node {
         y: 70
         z: 13
         scale: Qt.vector3d(.58, .66, .57)
-        materials: [figure.kind === "jos" ? robe : carbon]
+        materials: figure.iceMaterial ? [figure.iceMaterial] : ([figure.kind === "jos" ? robe : carbon])
     }
     Repeater3D {
         model: 20
@@ -81,13 +82,13 @@ Node {
             Model {
                 source: "#Sphere"
                 scale: Qt.vector3d(.186,.091,.167)
-                materials: [haloEdge]
+                materials: figure.iceMaterial ? [figure.iceMaterial] : ([haloEdge])
             }
             Model {
                 source: "#Sphere"
                 z: 4
                 scale: Qt.vector3d(.175,.075,.151)
-                materials: [haloBlack]
+                materials: figure.iceMaterial ? [figure.iceMaterial] : ([haloBlack])
             }
         }
     }
@@ -98,9 +99,9 @@ Node {
             required property int modelData
             readonly property int sign: modelData
             Model {
-                geometry:horn; x:side.sign*19; y:89; z:16
+                objectName:"outer:"+figure.targetId; pickable:figure.live; geometry:horn; x:side.sign*19; y:89; z:16
                 scale:Qt.vector3d(side.sign*.65,.62,.62)
-                materials:[ivory]
+                materials:figure.iceMaterial ? [figure.iceMaterial] : ([ivory])
             }
             Model { objectName:"eye:"+figure.targetId; pickable:figure.live && visible;
                 visible: !figure.cover
@@ -109,7 +110,7 @@ Node {
                 y: 75
                 z: 39
                 scale: Qt.vector3d(.14, .105, .06)
-                materials: [gleam]
+                materials: figure.iceMaterial ? [figure.iceMaterial] : ([gleam])
             }
             Model {
                 visible: figure.kind === "jos" && !figure.cover
@@ -118,16 +119,14 @@ Node {
                 y: 60 - (figure.animate ? (figure.age * 24 % 14) : 0)
                 z: 37
                 scale: Qt.vector3d(.035, .114, .041)
-                materials: [tears]
+                materials: figure.iceMaterial ? [figure.iceMaterial] : ([tears])
             }
             Model {
-                objectName: String(figure.targetId)
-                pickable: figure.live
-                geometry:wing
+                objectName:"outer:"+figure.targetId; pickable:figure.live; geometry:wing
                 x:side.sign*49; y:33; z:-27
                 eulerRotation.y:side.sign*(12+figure.strike*24)
                 scale:Qt.vector3d(side.sign*1.1,1.14,1.04)
-                materials:[membrane]
+                materials:figure.iceMaterial ? [figure.iceMaterial] : ([membrane])
             }
             Model {
                 objectName: String(figure.targetId)
@@ -138,7 +137,7 @@ Node {
                 z: 31
                 eulerRotation.z: side.sign * (figure.cover ? -35 : 23 + figure.strike * 44)
                 scale: Qt.vector3d(.27, .81, .27)
-                materials: [robe]
+                materials: figure.iceMaterial ? [figure.iceMaterial] : ([robe])
             }
             Model {
                 source: "#Sphere"
@@ -146,7 +145,7 @@ Node {
                 y: figure.cover ? 77 : -20 + figure.strike * 40
                 z: figure.cover ? 48 : 43 + 30 * Math.abs(figure.strike)
                 scale: Qt.vector3d(.26, .30, .20)
-                materials: [figure.kind === "jos" ? robe : seam]
+                materials: figure.iceMaterial ? [figure.iceMaterial] : ([figure.kind === "jos" ? robe : seam])
             }
         }
     }
@@ -164,13 +163,13 @@ Node {
             Model {
                 source: "#Cube"
                 scale: Qt.vector3d(.74,.56,.13)
-                materials: [plateRim]
+                materials: figure.iceMaterial ? [figure.iceMaterial] : ([plateRim])
             }
             Model {
                 source: "#Cube"
                 z: 7
                 scale: Qt.vector3d(.66,.47,.027)
-                materials: [carbon]
+                materials: figure.iceMaterial ? [figure.iceMaterial] : ([carbon])
             }
             Repeater3D {
                 model: 14
@@ -183,7 +182,7 @@ Node {
                     z: 10
                     scale: Qt.vector3d(segment[2] * .18, segment[3] * .18, .014)
                     opacity: Art.countdownSegment(figure.fuse, index) ? 1 : .10
-                    materials: [litSegment]
+                    materials: figure.iceMaterial ? [figure.iceMaterial] : ([litSegment])
                 }
             }
         }
@@ -203,7 +202,7 @@ Node {
             eulerRotation.z: orbit * 57
             scale: Qt.vector3d(size, size * 1.4, size)
             opacity: flare
-            materials: [index % 3 ? bloodlight : gleam]
+            materials: figure.iceMaterial ? [figure.iceMaterial] : ([index % 3 ? bloodlight : gleam])
         }
     }
     Node {
@@ -216,13 +215,13 @@ Node {
         Model {
             source: "#Cylinder"
             scale: Qt.vector3d(.085, 1.87, .085)
-            materials: [carbon]
+            materials: figure.iceMaterial ? [figure.iceMaterial] : ([carbon])
         }
         Model {
             source: "#Cube"
             y: 76
             scale: Qt.vector3d(.58, .085, .105)
-            materials: [seam]
+            materials: figure.iceMaterial ? [figure.iceMaterial] : ([seam])
         }
         Repeater3D {
             model: 3
@@ -232,7 +231,7 @@ Node {
                 x: (index - 1) * 27
                 y: index === 1 ? 110 : 98
                 scale: Qt.vector3d(.19, index === 1 ? .62 : .44, .13)
-                materials: [gleam]
+                materials: figure.iceMaterial ? [figure.iceMaterial] : ([gleam])
             }
         }
     }

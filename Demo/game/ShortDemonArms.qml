@@ -4,6 +4,7 @@ import QtQuick3D
 
 Node {
     id:arms
+    property Material iceMaterial:null
     required property color skin
     required property real clock
     required property real strike
@@ -23,39 +24,39 @@ Node {
             z:25
             eulerRotation.z:modelData*(9+Math.sin(arms.clock*5)*4+Math.max(0,-arms.strike)*50)
             eulerRotation.x:-arms.strike*51
-            Model {source:"#Sphere"; scale:Qt.vector3d(.25,.30,.26); materials:[flesh]}
+            Model {source:"#Sphere"; scale:Qt.vector3d(.25,.30,.26); materials:arms.iceMaterial ? [arms.iceMaterial] : ([flesh])}
             Model {
                 source:"#Sphere"; x:arm.modelData*4; y:-13; eulerRotation.z:arm.modelData*11
-                scale:Qt.vector3d(.19,.35,.19); materials:[knuckle]
+                scale:Qt.vector3d(.19,.35,.19); materials:arms.iceMaterial ? [arms.iceMaterial] : ([knuckle])
             }
             Model {
                 source:"#Sphere"; x:arm.modelData*8; y:-9; z:8; eulerRotation.z:arm.modelData*12
-                scale:Qt.vector3d(.072,.26,.064); materials:[ridge]
+                scale:Qt.vector3d(.072,.26,.064); materials:arms.iceMaterial ? [arms.iceMaterial] : ([ridge])
             }
             Node {
                 x:arm.modelData*6; y:-25; z:5
                 eulerRotation.x:-19-arms.strike*37
                 Model {
                     source:"#Sphere"; y:-8; z:3; eulerRotation.z:-arm.modelData*8
-                    scale:Qt.vector3d(.151,.29,.17); materials:[knuckle]
+                    scale:Qt.vector3d(.151,.29,.17); materials:arms.iceMaterial ? [arms.iceMaterial] : ([knuckle])
                 }
-                Model {source:"#Sphere"; y:-20; z:7; scale:Qt.vector3d(.187,.15,.15); materials:[flesh]}
+                Model {source:"#Sphere"; y:-20; z:7; scale:Qt.vector3d(.187,.15,.15); materials:arms.iceMaterial ? [arms.iceMaterial] : ([flesh])}
                 Repeater3D {
                     model:3
                     Model {
                         required property int index
                         source:"#Sphere"; x:(index-1)*5; y:-26+Math.abs(index-1)*1.9; z:9
-                        scale:Qt.vector3d(.056,.11,.063); materials:[knuckle]
+                        scale:Qt.vector3d(.056,.11,.063); materials:arms.iceMaterial ? [arms.iceMaterial] : ([knuckle])
                     }
                 }
-                Model {source:"#Sphere"; x:-arm.modelData*7; y:-20; z:13; eulerRotation.z:arm.modelData*36; scale:Qt.vector3d(.054,.10,.061); materials:[knuckle]}
+                Model {source:"#Sphere"; x:-arm.modelData*7; y:-20; z:13; eulerRotation.z:arm.modelData*36; scale:Qt.vector3d(.054,.10,.061); materials:arms.iceMaterial ? [arms.iceMaterial] : ([knuckle])}
                 Repeater3D {
                     model:3
                     Model {
                         required property int index
                         source:"#Cone"; x:(index-1)*5; y:-29+Math.abs(index-1)*1.8; z:10.7
                         eulerRotation.z:180+(index-1)*7
-                        scale:Qt.vector3d(.033,.054,.042); materials:[nail]
+                        scale:Qt.vector3d(.033,.054,.042); materials:arms.iceMaterial ? [arms.iceMaterial] : ([nail])
                     }
                 }
             }

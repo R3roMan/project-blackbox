@@ -43,7 +43,8 @@ function select(run, boughtInShop) {
         return options.some(card => {
             const item = card.action === "gear" ? Gear.catalogs[card.group][card.gearId] : null
             const replace = Gear.replacement(run,card)
-            return Rules.buy(run,card.id,destination(run,item),Gear.replacementKey(replace))
+            const upgrade=card.action==="item-upgrade" ? shuffled(Gear.upgradeTargets(run))[0]?.key : ""
+            return Rules.buy(run,card.id,destination(run,item),upgrade || Gear.replacementKey(replace))
         }) || Rules.skipSelection(run)
     }
     return false
@@ -70,9 +71,9 @@ function plan(run) {
     const guard = !run.hypnosis && (shot || melee) && (run.shield.raised || Rules.shieldCharge(run)>=.20)
     enemies.sort((a,b) => threat(run,b) - threat(run,a))
     const local = enemies.find(enemy => enemy.front === view && !enemy.warp && !enemy.waitingBoss && !Rules.ghosted(enemy))
-    const destination = seal && view !== "down" ? "down" : !local && !run.hypnosis && enemies[0]?.front
+    const destination = seal ? "down" : !local && !run.hypnosis && enemies[0]?.front
     if (destination && destination !== view)
-        return {direction:Rules.directionToward(view,destination),guard:!!guard}
+        return {direction:Rules.directionToward(view,destination),guard:seal ? false : !!guard}
     if (local) {
         const part = local.turrets && Ship.remaining(local)[0]
         const point = part ? {lane:part.lane,elevation:Rules.elevation(local)+part.height,depth:local.depth-110} : Rules.arcPoint(local)

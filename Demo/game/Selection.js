@@ -2,8 +2,8 @@
 .import "Loadout.js" as Gear
 
 var bossChoices = [
-    { id:"health", title:"Maximum health", values:[75,90,105,120,135], description:"Increase your maximum and current health for this run." },
-    { id:"damage", title:"Damage", values:[.24,.30,.36,.44,.52], description:"Increase your outgoing damage for this run." },
+    { id:"health", title:"Maximum health", values:[65,80,95,108,120], description:"Increase your maximum and current health for this run." },
+    { id:"damage", title:"Damage", values:[.21,.27,.32,.39,.46], description:"Increase your outgoing damage for this run." },
     { id:"speed", title:"Turn speed", values:[.17,.22,.27,.32,.38], description:"Turn between wallpapers faster for this run." }
 ]
 
@@ -41,6 +41,7 @@ function freezable(run,phase,card) {
         return !!item && Gear.findSlot(run,card.group,card.gearId)>=0 && item.level===card.level-1
     }
     case "unlock": return run.slots[card.group].length===card.index
+    case "item-upgrade":return Gear.upgradeTargets(run).length>0
     case "inventory":return run.inventory.length===card.index
     case "pet":return !!run.pet && run.pet.level<3
     case "shield-upgrade":return run.shield.level<3

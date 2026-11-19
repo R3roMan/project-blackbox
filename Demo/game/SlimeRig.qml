@@ -3,6 +3,7 @@ import QtQuick3D
 
 Node {
     id: slime
+    property Material iceMaterial:null
     property var surfaces:null
 
     required property int targetId
@@ -46,7 +47,7 @@ Node {
         pickable: slime.live
         y: -13
         scale: Qt.vector3d(1.77 + slime.jiggle * .052, 1.20 - slime.jiggle * .061, 1.02)
-        materials: [flesh]
+        materials: slime.iceMaterial ? [slime.iceMaterial] : ([flesh])
     }
     Model {
         source: "#Sphere"
@@ -55,21 +56,21 @@ Node {
         y: 30 + slime.heave * 2.5
         z: 31
         scale: Qt.vector3d(1.40, .79, .82)
-        materials: [mucous]
+        materials: slime.iceMaterial ? [slime.iceMaterial] : ([mucous])
     }
     Model { objectName:"eye:"+slime.targetId; pickable:slime.live;
         source: "#Sphere"
         y: 54
         z: 70
         scale: Qt.vector3d(.36, .23, .115)
-        materials: [glow]
+        materials: slime.iceMaterial ? [slime.iceMaterial] : ([glow])
     }
     Model { objectName:"eye:"+slime.targetId; pickable:slime.live;
         source: "#Sphere"
         y: 55
         z: 76
         scale: Qt.vector3d(.09, .18, .04)
-        materials: [pupil]
+        materials: slime.iceMaterial ? [slime.iceMaterial] : ([pupil])
     }
     Model {
         source: "#Sphere"
@@ -77,7 +78,7 @@ Node {
         x: -8
         z: 78
         scale: Qt.vector3d(.04,.043,.04)
-        materials: [teeth]
+        materials: slime.iceMaterial ? [slime.iceMaterial] : ([teeth])
     }
     Model {
         source: "#Sphere"
@@ -86,14 +87,14 @@ Node {
         y: -6 - slime.gape * 12
         z: 56
         scale: Qt.vector3d(1.12, .47 + slime.gape * .25, .33)
-        materials: [mucous]
+        materials: slime.iceMaterial ? [slime.iceMaterial] : ([mucous])
     }
     Model {
         source: "#Sphere"
         y: 14 - slime.gape * 10
         z: 74
         scale: Qt.vector3d(.86, .22 + slime.gape * .54, .11)
-        materials: [darkness]
+        materials: slime.iceMaterial ? [slime.iceMaterial] : ([darkness])
     }
 
     Repeater3D {
@@ -107,7 +108,7 @@ Node {
             z: 79
             eulerRotation.z: lower ? -9 : 173 + index * 4
             scale: Qt.vector3d(.078, index % 3 === 0 ? .17 : .124, .069)
-            materials: [teeth]
+            materials: slime.iceMaterial ? [slime.iceMaterial] : ([teeth])
         }
     }
 
@@ -128,14 +129,14 @@ Node {
                 y: 12
                 eulerRotation.z: -side.modelData * 66
                 scale: Qt.vector3d(slime.horned ? .66 : .55, slime.horned ? 1.13 : .88, .19)
-                materials: [flesh]
+                materials: slime.iceMaterial ? [slime.iceMaterial] : ([flesh])
             }
             Model {
                 source: "#Sphere"
                 x: side.modelData * 70
                 y: -20 + slime.jiggle * 5
                 scale: Qt.vector3d(.13, .32, .14)
-                materials: [mucous]
+                materials: slime.iceMaterial ? [slime.iceMaterial] : ([mucous])
             }
         }
     }
@@ -154,7 +155,7 @@ Node {
                 objectName: String(slime.targetId)
                 pickable: slime.live
                 scale: Qt.vector3d(.41,.73,.32)
-                materials: [horn]
+                materials: slime.iceMaterial ? [slime.iceMaterial] : ([horn])
             }
             Model {
                 source: "#Cone"
@@ -162,7 +163,7 @@ Node {
                 y: 29
                 eulerRotation.z: tusk.modelData * 13
                 scale: Qt.vector3d(.19,.54,.22)
-                materials: [teeth]
+                materials: slime.iceMaterial ? [slime.iceMaterial] : ([teeth])
             }
         }
     }
@@ -178,7 +179,7 @@ Node {
             z: 39 + (index % 3) * 9
             scale: Qt.vector3d(.075 + index % 3 * .019, .12 + oscillation * .15, .081)
             opacity: .95 - oscillation * .65
-            materials: [index % 3 ? mucous : glow]
+            materials: slime.iceMaterial ? [slime.iceMaterial] : ([index % 3 ? mucous : glow])
         }
     }
 }

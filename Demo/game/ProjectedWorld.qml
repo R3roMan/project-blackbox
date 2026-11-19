@@ -72,7 +72,7 @@ Item {
             : projection(Rules.lanePosition(enemy), Rules.elevation(enemy), enemy.depth)
     }
 
-    function pickTargets(x, y, eyeHits) {
+    function pickTargets(x, y, eyeHits, outerHits) {
         const impacts = []
         if (!hypnotised) {
             for (const enemy of actors) {
@@ -99,6 +99,9 @@ Item {
                 if (eyeHits && figure.eyeZones.some(zone=>Math.hypot((local.x/figure.width-zone[0])/zone[2],
                     (local.y/figure.height-zone[1])/zone[3])<=1))
                     eyeHits.add(figure.enemy.id)
+                else if (outerHits && (Math.abs(local.x/figure.width-.5)>.273
+                         || local.y/figure.height<.20 && Math.abs(local.x/figure.width-.5)>.085))
+                    outerHits.add(figure.enemy.id)
             }
         }
         for (let index = 0; index < bags.count; index += 1) {
@@ -181,7 +184,7 @@ Item {
             readonly property var gift: giftList.records[actorId]
             readonly property var projected: world.projection(gift.lane, gift.elevation ?? -68, gift.depth)
             visible: gift.front === world.frontId && !world.hypnotised
-            opacity: { world.revision; return Math.min(1, gift.remaining / .72) * (1 - world.blindness * .94) }
+            opacity: { world.revision; return Rules.giftVisibility(gift) * (1 - world.blindness * .94) }
             width: Math.max(gift.mega ? 72 : 40, (gift.mega ? 165 : 93) * projected.scale)
             height: width * (gift.token ? 1 : 1.12)
             x: projected.x - width / 2
@@ -278,7 +281,7 @@ Item {
                     && (!world.hypnotised || enemy.type === "hallucination")
             }
             opacity: {world.revision;return (shade || creature.voidBoss ? 1 : 1-world.blindness*.94)
-                    *(1-world.obscurity*(1-Conditions.fogVisibility(enemy.depth)))}
+                    *(1-.42*world.obscurity*(1-Conditions.fogVisibility(enemy.depth)))}
             width: (creature.leviathan ? 342 : crawler ? 185 : enemy.type === "meteor" ? 181 : 300) * projected.scale * Rules.enemySize(enemy)
             height: (creature.leviathan ? 231 : crawler ? 142 : enemy.type === "endme" ? 274 : alien ? 146 : angel ? 231 : 183) * projected.scale * Rules.enemySize(enemy)
             rotation: (world.motion && enemy.type === "mastafangenbus" ? ageDegrees : 0) + strike * pose[1] * .56 + dodgeLean
@@ -830,12 +833,15 @@ Item {
                         ctx.fillRect(.476 + i * .023, .716, .006, .023)
                 }
 
+                if (enemy.elements.frozen>0) {
+                    ctx.globalCompositeOperation="source-atop"
+                    ctx.globalAlpha=.73
+                    ctx.fillStyle="#9ad8f4"
+                    ctx.fillRect(0,0,1,1)
+                    ctx.globalCompositeOperation="source-over"
+                }
                 if (condition) {
                     const ring = Elements.kinds[condition].color
-                    if (condition === "freeze" && enemy.elements.frozen > 0) {
-                        ctx.globalAlpha = .47
-                        oval(ctx, .09, .10, .82, .82, "#6eb7ed", "#c5f6ff")
-                    }
                     ctx.globalAlpha = .74
                     for (let i = 0; i < 8; i += 1) {
                         const angle = i * .785 + clock * .51
@@ -875,7 +881,7 @@ Item {
             revision: world.revision
             time: world.motion ? world.elapsed : 0
             visible: { world.revision; return !world.hypnotised && !record.waitingBoss && record.type === "hasasasa" && record.front === world.frontId }
-            opacity: (1-world.blindness*.94)*(1-world.obscurity*(1-Conditions.fogVisibility(enemy.depth)))
+            opacity: (1-world.blindness*.94)*(1-.42*world.obscurity*(1-Conditions.fogVisibility(enemy.depth)))
             readonly property var point: {
                 world.revision
                 return visible ? world.actorProjection(enemy)

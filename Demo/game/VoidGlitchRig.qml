@@ -3,6 +3,7 @@ import QtQuick3D
 
 Node {
     id: rig
+    property Material iceMaterial:null
     required property int targetId
     required property bool live
     required property real time
@@ -18,7 +19,7 @@ Node {
         source: "#Sphere"
         scale: Qt.vector3d(1.87,1.80,.91)
         opacity: .15
-        materials: [unseen]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([unseen])
     }
     Repeater3D {
         model: 20
@@ -32,7 +33,7 @@ Node {
             visible: error < .70 || index%3 === 0
             scale: Qt.vector3d(.38+(index%7)*.28,.025+(index%3)*.045,.049)
             opacity: .29 + Math.abs(error)*.50
-            materials: [index%5 === 0 ? noise : unseen]
+            materials: rig.iceMaterial ? [rig.iceMaterial] : ([index%5 === 0 ? noise : unseen])
         }
     }
     Repeater3D {
@@ -43,8 +44,8 @@ Node {
             y: 21
             z: 51
             eulerRotation.z: modelData*13
-            Model { source:"#Sphere"; scale:Qt.vector3d(.38,.20,.07); opacity:.37; materials:[glow] }
-            Model { objectName:"eye:"+rig.targetId; pickable:rig.live; source:"#Sphere"; z:4; scale:Qt.vector3d(.205,.099,.072); materials:[eye] }
+            Model { source:"#Sphere"; scale:Qt.vector3d(.38,.20,.07); opacity:.37; materials:rig.iceMaterial ? [rig.iceMaterial] : ([glow])}
+            Model { objectName:"eye:"+rig.targetId; pickable:rig.live; source:"#Sphere"; z:4; scale:Qt.vector3d(.205,.099,.072); materials:rig.iceMaterial ? [rig.iceMaterial] : ([eye])}
         }
     }
 }

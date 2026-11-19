@@ -4,7 +4,7 @@
         "Id": "org.projectblackbox.controls",
         "Name": "Blackbox Controls",
         "Description": "Your loadout, abilities and game settings in the panel",
-        "Version": "0.4.5",
+        "Version": "0.4.6",
         "Category": "Games",
         "Authors": [
             {

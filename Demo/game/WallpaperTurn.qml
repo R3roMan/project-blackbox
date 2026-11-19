@@ -34,7 +34,8 @@ Item {
     readonly property bool moving:progress<1 && !lab && previousFront!==frontId
     readonly property bool abyssTransition:moving && (activeFront==="down" || previousFront==="down")
     readonly property bool descending:abyssTransition && transitionStyle==="cinematic"
-    readonly property bool rotating:moving && !abyssTransition && transitionStyle==="cinematic"
+    readonly property bool skyTurn:moving && (activeFront==="up" || previousFront==="up")
+    readonly property bool rotating:moving && !abyssTransition && !skyTurn && transitionStyle==="cinematic"
     readonly property real sampleScale:Math.min(Math.max(1,Screen.devicePixelRatio),quality>0
         ? quality/Math.max(1,height) : 8192/Math.max(1,width))
     function defaultFor(front) {return Scenery.asset(front) || Qt.resolvedUrl(String(artDirectory)+Rules.front(front).art)}
@@ -53,8 +54,11 @@ Item {
             // During a dissolve the departing view stays opaque beneath the arrival.
             z:incoming ? 1 : 0
             opacity:!inView ? 0 : backdrop.moving && !backdrop.rotating && incoming ? backdrop.progress : 1
+            readonly property real skyTravel:backdrop.skyTurn ? (incoming ? 1-backdrop.progress : backdrop.progress) : 0
             readonly property var descent:backdrop.descending ? ViewTurn.descent(height,backdrop.progress,incoming,
-                backdrop.previousFront==="down",backdrop.transitionStrength) : ({scale:1,y:0})
+                backdrop.previousFront==="down",backdrop.transitionStrength) : backdrop.skyTurn
+                ? ({scale:1+skyTravel*.22,y:height*skyTravel*.085*(incoming===(backdrop.direction==="up") ? -1 : 1)})
+                : ({scale:1,y:0})
             transform:Matrix4x4 {
                 matrix:backdrop.rotating ? ViewTurn.panel(panel.width,panel.height,backdrop.direction,
                     backdrop.progress,panel.incoming,backdrop.transitionStrength) : ViewTurn.identity()

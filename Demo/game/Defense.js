@@ -46,7 +46,7 @@ var passiveRows = [
     ["criticalLens","Critical lens","rare","Increase weapon critical chance by 7 percentage points per rank.","critChance",.032,"Critical chance +3.2%"],
     ["deepCut","Deep cut","epic","Multiply critical hits by another 0.30 per rank.","critPower",.18,"Critical multiplier +0.18"],
     ["critLoader","Impact feeder","rare","Return one round on a critical hit, up to one refund per rank in each magazine.","reload",.055,"Reload time −5.5%"],
-    ["edgeRhythm","Edge rhythm","epic","Charged melee strikes and Katana finishers gain critical chance.","critChance",.027,"Critical chance +2.7%"],
+    ["edgeRhythm","Edge rhythm","epic","Charged melee strikes and Katana finishers add 0.9 damage per rank.","critChance",.027,"Critical chance +2.7%"],
     ["critFuel","Critical fuel","epic","Critical kills briefly speed up shots and melee swings.","cycle",.051,"Attack recovery −5.1%"],
     ["hardplate","Soft landing","epic","Reduce the bonus damage of a critical hit against you.","critResist",.14,"Reduce the critical multiplier by another 0.14"]
 ]
@@ -67,7 +67,7 @@ var actives = {
     sureStrike:{ id:"sureStrike",title:"Sure strike",category:"Active",rarity:"rare",cooldown:22,
         description:"Your next weapon attack is a guaranteed critical if it connects. The strength upgrade raises its critical damage." },
     sharpen:{ id:"sharpen",title:"Sharpen",category:"Active",rarity:"rare",cooldown:21,
-        description:"For six seconds, melee strikes have higher critical chance and critical damage." },
+        description:"For six seconds, add 2.4 damage to each melee strike. Upgrades extend its duration." },
     riskCharge:{ id:"riskCharge",title:"Blood gamble",category:"Active",rarity:"legendary",cooldown:24,
         description:"Spend 15 HP for six seconds of greatly increased critical chance." },
     critMark:{ id:"critMark",title:"Fatal mark",category:"Active",rarity:"epic",cooldown:20,
@@ -126,7 +126,7 @@ var frames = [
     ["splitPin","Split pin","rare","kestrel",16,1.71,.47,1.49,28,"#9cd3bb",.025,"Two timed rounds let you track a foe through a short burst."],
     ["feint","Feint pistol","rare","twinpistols",13,2.62,.229,1.35,27,"#e4b89c",.06,"A short cycle and elevated critical chance reward quick corrections."],
     ["grindstone","Grindstone","rare","launcher",8,4.6,.53,1.64,27,"#c0aaa3",.045,"Heavy charges push smaller foes back with Wind."],
-    ["emberslash","Ember edge","epic","darksaber",0,9.4,.53,.75,73,"#ff865e",.13,"A burning blade. Its charged attack can close the distance and its criticals burn at level 3."]
+    ["emberslash","Ember edge","epic","darksaber",0,9.4,.53,.75,73,"#ff865e",.13,"A burning blade. Its charged attack can close the distance and burns at level 3."]
 ]
 var rangedElements = {
     frostwing:"freeze", stingNeedle:"poison", copperPulse:"electric", cinderDouble:"burn", stoneRail:"stun",
@@ -162,7 +162,7 @@ for (let index = 0; index < frames.length; ++index) {
     if (id === "shortRam")
         spec.signature = "closeCycle"
     if (id === "emberslash") {
-        spec.signature = "criticalFlame"
+        spec.signature = "chargedFlame"
         spec.melee = { reach:517, targets:2, trick:"Ignite the edge", boost:1.64 }
         spec.elementLevel = 2
     }

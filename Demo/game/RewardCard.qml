@@ -107,7 +107,7 @@ Ui.ActionButton {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             visible: !!card.offer.upgradeLevel
-            text: card.offer.upgradeLevel ? "↑ UPGRADE TO LV " + card.offer.upgradeLevel + " / 3 · " + card.offer.upgradeEffect : ""
+            text: card.offer.upgradeLevel ? (card.offer.storedUpgrade ? "↑ INVENTORY · LV " : "↑ UPGRADE TO LV ") + card.offer.upgradeLevel + " / 3 · " + card.offer.upgradeEffect : ""
             color: "#a3edc4"
             font.family: "IBM Plex Mono"
             font.pixelSize: Ui.UiMetrics.text(12)

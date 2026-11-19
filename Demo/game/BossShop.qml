@@ -24,12 +24,13 @@ ColumnLayout {
     property bool refundsOpen:false
 
     readonly property real balance: { revision; return Gear.availableGold(run) }
-    readonly property var cards: { revision; return Gear.shopCards(run) }
+    readonly property var cards: { revision; return Gear.shopCards(run).slice() }
     readonly property var expansion:{revision;return Gear.counterOffer(run)}
     readonly property int edition: { revision; return run.shopEdition }
     property string selectedId: ""
     property string pendingReplacement: ""
-    onSelectedIdChanged:pendingReplacement=""
+    onSelectedIdChanged:{pendingReplacement="";upgradeTargets.currentIndex=-1}
+    readonly property bool choosingUpgrade: selected?.action==="item-upgrade" && !selected.sold
     onEditionChanged: {
         selectedId = ""
         selectedSlot = -1
@@ -92,7 +93,8 @@ ColumnLayout {
             pendingReplacement=replacingKey
             return
         }
-        purchaseRequested(selected.id,destination,confirmed)
+        selectedId=selected.id
+        purchaseRequested(selected.id,destination,choosingUpgrade ? upgradeTargets.currentValue || "" : confirmed)
         pendingReplacement=""
     }
 
@@ -154,8 +156,12 @@ ColumnLayout {
                 readonly property int openCount:{shop.revision;return shop.run.shopCapacity}
                 readonly property bool unlocked:index<openCount
                 Layout.fillWidth:true
-                implicitHeight:5
+                implicitHeight:unlocked ? 6 : 21
                 radius:2
+                Text {
+                    anchors.centerIn:parent;visible:!parent.unlocked
+                    text:"🔒";font.pixelSize:12;color:"#d4b5c7"
+                }
                 color:unlocked ? "#d9a36d" : index===openCount ? "#566d87" : "#352a36"
                 Accessible.name:(unlocked ? "Open listing " : "Locked listing ")+(index+1)
             }
@@ -283,7 +289,7 @@ ColumnLayout {
                             }
                         }
                         Text {
-                            text: {shop.revision;return listing.modelData.sold ? "Sold" : listing.modelData.paid ? "Claim"
+                            text: {shop.revision;return listing.modelData.sold ? "Purchased" : listing.modelData.paid ? "Claim"
                                 : (Draw.isFrozen(shop.run,listing.modelData) ? "❄ " : "")+listing.modelData.cost}
                             color: listing.primary ? "#29364d" : listing.modelData.sold ? "#a1adbf" : "#ffdf93"
                             font.family: "IBM Plex Mono"
@@ -355,6 +361,17 @@ ColumnLayout {
                         available: shop.pickSlot
                     }
                 }
+                ComboBox {
+                    id:upgradeTargets
+                    objectName:"shopUpgradeTarget"
+                    Layout.fillWidth:true
+                    visible:shop.choosingUpgrade
+                    model:{shop.revision;return shop.choosingUpgrade ? Gear.upgradeTargets(shop.run) : []}
+                    textRole:"title";valueRole:"key"
+                    currentIndex:-1
+                    displayText:currentIndex<0 ? "Choose an equipped or stored item" : currentText
+                    Accessible.name:"Item to upgrade"
+                }
                 Flow {
                     Layout.fillWidth:true
                     spacing:5
@@ -368,6 +385,7 @@ ColumnLayout {
                         objectName: "buyShopOffer"
                         enabled: !!shop.selected && !shop.selected.sold && shop.balance >= shop.selected.cost
                             && (!shop.pickSlot || shop.selectedSlot >= 0 || shop.storing)
+                            && (!shop.choosingUpgrade || upgradeTargets.currentIndex>=0)
                         primary: true
                         accent:"#ecb587"
                         text: {

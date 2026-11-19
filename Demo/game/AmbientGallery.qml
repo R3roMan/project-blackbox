@@ -10,12 +10,40 @@ Template.Scene {
     property int sceneryDetail:1
     property var forecast:Scenery.idleWeather(localTime)
     property var labAppearance:({})
+    property bool mouseLook:false
+    property bool escapeBack:false
+    property string previousRoom:"shrine"
+    property string committedRoom:"shrine"
+    property int mouseEdge:-1
+    onRoomChanged:{
+        previousRoom=committedRoom
+        committedRoom=room
+        if (viewedRoom!=="lab") labAppearance=({})
+    }
+    Shortcut {
+        sequence:"Escape";context:Qt.WindowShortcut
+        enabled:gallery.escapeBack && gallery.visible && gallery.exposed && gallery.enabled
+            && !gallery.drawerOpen && !gallery.clean && !gallery.moving && gallery.room!=="shrine"
+        onActivated:gallery.go(gallery.previousRoom)
+    }
+    HoverHandler {
+        enabled:gallery.mouseLook && gallery.exposed && !gallery.drawerOpen && !gallery.clean
+        acceptedDevices:PointerDevice.Mouse | PointerDevice.TouchPad
+        onPointChanged:{
+            const gaps=[point.position.x,gallery.width-point.position.x,point.position.y,gallery.height-point.position.y]
+            const edge=gaps.indexOf(Math.min(...gaps))
+            if (gaps[edge]>28) gallery.mouseEdge=-1
+            else if (gaps[edge]<15 && gallery.mouseEdge!==edge) {
+                gallery.mouseEdge=edge
+                gallery.move(["left","right","up","down"][edge])
+            }
+        }
+    }
     readonly property string viewedRoom:destination || room
     onViewedRoomChanged: {
         if (viewedRoom==="lab") labAppearance=Scenery.labVisit()
         else if (room!=="lab") labAppearance=({})
     }
-    onRoomChanged:if (viewedRoom!=="lab") labAppearance=({})
     Timer {
         running:gallery.exposed && gallery.visible && !gallery.coverDemo
         interval:60000;repeat:true;triggeredOnStart:true

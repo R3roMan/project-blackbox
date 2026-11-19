@@ -44,12 +44,13 @@ function placements(groups, seed, boss) {
     return placed
 }
 
+function displaySize(spec) {
+    return Math.max(.88,Math.min(1.42,spec.size))
+}
+
 function radius(groups, positions, aspect) {
-    return groups.reduce(function(bound,group,index) {
-        const spot=positions[index] || {x:.5,y:.5}
-        const size=Mission.enemyTypes[group.type].size
-        return Math.max(bound,180*size/(1-2*Math.abs(spot.y-.5)),132*size/Math.max(.01,aspect)/(1-2*Math.abs(spot.x-.5)))
-    },155)
+    const spacing = groups.length<=2 ? 210 : 242
+    return spacing * Math.max(1,1.3/Math.max(.6,aspect))
 }
 
 function tooltip(group, discoveries) {

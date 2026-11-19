@@ -3,6 +3,7 @@ import QtQuick3D
 
 Node {
     id: rig
+    property Material iceMaterial:null
     required property int targetId
     required property bool live
     required property bool warning
@@ -23,25 +24,25 @@ Node {
         pickable: rig.live
         source: "#Sphere"
         scale: Qt.vector3d(.91,.89,.65)
-        materials: [graphite]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([graphite])
     }
     Model {
         source: "#Sphere"
         z: 33
         scale: Qt.vector3d(.51,.51,.20)
-        materials: [silver]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([silver])
     }
     Model {
         source: "#Sphere"
         z: 43
         scale: Qt.vector3d(.32,.32,.19)
-        materials: [charge]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([charge])
     }
     Model {
         source: "#Sphere"
         z: 52
         scale: Qt.vector3d(.09,.19,.035)
-        materials: [graphite]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([graphite])
     }
 
     Repeater3D {
@@ -57,7 +58,7 @@ Node {
                 pickable: rig.live
                 source: "#Cube"
                 scale: Qt.vector3d(.26,.82,.41)
-                materials: [silver]
+                materials: rig.iceMaterial ? [rig.iceMaterial] : ([silver])
             }
             Model {
                 objectName: String(rig.targetId)
@@ -67,7 +68,7 @@ Node {
                 y: -44
                 eulerRotation.z: modelData * -20
                 scale: Qt.vector3d(.54,.28,.39)
-                materials: [graphite]
+                materials: rig.iceMaterial ? [rig.iceMaterial] : ([graphite])
             }
             Repeater3D {
                 model: 4
@@ -76,14 +77,14 @@ Node {
                     source: "#Cube"
                     y: -12 + index * 12
                     scale: Qt.vector3d(.30,.068,.45)
-                    materials: [coil]
+                    materials: rig.iceMaterial ? [rig.iceMaterial] : ([coil])
                 }
             }
             Model {
                 source: "#Cube"
                 y: 41
                 scale: Qt.vector3d(.30,.14,.46)
-                materials: [charge]
+                materials: rig.iceMaterial ? [rig.iceMaterial] : ([charge])
             }
         }
     }

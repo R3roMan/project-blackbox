@@ -73,8 +73,8 @@ var enemyTypes = {
         description: "Flies side to side and up and down for ten seconds, then flees. Earn 2 gold per hit and 50 on the kill. Allies on its front move and attack 20% faster."
     },
     humontafagus: {
-        id: "humontafagus", title: "Humontafagus", role: "boss", health: 73, damage: 22,
-        speed: 62, pace: "Low", reach: 360, interval: 5.1, windup: 1.72,
+        id: "humontafagus", title: "Humontafagus", role: "boss", health: 108, damage: 22,
+        speed: 104, pace: "Medium", reach: 360, interval: 3.8, windup: 1.48,
         skin: "#75422e", accent: "#ffe083", size: 2.12, shake: [24, 17, 0.72, 28],
         description: "First appears on wave 10. At half health it summons three demons on its wallpaper. The wave-ten summons have reduced health and damage."
     },
@@ -169,7 +169,7 @@ var enemyTypes = {
     },
     veilskate: {
         id:"veilskate",title:"Veilskate",role:"alien",health:4.5,damage:12,
-        speed:65,pace:"Low",distance:6500,reach:6500,interval:7.2,windup:1.5,crit:.40,
+        speed:65,pace:"Low",distance:5825,reach:5825,interval:7.2,windup:1.5,crit:.40,
         boltTime:2.15,boltHealth:3,skin:"#35474a",accent:"#66ff35",size:.79,shake:[8,4,.24,70],
         description:"A small camouflaged alien that drifts sideways at extreme range. Its green plasma balls hit for medium damage and have a 40% critical chance."
     },
@@ -268,7 +268,7 @@ var enemyTypes = {
     },
     crawler: {
         id: "crawler", title: "Void Crawler", role: "void", abyss:true,health: 15, damage: 12,
-        speed: 48, pace: "Very low", reach: 350, interval: 5.2, windup: 1.45,
+        speed: 81, pace: "Low", reach: 350, interval: 5.2, windup: 1.45,
         skin: "#263343", accent: "#b7afe5", size: 1.06, shake: [6, 16, 0.43, 39],
         element:"blind",elementLevel:1,
         description: "A deep-water hunter that darkens the edge of your vision when it bites. Fight it with weapons. Hold F in the Abyss to close the rift and stop later Void spawns."

@@ -3,6 +3,7 @@ import QtQuick3D
 
 Node {
     id: rig
+    property Material iceMaterial:null
     property var surfaces:null
     required property int targetId
     required property bool live
@@ -34,7 +35,7 @@ Node {
             y: -62 + Math.sin(turn*2)*11
             z: -21 + Math.sin(turn)*49
             scale: Qt.vector3d(.51,.40,.52)
-            materials: [index % 4 ? scales : ridge]
+            materials: rig.iceMaterial ? [rig.iceMaterial] : ([index % 4 ? scales : ridge])
         }
     }
     Repeater3D {
@@ -48,7 +49,7 @@ Node {
             y: -48 + index*18
             z: Math.sin(index*.46)*22
             scale: Qt.vector3d(.49-index*.018,.49,.50-index*.015)
-            materials: [index % 2 ? scales : ridge]
+            materials: rig.iceMaterial ? [rig.iceMaterial] : ([index % 2 ? scales : ridge])
         }
     }
     Node {
@@ -61,7 +62,7 @@ Node {
             pickable: rig.live
             source: "#Sphere"
             scale: Qt.vector3d(.80,.46,.73)
-            materials: [hood]
+            materials: rig.iceMaterial ? [rig.iceMaterial] : ([hood])
         }
         Model {
             objectName: String(rig.targetId)
@@ -70,7 +71,7 @@ Node {
             y: -13-rig.bite*12
             z: 18
             scale: Qt.vector3d(.64,.17,.56)
-            materials: [scales]
+            materials: rig.iceMaterial ? [rig.iceMaterial] : ([scales])
         }
         Repeater3D {
             model: [-1,1]
@@ -82,7 +83,7 @@ Node {
                     y: 7
                     z: 25
                     scale: Qt.vector3d(.12,.065,.075)
-                    materials: [eyes]
+                    materials: rig.iceMaterial ? [rig.iceMaterial] : ([eyes])
                 }
                 Model {
                     source: "#Cone"
@@ -90,7 +91,7 @@ Node {
                     z: 37
                     eulerRotation.z: 180
                     scale: Qt.vector3d(.064,.21,.062)
-                    materials: [fangs]
+                    materials: rig.iceMaterial ? [rig.iceMaterial] : ([fangs])
                 }
                 Model {
                     source: "#Cone"
@@ -99,7 +100,7 @@ Node {
                     z: -17
                     eulerRotation.z: -modelData*37
                     scale: Qt.vector3d(.15,.32,.14)
-                    materials: [ridge]
+                    materials: rig.iceMaterial ? [rig.iceMaterial] : ([ridge])
                 }
             }
         }

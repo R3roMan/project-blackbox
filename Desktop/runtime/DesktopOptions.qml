@@ -58,6 +58,7 @@ ScrollView {
             Layout.fillWidth:true
             onLevelRequested:function(key,value){Native.Desktop.setOption(key,value)}
         }
+        CheckBox {text:"Turn at mouse edges";checked:Native.Desktop.config.mouseTurns;onClicked:Native.Desktop.setOption("mouseTurns",checked)}
         CheckBox {text:"Animation";checked:Native.Desktop.config.motion;onClicked:Native.Desktop.setOption("motion",checked)}
         CheckBox {text:"Show wave timer";checked:Native.Desktop.config.showTimer;onClicked:Native.Desktop.setOption("showTimer",checked)}
         Label {text:"Backgrounds · your original files stay where they are";font.bold:true}
@@ -70,6 +71,17 @@ ScrollView {
                 Button {text:"Choose image…";onClicked:{settings.choosing=modelData.id;imagePicker.open()}}
                 Button {text:"Reset";onClicked:Native.Desktop.setOption("wallpaper_"+modelData.id,"")}
             }
+        }
+        Button {objectName:"resetWallpaperImages";text:"Restore all default images";onClicked:Native.Desktop.resetOptions(true)}
+        Button {objectName:"resetDesktopSettings";text:"Restore desktop settings";onClicked:resetConfirmation.open()}
+        Dialog {
+            id:resetConfirmation
+            parent:settings
+            anchors.centerIn:parent
+            title:"Restore Blackbox desktop settings?"
+            standardButtons:Dialog.RestoreDefaults | Dialog.Cancel
+            onReset:{Native.Desktop.resetOptions(false);close()}
+            Label {text:"Your runs, progress and images will be kept.";wrapMode:Text.WordWrap}
         }
         Label {text:"Game monitor"}
         ComboBox {

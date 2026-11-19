@@ -4,6 +4,7 @@ import QtQuick3D
 
 Node {
     id: vampire
+    property Material iceMaterial:null
     property var surfaces:null
     objectName: "blandromedusRig"
     required property int targetId
@@ -37,20 +38,20 @@ Node {
             z:-19
             scale:Qt.vector3d(modelData,1,1)
             eulerRotation.y:-19+vampire.wingBeat
-            Model {geometry:wing; scale:Qt.vector3d(1.16,1.31,1); materials:[membrane]}
+            Model {objectName:"outer:"+vampire.targetId; pickable:vampire.live; geometry:wing; scale:Qt.vector3d(1.16,1.31,1); materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([membrane])}
             Model {
-                geometry:wing
+                objectName:"outer:"+vampire.targetId; pickable:vampire.live; geometry:wing
                 position:Qt.vector3d(-19,-44,-6)
                 eulerRotation.z:-38
                 scale:Qt.vector3d(.78,1.26,.9)
-                materials:[cloak]
+                materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([cloak])
             }
             Model {
                 source:"#Sphere"
                 position:Qt.vector3d(52,26,-9)
                 eulerRotation.z:72
                 scale:Qt.vector3d(.079,1.19,.085)
-                materials:[rib]
+                materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([rib])
             }
         }
     }
@@ -59,7 +60,7 @@ Node {
         pickable:vampire.live
         source:"#Sphere"; y:-23
         scale:Qt.vector3d(.65,1.12,.47)
-        materials:[cavity]
+        materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([cavity])
     }
     Repeater3D {
         model:5
@@ -71,13 +72,13 @@ Node {
             Model {
                 source:"#Sphere"
                 scale:Qt.vector3d(parent.ribWidth,.115,.45)
-                materials:[bone]
+                materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([bone])
             }
             Model {
                 source:"#Sphere"
                 y:-7; z:4
                 scale:Qt.vector3d(parent.ribWidth*.86,.07,.38)
-                materials:[rib]
+                materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([rib])
             }
         }
     }
@@ -88,7 +89,7 @@ Node {
         pickable:vampire.live
         y:51; z:15
         scale:Qt.vector3d(1.29,.75,.53)
-        materials:[bone]
+        materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([bone])
     }
     Repeater3D {
         model:7
@@ -100,20 +101,20 @@ Node {
             z:38-index*2.7
             eulerRotation.z:-23-index*6
             scale:Qt.vector3d(.35,.41-index*.030,.145)
-            materials:[blood]
+            materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([blood])
         }
     }
     Model {
         source:"#Sphere"
         y:47; z:39
         scale:Qt.vector3d(.48,.53,.075)
-        materials:[blood]
+        materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([blood])
     }
     Model {
         source:"#Sphere"
         y:47; z:43
         scale:Qt.vector3d(.38,.435,.045)
-        materials:[cavity]
+        materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([cavity])
     }
     Repeater3D {
         model:7
@@ -125,16 +126,16 @@ Node {
             z:44+Math.sin(index*.4)*9
             eulerRotation.z:vampire.eyeSwing*.8
             scale:Qt.vector3d(.080+index*.002,.137,.078)
-            materials:[blood]
+            materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([blood])
         }
     }
     Node {
         x:vampire.eyeSwing
         y:6
         z:53+vampire.strike*7
-        Model { objectName:"eye:"+vampire.targetId; pickable:vampire.live;source:"#Sphere"; scale:Qt.vector3d(.25,.23,.24); materials:[eye]}
-        Model { objectName:"eye:"+vampire.targetId; pickable:vampire.live;source:"#Sphere"; z:11; scale:Qt.vector3d(.15,.14,.07); materials:[iris]}
-        Model { objectName:"eye:"+vampire.targetId; pickable:vampire.live;source:"#Sphere"; z:14.4; scale:Qt.vector3d(.052,.115,.036); materials:[cavity]}
-        Model {source:"#Sphere"; x:-2.7; y:4.2; z:16; scale:Qt.vector3d(.037,.028,.018); materials:[eye]}
+        Model { objectName:"eye:"+vampire.targetId; pickable:vampire.live;source:"#Sphere"; scale:Qt.vector3d(.25,.23,.24); materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([eye])}
+        Model { objectName:"eye:"+vampire.targetId; pickable:vampire.live;source:"#Sphere"; z:11; scale:Qt.vector3d(.15,.14,.07); materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([iris])}
+        Model { objectName:"eye:"+vampire.targetId; pickable:vampire.live;source:"#Sphere"; z:14.4; scale:Qt.vector3d(.052,.115,.036); materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([cavity])}
+        Model {source:"#Sphere"; x:-2.7; y:4.2; z:16; scale:Qt.vector3d(.037,.028,.018); materials:vampire.iceMaterial ? [vampire.iceMaterial] : ([eye])}
     }
 }

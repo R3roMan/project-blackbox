@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../ui" as Ui
+import "Loadout.js" as Gear
 
 ColumnLayout {
     id: setup
@@ -9,6 +10,8 @@ ColumnLayout {
     required property int startAt
     required property string build
     required property bool unlockAll
+    property string debugWeapon:"pistol"
+    signal debugWeaponRequested(string id)
     property bool bloodMoon:false
     property string weatherLayer:""
     property bool unlimitedMoney:false
@@ -80,6 +83,18 @@ ColumnLayout {
             text: "Unlock all gear"
             onToggled: setup.unlocksRequested(checked)
         }
+    }
+    ComboBox {
+        id:weaponPicker
+        objectName:"debugStartingWeapon"
+        visible:setup.debugEnabled
+        Layout.fillWidth:true
+        model:Object.values(Gear.weapons).sort((a,b)=>a.title.localeCompare(b.title))
+        textRole:"title";valueRole:"id"
+        currentIndex:setup.build==="custom" ? indexOfValue(setup.debugWeapon) : -1
+        displayText:currentIndex<0 ? "Choose any starting weapon" : currentText
+        Accessible.name:"Choose any debug starting weapon"
+        onActivated:setup.debugWeaponRequested(currentValue)
     }
     RowLayout {
         visible:setup.debugEnabled

@@ -2,9 +2,12 @@
 .import "Tarot.js" as Tarot
 
 var families=["F","D","C","B","A","S"]
-var thresholds=[0,19,36,55,70,84,100]
+var thresholds=[0,23,40,55,70,84,100]
 var grades=[]
-for (const family of families) grades.push(family+"-",family,family+"+")
+for (const family of families) {
+    if (family==="F") grades.push("F")
+    else grades.push(family+"-",family,family+"+")
+}
 grades.push("SSS")
 
 function familyOf(mark) {return mark.replace(/[+-]$/,"")}
@@ -167,9 +170,12 @@ function clamp(number) {return Math.max(0,Math.min(1,number))}
 function curve(value, scale) {return 1-Math.exp(-Math.max(0,value)/scale)}
 function round(value) {return Math.round(value*10)/10}
 
+function validGrade(value) {return grades.includes(value) || value==="F+" || value==="F-"}
+
 function grade(score) {
     let band=0
     while (band<families.length-1 && score>=thresholds[band+1]) band++
+    if (band===0) return "F"
     const fraction=(score-thresholds[band])/(thresholds[band+1]-thresholds[band])
     return families[band]+(fraction<1/3 ? "-" : fraction<2/3 ? "" : "+")
 }
@@ -196,13 +202,13 @@ function report(run, reason, load) {
     const impact=damage+contacts*1.7
     const skill=round(100*clamp(.46*precision+.20*killPressure+.13*guard+.08*shelter+.13*experience+.035*curve(bosses,2.2)))
     const finance=round(100*clamp(.31*income+.21*reserve+.22*used+.14*deals+.12*arsenal))
-    const survival=round(100*clamp((.62*Math.exp(-impact/(125+cleared*21))+.23*(flawless/Math.max(1,cleared))
-        +.15*curve(bosses,2.5))*(.56+.44*curve(cleared,6))))
+    const survival=round(100*clamp(.27*curve(cleared,35)+.73*(.62*Math.exp(-impact/(125+cleared*21))
+        +.23*(flawless/Math.max(1,cleared)) +.15*curve(bosses,2.5))*(.48+.52*curve(cleared,9))))
     const burden=m.loadSamples ? m.loadBurden/m.loadSamples : load.burden
     const restraint=round(4.5*curve(cleared,28)*clamp((2.3+cleared*.17-burden)/Math.max(2.3,cleared*.17)))
     const risk=run.difficulty==="insane" ? 4.5 : run.difficulty==="hard" ? 2.5 : 0
     const engaged=kills>=2 || blocks>=2 || shots>=6 && accuracy>=.55
-    const score=round(Math.max(engaged ? 19 : 0,Math.min(100,
+    const score=round(Math.max(engaged ? 10 : 0,Math.min(100,
         waveScore*.38+skill*.27+finance*.13+survival*.22+restraint+risk*experience)))
     const perfect=reason==="retired" && cleared>=120 && bosses>=8 && shots>=350 && hits===shots
         && kills>=420 && seals>=8 && blocks>=28 && parries>=8 && purchases>=10
@@ -311,14 +317,14 @@ function validCard(card) {
     return object(card) && validId(card.id) && typeof card.eligible === "boolean" && validNumber(card.gems) && validNumber(card.bonus)
         && validNumber(card.date) && validNumber(card.wave) && validNumber(card.cleared) && ["death","retired"].includes(card.reason)
         && ["normal","hard","insane"].includes(card.difficulty) && object(card.grades) && object(card.points) && object(card.stats)
-        && ["skill","finance","survival","overall"].every(function(axis) {return grades.includes(card.grades[axis]) && validNumber(card.points[axis])})
+        && ["skill","finance","survival","overall"].every(function(axis) {return validGrade(card.grades[axis]) && validNumber(card.points[axis])})
         && Object.values(card.stats).every(validNumber)
 }
 
 function decode(data) {
     if (!object(data) || !validTerms(data) || !Number.isSafeInteger(data.gems) || data.gems<0 || !object(data.started) || !object(data.settled)
         || !Object.keys(data.started).every(function(id){return validId(id) && validTerms(data.started[id])})
-        || !Object.keys(data.settled).every(function(id){return validId(id) && grades.includes(data.settled[id])})
+        || !Object.keys(data.settled).every(function(id){return validId(id) && validGrade(data.settled[id])})
         || !(data.best===null || validCard(data.best)) || !(data.last===null || validCard(data.last))
         || !Array.isArray(data.archive) || data.archive.length>40 || !data.archive.every(validCard)
         || (data.earned!==undefined && (!Number.isSafeInteger(data.earned) || data.earned<0))

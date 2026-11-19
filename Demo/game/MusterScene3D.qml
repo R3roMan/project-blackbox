@@ -16,7 +16,7 @@ View3D {
     property int revision: 0
     function indexAt(x,y) {
         for (const hit of pickAll(x,y)) {
-            const index=Number(hit.objectHit?.objectName)-1
+            const index=Number((hit.objectHit?.objectName || "").split(":").pop())-1
             if (index >= 0 && index < company.length)
                 return index
         }
@@ -27,7 +27,7 @@ View3D {
             const figure=figures.objectAt(index)
             if (!figure) continue
             const centre=mapFrom3DScene(figure.scenePosition)
-            const size=Mission.enemyTypes[figure.enemy.type].size*previewCamera.verticalMagnification
+            const size=Muster.displaySize(Mission.enemyTypes[figure.enemy.type])*previewCamera.verticalMagnification
             const distance=Math.hypot((x-centre.x)/(82*size),(y-centre.y+15*size)/(90*size))
             if (distance < nearest) {
                 selected=index
@@ -84,6 +84,8 @@ View3D {
             x:(spot.x-.5)*2*scene.radius*scene.width/Math.max(1,scene.height)
             y:(.5-spot.y)*2*scene.radius+Math.sin(scene.clock*1.7+index*1.2)*5
             z:-index%3*4
+            readonly property real modelScale:Muster.displaySize(Mission.enemyTypes[enemy.type])/Mission.enemyTypes[enemy.type].size
+            scale:Qt.vector3d(modelScale,modelScale,modelScale)
             eulerRotation.z:Math.sin(scene.clock*1.3+index)*2.3
             Connections {
                 target:scene

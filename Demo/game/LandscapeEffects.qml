@@ -103,19 +103,57 @@ Item {
                 [493,432],[477,410],[448,403],[412,405],[400,389],[374,382],[342,387],
                 [311,380],[303,364],[272,362],[259,368],[231,363],[211,345],[181,340],[158,347],[144,330],[121,322]])
             c.clip()
-            const strength=land.night ? .36 : land.cloudy ? .42 : land.hot ? .98 : .84
+            if (land.frozen) {
+                const ice=c.createLinearGradient(0,278,0,432)
+                ice.addColorStop(0,"#5386a3bd");ice.addColorStop(.54,"#b3adcce0");ice.addColorStop(1,"#cfdeecf4")
+                c.fillStyle=ice;c.fillRect(0,276,768,156)
+                c.lineJoin="round"
+                for (let i=0;i<24;i++) {
+                    const x=154+i*131%621,y=280+i*67%150,w=9+i*13%51
+                    c.strokeStyle=i%3===0 ? "#728eb6cf" : "#ade8f5fc"
+                    c.lineWidth=.38+(y-272)*.009
+                    c.beginPath();c.moveTo(x-w,y-1);c.lineTo(x-w*.24,y+3);c.lineTo(x,y-2)
+                    c.lineTo(x+w*.4,y+3);c.lineTo(x+w,y);c.stroke()
+                    if (i%2===0) {c.beginPath();c.moveTo(x,y-2);c.lineTo(x+w*.15,y-8);c.lineTo(x+w*.37,y-14);c.stroke()}
+                }
+                c.restore()
+                snowbanks(c)
+                return
+            }
+            const rough=land.windy ? 3.15 : land.hot ? 1.7 : 1.12
+            const strength=land.night ? .36 : land.cloudy ? .50 : land.hot ? .98 : .88
             const skyColor=land.phase==="bloodMoon" ? "#6bab3048" : land.night ? "#515775ba"
                 : land.dusk ? "#a5f48d52" : land.dawn ? "#86ffca95" : "#5065aed6"
             const glaze=c.createLinearGradient(0,276,0,432)
             glaze.addColorStop(0,"transparent");glaze.addColorStop(.58,skyColor);glaze.addColorStop(1,"transparent")
             c.fillStyle=glaze;c.fillRect(0,276,768,156)
             const flare=land.dusk || land.dawn ? Math.max(.09,Math.min(1,(195-sy)/24)) : 1
-            const count=[36,74,125,165][land.detail]
+            const count=[43,83,130,172][land.detail]
+            for (let i=0;i<(land.windy ? 27 : 18);i++) {
+                const y=282+i*5.8, depth=(y-270)/162, w=24+depth*71
+                const x=(i*109+t*(8+depth*19)*rough)%(830+2*w)-w
+                const lift=depth*(land.windy ? 6.2 : 1.8)
+                c.strokeStyle=Qt.rgba(.70,.86,.91,.06+depth*(land.windy ? .35 : .18))
+                c.lineWidth=.45+depth*1.32
+                c.beginPath();c.moveTo(x-w,y);c.bezierCurveTo(x-w*.43,y-lift,x+w*.23,y+lift*.48,x+w,y-lift*.68);c.stroke()
+            }
+            if (land.hot) {
+                for (let i=0;i<19;i++) {
+                    const x=183+i*157%567,y=286+i*91%151,p=(i*.618+t*(.62+i%4*.11))%1
+                    const size=(2+(y-280)*.034)*p
+                    c.strokeStyle=Qt.rgba(.93,.89,.66,Math.sin(p*Math.PI)*.46)
+                    c.lineWidth=.62;c.beginPath();c.ellipse(x-size*1.7,y-size*.42,size*3.4,size*.84);c.stroke()
+                    if (p<.62) {
+                        c.fillStyle=Qt.rgba(.92,.94,.89,(1-p)*.39)
+                        c.beginPath();c.ellipse(x-1.4,y-p*8,2.8,2.3);c.fill()
+                    }
+                }
+            }
             for (let i=0;i<count;i++) {
                 const depth=(i*.618034)%1
                 const phase=i*2.39996
-                const wave=Math.sin(phase+t*(.67+depth))*.5+.5
-                const y=279+depth*150+Math.sin(t*.9+phase)*.65
+                const wave=Math.sin(phase+t*(.67+depth)*rough)*.5+.5
+                const y=279+depth*150+Math.sin(t*.9*rough+phase)*.65*rough
                 const spread=5+depth*(land.night ? 105 : 45)
                 const x=sx+Math.sin(phase*13.371)*spread+Math.sin(t*.75+phase)*4
                 const shine=(.10+.64*wave*wave)*strength*flare*(.37+depth*.64)
@@ -145,6 +183,28 @@ Item {
                     c.beginPath();c.moveTo(p[0]-p[2],p[1]);c.quadraticCurveTo(p[0]+direction-22,p[1]+9,p[0]+direction-p[2],p[1]+11)
                     c.quadraticCurveTo(p[0]+direction+8,p[1]+13,p[0]+p[2],p[1]);c.closePath();c.fill()
                 }
+            }
+        }
+        function snowbanks(c) {
+            const banks=[[[0,310],[66,316],[121,329],[155,348],[222,350],[257,369],[305,369],[344,393],
+                [400,402],[455,410],[490,432],[0,432]],
+                [[0,276],[123,270],[201,274],[280,270],[394,267],[492,271],[634,273],[768,267],
+                [768,282],[674,282],[535,279],[426,278],[305,276],[178,282],[0,287]],
+                [[0,245],[70,249],[111,251],[158,250],[207,256],[288,257],[378,254],[427,258],[506,254],
+                [585,257],[634,253],[768,259],[768,271],[636,266],[474,267],[288,265],[142,260],[0,254]]]
+            for (let i=0;i<banks.length;i++) {
+                c.save()
+                path(c,banks[i]);c.clip()
+                const snow=c.createLinearGradient(0,i===0 ? 310 : 245,0,i===0 ? 432 : 290)
+                snow.addColorStop(0,land.night ? "#927692ba" : "#c0e1edfa")
+                snow.addColorStop(1,land.night ? "#c19eb5d2" : "#daebf4fc")
+                c.fillStyle=snow;c.fillRect(0,241,768,191)
+                for(let j=0;j<112;j++) {
+                    const x=j*197%768,y=246+j*131%190
+                    c.fillStyle=j%4===0 ? "#43748fb0" : "#88f7fbff"
+                    c.beginPath();c.ellipse(x,y,1.5+(j%5)*1.75,1.1+j%3*.46);c.fill()
+                }
+                c.restore()
             }
         }
         function lab(c,t) {

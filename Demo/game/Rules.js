@@ -66,7 +66,7 @@ function directionToward(view, targetView) {
 function create(seed, unlocks) {
     const run = {
         seed:seed >>> 0, rng:seed >>> 0, phase:"ready", time:0, wave:0, waveTime:0,
-        difficulty:"normal", startAt:1, debug:false, debugBuild:"standard", debugUnlockAll:false,debugMoney:false,debugWeather:"",debugLayer:"",
+        difficulty:"normal", startAt:1, debug:false, debugBuild:"standard", debugWeapon:"pistol", debugUnlockAll:false,debugMoney:false,debugWeather:"",debugLayer:"",
         nextStage:null,stage:null,desktop:null,training:null,abilityEvents:[],passiveFxReady:{},salvoTime:0,salvoBonus:0,runeReady:0,sprayTime:0,vampireReady:0,
         careerUnlocks:unlocks || [], playerFront:"front", viewReady:true, weatherEffect:"clear", nextFirePulse:0,
         skyPhase:"daytime",bloodMoonSeen:false,takeoverTime:0,stormAt:0,stormBursts:[],
@@ -225,10 +225,18 @@ function configure(run, difficulty, startAt, build) {
         run.debugLayer = ""
         if (run.debugUnlockAll)
             applyDebugUnlocks(run, false)
-    } else if (["standard","star","random"].includes(build)) {
+    } else if (["standard","star","random","custom"].includes(build)) {
         run.debugBuild = build
     }
     prepareStage(run)
+    return true
+}
+
+function setDebugWeapon(run,id) {
+    if (run.phase!=="ready" || !run.debug || !weapons[id])
+        return false
+    run.debugBuild="custom"
+    run.debugWeapon=id
     return true
 }
 
@@ -368,24 +376,21 @@ function criticalProfile(run, weapon) {
         chance:.05 + (weapon.crit || 0) + rank(run,"criticalLens")*.07 + Gear.perk(run,"critChance")
             + (run.boneTime > 0 ? .24 + (run.boneRank-1)*.045 : 0)
             + Gear.kitBonus(run,"crit",weapon.id) + Gear.passiveSockets(run,"critical",.06) + Tarot.value(run,"critChance"),
-        power:2 + rank(run,"deepCut")*.30 + Gear.perk(run,"critPower") + Gear.kitBonus(run,"critPower",weapon.id)
+        power:1.5 + rank(run,"deepCut")*.30 + Gear.perk(run,"critPower") + Gear.kitBonus(run,"critPower",weapon.id)
             + (run.boneTime > 0 ? .52 + (run.boneRank-1)*.14 : 0) + Tarot.value(run,"critPower")
     }
 }
 
 function weaponCritical(run, weapon, gun, enemy) {
-    const melee = !!weapon.melee || !!weapon.stab
-    const poised = melee && (gun.primed || weapon.id === "katana" && gun.combo === 2 && run.time <= gun.comboUntil)
     const base = criticalProfile(run,weapon)
-    const chance = base.chance + (poised ? rank(run,"edgeRhythm")*.095 : 0)
-        + (run.criticalRoll > 0 ? .36 : 0) + (melee && run.sharpenTime > 0 ? .20 : 0)
+    const chance = base.chance + (run.criticalRoll > 0 ? .36 : 0)
         + (enemy && enemy.criticalMark > 0 ? .27 : 0)
         + (isMarked(enemy) ? Gear.weaponSocket(run).markCrit || 0 : 0)
     const forced = run.sureAttack
     const boost = forced ? run.surePower : 0
     run.sureAttack = false
     run.surePower = 0
-    return forced || criticalRoll(run,Math.min(.83,chance)) ? base.power + boost + (melee && run.sharpenTime > 0 ? .45 : 0) : 1
+    return forced || criticalRoll(run,Math.min(.83,chance)) ? base.power + boost : 1
 }
 
 function criticalHit(run, damage, killed) {
@@ -483,7 +488,7 @@ function blockWithShield(run, amount, origin, type, payload, projectile, critica
     const guard = run.shield
     guard.flash = .38
     guard.blocked += 1
-    guard.absorbed = Math.min(100,guard.absorbed + amount * (critical ? 2 : 1))
+    guard.absorbed = Math.min(100,guard.absorbed + amount * (critical ? 1.5 : 1))
     record(run, "shieldBlocks")
     if (critical) {
         run.shieldCrits += 1
@@ -907,6 +912,8 @@ function startWave(run) {
             if (run.debugBuild === "star") {
                 run.slots.weapon[0].item = Gear.makeItem("starDestroyerPlus")
                 run.health = Gear.maxHealth(run)
+            } else if (run.debugBuild === "custom") {
+                run.slots.weapon[0].item=Gear.makeItem(weapons[run.debugWeapon] ? run.debugWeapon : "pistol")
             } else if (run.debugBuild === "random") {
                 Gear.practiceBuild(run, function() { return random(run) })
             }
@@ -1465,7 +1472,7 @@ function remove(run, index, paid, source) {
             const kind=mega && random(run)<.13 ? "gems" : sample(run,mega ? megaGifts : Object.keys(cursed ? curses : giftNames))
             run.gifts.push({ id:run.nextId++, kind:kind,
                 mega:mega, cursed:cursed, front:enemy.front, lane:lanePosition(enemy) * .84,
-                depth:Math.max(320, enemy.depth), remaining:mega ? 7.6 : 5.2 })
+                depth:Math.max(320, enemy.depth), remaining:5, flashes:true })
             run.giftRoster += 1
         }
     }
@@ -1479,6 +1486,10 @@ function callGuest(run, view, seconds) {
     run.guestPet.next = 1.5
     run.guestTime = seconds
     return helper.title
+}
+
+function giftVisibility(gift) {
+    return gift.flashes && gift.remaining <= 3 && Math.floor(gift.remaining*7)%2===0 ? 0 : 1
 }
 
 function claimMega(run, gift) {
@@ -2281,7 +2292,7 @@ function explode(run, grenade) {
             knockBack(run,enemy,145)
         const effect = grenade.effect
         const exposed = enemy.barrier <= 0
-        wound(run, enemy, grenade.damage * (1 + (enemy.barrier ? effect.breachBonus || 0 : 0)),
+        wound(run, enemy, grenade.damage * (enemy.id===grenade.targetId ? effect.directArmour ?? 1 : 1) * (1 + (enemy.barrier ? effect.breachBonus || 0 : 0)),
             grenade.kind === "staff" ? "ability" : "grenade", effect.element, effect.elementLevel,
             { arcReach:effect.spell === "electric" && Gear.hasKit(run,"thunderKit") ? 45 : 0,
                 critical:enemy.id === grenade.targetId ? (effect.directCritical ?? effect.critical) : effect.critical,
@@ -2830,11 +2841,9 @@ function updateLunge(run, dt) {
         run.lunge = null
 }
 
-function meleeStrike(run, gun, weapon, stats, aimed, view, power, eyeTargets) {
+function meleeStrike(run, gun, weapon, stats, aimed, view, power) {
     const melee = weapon.melee
     const charged = gun.primed
-    const enemy = aimed.map(function(id) { return target(run,id) }).find(Boolean)
-    const ordinaryCritical = weaponCritical(run,weapon,gun,enemy)
     gun.primed = false
     gun.chargedStrike = charged
     if (weapon.id === "katana") {
@@ -2847,14 +2856,13 @@ function meleeStrike(run, gun, weapon, stats, aimed, view, power, eyeTargets) {
     const honed = run.honedHit
     run.honedHit = 0
     const limit = melee.targets + Number(weapon.id === "darksaber" && Gear.hasKit(run, "darkSet"))
-    const weaponLevel = Math.min(3, stats.elementLevel + Number(charged && weapon.id === "mechasword" && Gear.hasKit(run,"mechaSet")))
+    const level = Math.min(3, stats.elementLevel + Number(charged && (weapon.signature==="chargedFlame"
+        || weapon.id === "mechasword" && Gear.hasKit(run,"mechaSet"))))
     let struck = 0
     for (const id of new Set(aimed)) {
         const contact = impactContact(run, id, view)
         if (!contact)
             continue
-        const critical=eyeTargets?.includes(id) ? Math.max(ordinaryCritical,criticalProfile(run,weapon).power) : ordinaryCritical
-        const level=weapon.signature==="criticalFlame" && critical>1 ? 3 : weaponLevel
         const close = contact.point.depth <= range
         if (!close && (!charged || struck))
             continue
@@ -2863,15 +2871,18 @@ function meleeStrike(run, gun, weapon, stats, aimed, view, power, eyeTargets) {
         const base = (close ? stats.damage : melee.rangedDamage || stats.damage)
             * (charged ? (melee.boost + Gear.kitBonus(run,"lunge")) * (1+(power.primed || 0)) : 1)
         const harvest = weapon.signature === "harvest" ? 1+run.scytheSouls*.018 : 1
-        const damage = (base * combo + (finished ? 2 : 0) + (power.damage || 0) + rank(run,"caliber") * .52 + honed)
+        const poisedBonus=(charged || finisher) ? rank(run,"edgeRhythm")*.90 : 0
+        const sharpenBonus=run.sharpenTime>0 ? 2.4 : 0
+        const damage = (base * combo + (finished ? 2 : 0) + (power.damage || 0) + rank(run,"caliber") * .52 + honed
+            + poisedBonus + sharpenBonus)
             * outgoing(run) * Math.pow(.68, struck) * (run.meleeRush > 0 ? 1.20 : 1) * harvest
         if (!close) {
-            run.lunge = { target:id,front:view,elapsed:0,hit:false,damage:damage,element:stats.element,level:level,weapon:weapon,gun:gun,critical:critical,
+            run.lunge = { target:id,front:view,elapsed:0,hit:false,damage:damage,element:stats.element,level:level,weapon:weapon,gun:gun,critical:1,
                 depth:Math.max(0,contact.point.depth-365),lane:contact.point.lane*.77 }
             announce(run, "Closing the distance", "turn")
             return
         }
-        strikeContact(run, contact, damage, stats.element, level, weapon.id, critical)
+        strikeContact(run, contact, damage, stats.element, level, weapon.id, 1)
         if (enemy && close && enemy.hp > 0 && weapon.signature === "clubSwing" && enemyTypes[enemy.type].role !== "boss") {
             const push = Gear.hasKit(run,"clubSet") ? 111 : 56
             enemy.depth = Math.min(range - 12, enemy.depth + push)
@@ -3124,14 +3135,15 @@ function shoot(run, hits, view, aim, continuation) {
         }
     }
     if (weapon.melee) {
-        meleeStrike(run, gun, weapon, stats, hits, frontId, power,aim?.eyeTargets)
+        meleeStrike(run, gun, weapon, stats, hits, frontId, power)
         return true
     }
     const scoped = !!aim?.scoped && Gear.hasGunSights(weapon)
     const primary = hits.find(function(id) { return id > 0 }) || 0
     const critical = weaponCritical(run,weapon,gun,target(run,primary))
     function criticalAt(id) {
-        return aim?.eyeTargets?.includes(id) ? Math.max(critical,criticalProfile(run,weapon).power) : critical
+        return aim?.eyeTargets?.includes(id) || aim?.contacts?.some(contact => contact.id===id && contact.zone==="eye")
+            ? Math.max(critical,criticalProfile(run,weapon).power) : critical
     }
     const previousCriticals = run.metrics.criticalHits || 0
     gun.focus = primary && gun.lastTarget === primary ? gun.focus + 1 : Number(primary > 0)
@@ -3143,9 +3155,10 @@ function shoot(run, hits, view, aim, continuation) {
     const breachRoundsBonus = run.breachRounds > 0 && ammoWeapon ? .65 + (Gear.hasKit(run,"leadKit") ? .15 : 0) : 0
     if (breachRoundsBonus)
         run.breachRounds -= 1
+    const armour=aim?.contacts?.find(contact => contact.id===primary)?.zone==="outer" ? .8 : 1
     if (weapon.throwing) {
         throwAxe(run, gun, stats, frontId, primary, aim || {x:.5,y:.5},
-            (stats.damage + (power.damage || 0) + rank(run,"caliber") * .66) * outgoing(run) * (1 + run.axePower), criticalAt(primary))
+            (stats.damage + (power.damage || 0) + rank(run,"caliber") * .66) * outgoing(run) * (1 + run.axePower) * armour, criticalAt(primary))
         run.axePower = 0
         return true
     }
@@ -3154,12 +3167,17 @@ function shoot(run, hits, view, aim, continuation) {
             (stats.damage + rank(run, "booster") * .78 + (power.damage || 0) + (run.giftDamage > 0 ? 2 : 0)) * outgoing(run),
             weapon.blast * (1 + Gear.perk(run, "blastRadius")), primary ? .28 : .55, 0,
             Object.assign({}, stats, { breachBonus:breachRoundsBonus, critical:critical,
-                directCritical:criticalAt(primary),attackRolled:true,scoped:scoped,weaponId:weapon.id }))
+                directCritical:criticalAt(primary),directArmour:armour,attackRolled:true,scoped:scoped,weaponId:weapon.id }))
         announce(run, "", "shot")
         return true
     }
 
     const landed = new Map()
+    const zones = new Map()
+    for (const contact of aim?.contacts || []) {
+        if (!zones.has(contact.id)) zones.set(contact.id,[])
+        zones.get(contact.id).push(contact.zone)
+    }
     for (const id of hits) {
         if (id > 0)
             landed.set(id, (landed.get(id) || 0) + 1)
@@ -3250,6 +3268,14 @@ function shoot(run, hits, view, aim, continuation) {
             : signature === "guardShot" && run.shield.cool > 0 && run.shield.blocked > 0 ? .27 : 0
         const closeBonus = 1 + (enemy.depth<=500 ? .09*rank(run,"chokeRing") : 0)
             + (enemy.depth<=430 ? power.close || 0 : 0)
+        const parts = zones.get(key) || [aim?.eyeTargets?.includes(key) ? "eye" : "body"]
+        let weighted = 0, boosted = 0
+        for (let pellet=0;pellet<count;pellet++) {
+            const zone=parts[pellet] || "body"
+            const armour=zone==="outer" && !weapon.staff ? .8 : 1
+            weighted+=armour
+            boosted+=armour*(zone==="eye" ? criticalAt(key) : critical)
+        }
         const damage = (stats.damage * count * falloff * closeBonus + rank(run, "caliber") * .78
             + breach + kitBonus + shieldBonus + marked + chill + reaction + frostCrush + (power.damage || 0) + (run.giftDamage > 0 ? 2 : 0))
             * outgoing(run) * (weapon.id==="graduate" && run.wave<=20 ? 1.5 : 1) * through * (1 + pressure + focus + heatBonus + surge + (shield ? breachRoundsBonus : 0)) * (enemy.marked ? 1.27 : 1)
@@ -3258,6 +3284,7 @@ function shoot(run, hits, view, aim, continuation) {
         if (enemy.type === "gojemarus") {
             run.gold += 2
             record(run, "goldEarned", 2)
+            lootFlight(run,"gold",2,enemy,arcPoint(enemy))
             message = enemy.hp <= damage ? "Gojemarus defeated · +" + (goldPerKill(run.wave) * 5 + 2) + " gold" : "Gojemarus hit · +2 gold"
         }
         const level = Math.min(3, elementLevel + Number(signature === "concentratedBlast" && count >= 3))
@@ -3267,8 +3294,8 @@ function shoot(run, hits, view, aim, continuation) {
         }
         if (signature === "blackHole")
             depositHole(run,arcPoint(enemy),frontId,Gear.weaponLevel(run,gun))
-        message = wound(run, enemy, damage, "gun", element, level, aim?.eyeTargets?.includes(key)
-            ? Object.assign({},impact,{critical:criticalAt(key)}) : impact) || message
+        message = wound(run, enemy, damage * weighted/count, "gun", element, level,
+            Object.assign({},impact,{critical:boosted/weighted})) || message
         if (relay) {
             for (const neighbour of blastNeighbours(run,enemy,310+Gear.kitBonus(run,"shardRadius")).slice(0,4))
                 wound(run,neighbour,2+Gear.weaponLevel(run,gun)*.55,"gun","freeze",Math.max(1,level-1))
@@ -3328,7 +3355,7 @@ function shoot(run, hits, view, aim, continuation) {
 
 function spread(run, scoped) {
     const closeGun = weapons[Gear.current(run).id].effect === "spread"
-    return (closeGun ? 1.48 : 1) * Math.max(.46, 1 - rank(run, "steadyaim") * .075) * (run.carefulAim > 0 ? .61 : 1)
+    return (closeGun ? 1.84 : 1) * Math.max(.46, 1 - rank(run, "steadyaim") * .075) * (run.carefulAim > 0 ? .61 : 1)
         * (scoped ? Gear.weaponSocket(run).scopedSpread || 1 : 1)
 }
 
@@ -3349,7 +3376,7 @@ function reload(run, hits, view, aim) {
             .find(function(candidate) { return candidate && candidate.point.depth <= range && !candidate.gift })
         if (closeAttackHits(run,contact)) {
             const damage = (weapon.stab.damage + (stats.damage - weapon.damage)) * outgoing(run)
-            strikeContact(run,contact,damage,stats.element,stats.elementLevel,"helltrident",weaponCritical(run,weapon,gun,contact.enemy))
+            strikeContact(run,contact,damage,stats.element,stats.elementLevel,"helltrident",1)
             if (contact.enemy && contact.enemy.hp <= 0)
                 record(run, "meleeKills")
         }
@@ -4414,7 +4441,7 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
     const critical = !burningTick && (payload && payload.critical !== undefined ? payload.critical : criticalRoll(run,chance))
     const areaHit = !burningTick && !projectile && (payload && (payload.beam || payload.blast)
         || ["gigafinterus","stinkaturumus","battlestar","seraphijus","meteor"].includes(type))
-    if (run.shield.raised && !burningTick && !areaHit) {
+    if (run.shield.raised && origin===run.playerFront && !burningTick && !areaHit) {
         blockWithShield(run,amount,origin,type,payload,projectile,critical)
         return
     }
@@ -4463,8 +4490,8 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
             passiveVisual(run,"orbitWard",origin,"guard","shield",null,"ORBITAL BLOCK")
         }
     }
-    const criticalPower = critical ? Math.max(1, 2 - rank(run,"hardplate")*.25 - Gear.perk(run,"critResist")) : 1
-    const lining = run.shield.raised && areaHit ? Math.max(.44,1 - rank(run,"guardInsulation")*.16) : 1
+    const criticalPower = critical ? Math.max(1, 1.5 - rank(run,"hardplate")*.25 - Gear.perk(run,"critResist")) : 1
+    const lining = run.shield.raised && origin===run.playerFront && areaHit ? Math.max(.44,1 - rank(run,"guardInsulation")*.16) : 1
     const brine = attacker.abyss ? rank(run,"brinePlate")*.083 : 0
     const apron = !burningTick && source && source.depth <= 500 ? .08 * rank(run,"furnaceApron") : 0
     const damage = Math.max(1, amount * (1-apron) * (1-rank(run,"firstShift")*(run.wave<=20 ? .08 : .02)) * (projectile ? Math.max(.70,1-rank(run,"leeSide")*.04) : 1) * (run.cursed ? 1.20 : 1) * criticalPower * lining * exposure * guarded * Math.max(.25,
@@ -5420,7 +5447,8 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
                 engageBoss(run,enemy)
             continue
         }
-        enemy.age += dt
+        const frozenPose=enemy.elements.frozen>0 || (enemy.front===run.frozenFront && run.frozenTime>0 && !statusImmune(enemy,"freeze"))
+        if (!frozenPose || enemy.warp>0) enemy.age += dt
         enemy.interruptIn = Math.max(0,enemy.interruptIn-dt)
         enemy.attackFlash = Math.max(0, enemy.attackFlash - dt)
         enemy.feedingHeal = Math.max(0,enemy.feedingHeal - dt)
@@ -5517,7 +5545,7 @@ function update(run, dt, sealing, firingHeld, aim, viewReady) {
             continue
         }
         if (enemy.type === "gojemarus") {
-            if (enemy.age >= 10.72)
+            if (!frozenPose && enemy.age >= 10.72)
                 beginWarp(enemy, "flee", .47)
             continue
         }
@@ -5977,7 +6005,7 @@ function openShop(run) {
 
 function buy(run, id, slot, confirmed) {
     const card = id==="expand-counter" ? Gear.counterOffer(run) : run.shopStock.find(function(item) { return item.id === id })
-    const rankUp = card && (card.action === "upgrade" || card.action === "power-upgrade" || card.action === "pet" || card.action === "shield-upgrade"
+    const rankUp = card && (card.action === "upgrade" || card.action === "item-upgrade" || card.action === "power-upgrade" || card.action === "pet" || card.action === "shield-upgrade"
         || card.action === "repeat-upgrade" || card.action === "shop-stat" || card.action==="shop-quality"
         || card.action === "gear" && Gear.ownedItem(run, card.group, card.gearId))
     const before = run.gold

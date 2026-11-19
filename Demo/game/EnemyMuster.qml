@@ -207,8 +207,8 @@ Item {
                     required property var modelData
                     required property int index
                     objectName: "muster-"+modelData.type
-                    width:Math.max(28,132*member.spec.size*parade.height/muster.cameraRadius)
-                    height:Math.max(30,180*member.spec.size*parade.height/muster.cameraRadius)
+                    width:Math.max(28,132*Muster.displaySize(member.spec)*parade.height/muster.cameraRadius)
+                    height:Math.max(30,180*Muster.displaySize(member.spec)*parade.height/muster.cameraRadius)
                     readonly property var position:muster.placements[index] || {x:.5,y:.5}
                     x:army.width*position.x-width/2
                     y:Math.max(0,Math.min(army.height-height,army.height*position.y-height/2))

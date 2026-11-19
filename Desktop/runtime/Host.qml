@@ -12,12 +12,14 @@ import "../Demo/game/Autoplay.js" as Autoplay
 import "../Demo/game/SaveData.js" as SaveData
 import "../Demo/game/Meta.js" as Meta
 
-Item {
+FocusScope {
     id:host
+    focus:true
     objectName:"blackboxDesktopHost"
     property string screenName:Screen.name
     property bool claimed:false
     property bool useWorkArea:false
+    property bool standaloneWindow:!useWorkArea
     property bool editingDesktop:false
     property rect workArea:Qt.rect(0,0,width,height)
     readonly property real areaLeft:useWorkArea ? Math.max(0,workArea.x) : 0
@@ -91,12 +93,17 @@ Item {
     readonly property string mode:options.mode
     readonly property string linkedFront:Native.Desktop.desktopFront
     readonly property bool here:!options.linkDesktops || !!linkedFront
-    readonly property bool home:Native.Desktop.atHome && visible && here && !editingDesktop
+    readonly property bool home:(standaloneWindow ? activeFocus || Window.active : Native.Desktop.atHome)
+        && !Native.Desktop.sessionLocked && visible && here && !editingDesktop
     property bool gpuBudgetLimited:false
+    property bool workspaceSyncQueued:false
+    property string requestedWorkspace:""
     function syncWorkspace() {
         if (!claimed || !options.linkDesktops || !linkedFront) return
         if (mode==="play" && battle.item?.fighting && battle.item.frontId!==linkedFront) {
-            if (!battle.item.turning) battle.item.turnTo(linkedFront,"")
+            if (requestedWorkspace===battle.item.frontId) return
+            if (battle.item.turning) workspaceSyncQueued=true
+            else battle.item.turnTo(linkedFront,"")
         } else if (["idle","performance"].includes(mode) && galleryLoader.item) {
             const room=frontRooms[linkedFront]
             if (room!==galleryLoader.item.destination && room!==galleryLoader.item.room)
@@ -104,7 +111,14 @@ Item {
         }
     }
     readonly property var frontRooms:({front:"shrine",left:"media",right:"lab",up:"sky",down:"abyss"})
-    onLinkedFrontChanged:Qt.callLater(syncWorkspace)
+    onLinkedFrontChanged:{
+        if (linkedFront===requestedWorkspace) requestedWorkspace=""
+        Qt.callLater(syncWorkspace)
+    }
+    Timer {
+        id:workspaceRequestTimeout;interval:1400
+        onTriggered:host.requestedWorkspace=""
+    }
     onModeChanged:{
         if (options.linkDesktops && mode==="play" && battle.item) Native.Desktop.switchWorkspace(battle.item.frontId)
         else Qt.callLater(syncWorkspace)
@@ -125,7 +139,10 @@ Item {
         Native.Desktop.publish({renderer:game.projectedMode ? "2D fallback" : "Qt Quick 3D",
             canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
-    onHomeChanged:if(home && mode==="play" && battle.item)battle.item.keyTargetFocus()
+    onHomeChanged:if(home) {
+        if (mode==="play" && battle.item) battle.item.keyTargetFocus()
+        else galleryLoader.item?.forceActiveFocus()
+    }
     property int initialDetail:1
     Component.onCompleted: {initialDetail=options.detail;claimVisible();report()}
     Component.onDestruction: {if(claimed && battle.item)Native.Desktop.parkRun(SaveData.encodeRun(battle.item.run));Native.Desktop.release(ownershipToken)}
@@ -133,8 +150,6 @@ Item {
     Loader {
         id:galleryLoader
         anchors.fill:parent
-        anchors.leftMargin:host.areaLeft;anchors.rightMargin:host.areaRight
-        anchors.topMargin:host.areaTop;anchors.bottomMargin:host.areaBottom
         active:host.claimed && ["idle","performance"].includes(host.mode)
         visible:active && host.here
         onLoaded:item.go(host.frontRooms[host.linkedFront || host.options.idleFront] || "shrine",true)
@@ -149,6 +164,9 @@ Item {
             preview:false
             exposed:host.home
             enabled:host.home
+            focus:host.mode!=="play"
+            mouseLook:host.options.mouseTurns
+            escapeBack:true
             ambientFps:Math.min(24,host.options.frameLimit)
             sceneryDetail:host.options.detail
             motionAllowed:host.options.motion
@@ -175,11 +193,23 @@ Item {
             vault:careerVault
             artDirectory:Qt.resolvedUrl("../V0.1/kde/contents/images/")
             backgroundFiles:host.backgrounds
-            allowed:host.mode==="play" && host.visible && !Native.Desktop.sessionLocked && !host.editingDesktop && (host.home || host.options.backgroundPlay)
+            allowed:host.mode==="play" && host.visible && !Native.Desktop.sessionLocked && !host.editingDesktop
+                && (host.home || host.options.backgroundPlay || !!host.requestedWorkspace || turning && host.options.linkDesktops)
+            mouseTurns:host.options.mouseTurns
+            onMouseTurnsRequested:function(value){Native.Desktop.setOption("mouseTurns",value)}
+            escapeBack:true
+            wallpaperInsets:Qt.rect(host.areaLeft,host.areaTop,host.areaRight,host.areaBottom)
             interactive:host.home
-            onFrontIdChanged:if (host.options.linkDesktops && host.mode==="play" && host.here && host.claimed)
-                Native.Desktop.switchWorkspace(frontId)
-            onTurningChanged:if (!turning) Qt.callLater(host.syncWorkspace)
+            onFrontIdChanged:if (host.options.linkDesktops && host.mode==="play" && host.here && host.claimed && frontId!==host.linkedFront) {
+                host.workspaceSyncQueued=false
+                host.requestedWorkspace=frontId
+                if (!Native.Desktop.switchWorkspace(frontId)) host.requestedWorkspace=""
+                else workspaceRequestTimeout.restart()
+            }
+            onTurningChanged:if (!turning && host.workspaceSyncQueued) {
+                host.workspaceSyncQueued=false
+                Qt.callLater(host.syncWorkspace)
+            }
             backgroundPlay:host.options.backgroundPlay
             autoLimit:Autoplay.waveLimit(host.availableRecords,careerVault.state)
             onBackgroundPlayRequested:function(value) {Native.Desktop.setOption("backgroundPlay",value)}
@@ -267,7 +297,7 @@ Item {
             else if(name==="save") game.saveCheckpoint(false)
             else if(host.home && host.mode==="play" && !game.paused && !host.bookOpen) {
                 if(name==="reload")game.reloadGun()
-                if(name==="q" || name==="e") {Rules.useAbility(game.run,name==="q" ? 0 : 1,game.frontId,0,null);game.publish()}
+                if(name==="q" || name==="e") game.activateAbility(name==="q" ? 0 : 1,true)
                 if(name==="weapon1" || name==="weapon2")game.equipWeapon(name==="weapon1" ? 0 : 1)
                 if(["left","right","up","down"].includes(name))game.turnView(name)
                 if(name==="shield") {Rules.holdShield(game.run,!game.run.shield.raised);game.publish()}

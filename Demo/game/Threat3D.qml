@@ -49,10 +49,15 @@ Node {
     readonly property bool prince: enemy.type === "princoratus"
     readonly property string condition: { revision; return Elements.visible(enemy.elements) }
     readonly property bool frozen: { revision; return !!enemy.elements && enemy.elements.frozen > 0 }
+    readonly property Material iceMaterial:frozen ? frostShell : null
     readonly property color conditionColor: condition ? Elements.kinds[condition].color : creature.accent
     readonly property real shatter: { revision; return enemy.shatter || 0 }
     readonly property real size: Rules.enemySize(enemy)
     property bool animate: true
+    PrincipledMaterial {
+        id: frostShell
+        baseColor:"#abdafa";roughness:.23;metalness:.14;specularAmount:.82;cullMode:Material.NoCulling
+    }
     property bool preview:false
     readonly property real age: { revision; return enemy.age }
     readonly property real dodgeLean: {
@@ -173,24 +178,26 @@ Node {
                             required property int modelData
                             scale:Qt.vector3d(modelData,1,1)
                             Model {
+                                objectName:"outer:"+actor.enemy.id
+                                pickable:visible && actor.warp===0
                                 geometry:hornShape
                                 visible:actor.enemy.type!=="saslimigus" && !actor.creature.skeleton
                                     && !actor.creature.serpent && !actor.creature.slime && actor.enemy.type!=="crufixicatus"
                                 position:actor.fatRig ? Qt.vector3d(30,49,20) : actor.dragon
                                     ? Qt.vector3d(22,53,50) : Qt.vector3d(23,58,25)
                                 scale:actor.fatRig ? Qt.vector3d(.78,.75,.85) : Qt.vector3d(1,1,1)
-                                materials:[hornIvory]
+                                materials:actor.iceMaterial ? [actor.iceMaterial] : [hornIvory]
                             }
                             Model {
-                                objectName:String(actor.enemy.id)
-                                pickable:actor.preview
+                                objectName:"outer:"+actor.enemy.id
+                                pickable:actor.warp===0
                                 geometry:wingShape
                                 position:actor.fatRig ? Qt.vector3d(51,11,-28) : actor.enemy.type==="crufixicatus"
                                     ? Qt.vector3d(12,-20,-12) : Qt.vector3d(38,10,-24)
                                 eulerRotation.x:actor.enemy.type==="crufixicatus" ? 180 : 0
                                 eulerRotation.y:14+actor.flap*24
                                 scale:actor.creature.devour || actor.enemy.type==="crufixicatus" ? Qt.vector3d(.52,.52,.52) : Qt.vector3d(1,1,1)
-                                materials:[wingHide]
+                                materials:actor.iceMaterial ? [actor.iceMaterial] : [wingHide]
                             }
                         }
                     }
@@ -198,11 +205,11 @@ Node {
             }
             Loader3D {
                 active:actor.fighter
-                sourceComponent:AlienFighterRig { surfaces:actor.surfaces; enemy:actor.enemy; spec:actor.creature; live:actor.warp<=0; strike:actor.strike}
+                sourceComponent:AlienFighterRig { iceMaterial:actor.iceMaterial; surfaces:actor.surfaces; enemy:actor.enemy; spec:actor.creature; live:actor.warp<=0; strike:actor.strike}
             }
             Loader3D {
                 active:!!actor.creature.vampire
-                sourceComponent:BlandromedusRig { surfaces:actor.surfaces
+                sourceComponent:BlandromedusRig { iceMaterial:actor.iceMaterial; surfaces:actor.surfaces
                     targetId:actor.enemy.id
                     clock:actor.animate ? actor.age : .35
                     strike:actor.strike
@@ -213,7 +220,7 @@ Node {
             Loader3D {
                 objectName:"fatDemonLoader"
                 active:actor.fatRig
-                sourceComponent:FatDemonRig { surfaces:actor.surfaces
+                sourceComponent:FatDemonRig { iceMaterial:actor.iceMaterial; surfaces:actor.surfaces
                     enemy:actor.enemy
                     revision:actor.revision
                     windup:actor.windup
@@ -223,7 +230,7 @@ Node {
             }
             Loader3D {
                 active: actor.angel && !actor.abyssRig
-                sourceComponent: AngelRig { surfaces:actor.surfaces
+                sourceComponent: AngelRig { iceMaterial:actor.iceMaterial; surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     kind: actor.enemy.type
                     skin: actor.creature.skin
@@ -240,7 +247,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.battlestar
-                sourceComponent: BattlestarRig { surfaces:actor.surfaces
+                sourceComponent: BattlestarRig { iceMaterial:actor.iceMaterial; surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     charging: { actor.revision; return actor.enemy.beamWarning > 0 }
@@ -250,7 +257,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.skeleton
-                sourceComponent: SkeletalRig { surfaces:actor.surfaces
+                sourceComponent: SkeletalRig { iceMaterial:actor.iceMaterial; surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     clock: actor.animate ? actor.age : 0
@@ -259,7 +266,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.triad
-                sourceComponent: MagnetRig {
+                sourceComponent: MagnetRig { iceMaterial:actor.iceMaterial;
                     surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
@@ -269,7 +276,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.serpent
-                sourceComponent: SerpentRig { surfaces:actor.surfaces
+                sourceComponent: SerpentRig { iceMaterial:actor.iceMaterial; surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     phase: actor.animate ? actor.age : 0
@@ -279,7 +286,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.sniper
-                sourceComponent: FetaRig {
+                sourceComponent: FetaRig { iceMaterial:actor.iceMaterial;
                     surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
@@ -290,7 +297,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.devour
-                sourceComponent: DevourerRig { surfaces:actor.surfaces
+                sourceComponent: DevourerRig { iceMaterial:actor.iceMaterial; surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     clock: actor.animate ? actor.age : 0
@@ -305,7 +312,7 @@ Node {
             }
             Loader3D {
                 active: actor.abyssRig
-                sourceComponent: AbyssRig { surfaces:actor.surfaces
+                sourceComponent: AbyssRig { iceMaterial:actor.iceMaterial; surfaces:actor.surfaces
                     enemy: actor.enemy
                     revision: actor.revision
                     animate: actor.animate
@@ -316,7 +323,7 @@ Node {
             }
             Loader3D {
                 active: !!actor.creature.voidBoss
-                sourceComponent: VoidGlitchRig {
+                sourceComponent: VoidGlitchRig { iceMaterial:actor.iceMaterial;
                     targetId: actor.enemy.id
                     live: actor.warp <= 0
                     time: actor.animate ? actor.age : .45
@@ -335,12 +342,12 @@ Node {
                     z: actor.crawler ? 43 : 54 - Math.abs(offset) * 7
                     eulerRotation: Qt.vector3d(17 + mark[3], mark[4] === "gem" ? 35 : 0, mark[4] === "rib" ? 74 : offset * 16)
                     scale: Qt.vector3d(.10,.14 + mark[2] * .003,.07 + mark[3] * .002)
-                    materials: [index % 2 ? bone : (mark[4] === "gem" ? light : membrane)]
+                    materials: actor.iceMaterial ? [actor.iceMaterial] : [index % 2 ? bone : (mark[4] === "gem" ? light : membrane)]
                 }
             }
             Loader3D {
                 active: !!actor.creature.slime
-                sourceComponent: SlimeRig { surfaces:actor.surfaces
+                sourceComponent: SlimeRig { iceMaterial:actor.iceMaterial; surfaces:actor.surfaces
                     targetId: actor.enemy.id
                     horned: actor.boss
                     live: actor.warp <= 0
@@ -354,7 +361,7 @@ Node {
             }
             Loader3D {
                 active: actor.shade || actor.meteor || actor.saucer || actor.ninja || actor.ice || actor.enemy.type === "gendoustagus"
-                sourceComponent: CreatureDetails {
+                sourceComponent: CreatureDetails { iceMaterial:actor.iceMaterial;
                     surfaces:actor.surfaces
                     kind: actor.enemy.type
                     targetId: actor.enemy.id
@@ -378,7 +385,7 @@ Node {
                     source: "#Sphere"
                     scale: actor.dragon ? Qt.vector3d(1.26, 1.02, 1.21) : actor.alien ? Qt.vector3d(1.48, 0.90, 0.82)
                         : actor.crawler ? Qt.vector3d(1.04, 0.72, 0.58) : Qt.vector3d(1.34, 1.38, 0.86)
-                    materials: [outer]
+                    materials: actor.iceMaterial ? [actor.iceMaterial] : [outer]
                     pickable: actor.warp === 0
                 }
                 Model {
@@ -388,7 +395,7 @@ Node {
                     y: actor.dragon ? 43 : 49
                     z: actor.dragon ? 46 : 22
                     scale: actor.dragon ? Qt.vector3d(.76, .41, .68) : Qt.vector3d(.63, .55, .52)
-                    materials: [bone]
+                    materials: actor.iceMaterial ? [actor.iceMaterial] : [bone]
                     pickable: visible && actor.warp === 0
                 }
                 Model {
@@ -397,7 +404,7 @@ Node {
                     y: 101
                     z: 23
                     scale: Qt.vector3d(.28, .68, .29)
-                    materials: [light]
+                    materials: actor.iceMaterial ? [actor.iceMaterial] : [light]
                 }
                 Repeater3D {
                     model: actor.executioner ? 5 : 0
@@ -408,7 +415,7 @@ Node {
                         y: 82 + (index === 2 ? 13 : 0)
                         z: 48
                         scale: Qt.vector3d(.13,index === 2 ? .39 : .24,.14)
-                        materials: [light]
+                        materials: actor.iceMaterial ? [actor.iceMaterial] : [light]
                     }
                 }
 
@@ -422,7 +429,7 @@ Node {
                         y: actor.crawler ? 0 : 9
                         z: 8
                         scale: actor.crawler ? Qt.vector3d(0.44, 0.42, 0.15) : Qt.vector3d(.41,.32*(1-actor.hurtFace*.50),.18)
-                        materials: [light]
+                        materials: actor.iceMaterial ? [actor.iceMaterial] : [light]
                     }
                     Model { objectName:"eye:"+actor.enemy.id; pickable:visible && actor.warp===0;
                         source: "#Sphere"
@@ -430,7 +437,7 @@ Node {
                         y: 9
                         z: 20
                         scale: Qt.vector3d(.095,.225,.059)
-                        materials: [dark]
+                        materials: actor.iceMaterial ? [actor.iceMaterial] : [dark]
                     }
                     Repeater3D {
                         model:actor.creature.origin==="Hellborne" && !actor.simplified ? 4 : 0
@@ -443,7 +450,7 @@ Node {
                             z: index<2 ? 15.7 : 13.4
                             eulerRotation.z: side*(index<2 ? 20 : -40)
                             scale: Qt.vector3d(.090,.018,.028)
-                            materials: [saliva]
+                            materials: actor.iceMaterial ? [actor.iceMaterial] : [saliva]
                         }
                     }
                     Node {
@@ -456,7 +463,7 @@ Node {
                         Model {
                             source:"#Sphere"
                             scale:Qt.vector3d(jawFace.jawWidth,jawFace.gape*.027,.13)
-                            materials:[dark]
+                            materials:actor.iceMaterial ? [actor.iceMaterial] : [dark]
                         }
                         Repeater3D {
                             model:actor.simplified ? 4 : actor.teeth ? 10 : 8
@@ -469,7 +476,7 @@ Node {
                                 z:8+side*.85
                                 eulerRotation.z:side>0 ? 180 : 0
                                 scale:Qt.vector3d(.046,.065+index%3*.010,.045)
-                                materials:[enamel]
+                                materials:actor.iceMaterial ? [actor.iceMaterial] : [enamel]
                             }
                         }
                         Model {
@@ -479,7 +486,7 @@ Node {
                             z:13+actor.flap*3+Math.abs(actor.strike)*23
                             eulerRotation.z:actor.flap*26
                             scale:Qt.vector3d(.074,.27+Math.abs(actor.strike)*.24,.10)
-                            materials:[saliva]
+                            materials:actor.iceMaterial ? [actor.iceMaterial] : [saliva]
                         }
                     }
                 }
@@ -488,7 +495,7 @@ Node {
                     active:actor.belly
                     y:-15
                     z:44
-                    sourceComponent:BellyMaw {
+                    sourceComponent:BellyMaw { iceMaterial:actor.iceMaterial;
                         surfaces:actor.surfaces
                         hide:actor.creature.skin
                         clock:actor.animate ? actor.age : 0
@@ -499,7 +506,7 @@ Node {
                 }
                 Loader3D {
                     active:actor.creature.origin==="Hellborne" && !actor.dragon && !actor.ninja
-                    sourceComponent:ShortDemonArms {
+                    sourceComponent:ShortDemonArms { iceMaterial:actor.iceMaterial;
                         surfaces:actor.surfaces
                         skin:actor.creature.skin
                         clock:actor.animate ? actor.age : 0
@@ -521,7 +528,7 @@ Node {
                         z: -40 - 23 * index
                         eulerRotation.y: -29 + sweep * 32
                         scale: Qt.vector3d(.44 - index * .05, .44 - index * .065, .58 - index * .04)
-                        materials: [index % 2 ? outer : membrane]
+                        materials: actor.iceMaterial ? [actor.iceMaterial] : [index % 2 ? outer : membrane]
                     }
                 }
                 Model {
@@ -531,7 +538,7 @@ Node {
                     y: -28
                     eulerRotation.x: 88
                     scale: Qt.vector3d(.40, .22, .31)
-                    materials: [charged]
+                    materials: actor.iceMaterial ? [actor.iceMaterial] : [charged]
                 }
 
                 Repeater3D {
@@ -544,7 +551,7 @@ Node {
                         y: -31 + (index % 2) * -8
                         z: 23
                         scale: Qt.vector3d(.16, .26, .15)
-                        materials: [bone]
+                        materials: actor.iceMaterial ? [actor.iceMaterial] : [bone]
                     }
                 }
 
@@ -552,7 +559,7 @@ Node {
                     model: [-1, 1]
                     delegate: Model {
                         required property int modelData
-                        objectName: String(actor.enemy.id)
+                        objectName: "outer:"+actor.enemy.id
                         visible: !actor.alien && actor.creature.origin !== "Hellborne"
                         source: "#Cone"
                         x: modelData * (actor.crawler ? 52 : 28)
@@ -561,7 +568,7 @@ Node {
                         eulerRotation.z: modelData * (actor.crawler ? -118 : -28)
                         scale: actor.crawler ? Qt.vector3d(0.28, 0.91, 0.31) : Qt.vector3d(0.22, 0.67, 0.29)
                         pickable: visible && !actor.crawler && actor.warp === 0
-                        materials: [bone]
+                        materials: actor.iceMaterial ? [actor.iceMaterial] : [bone]
                     }
                 }
 
@@ -577,7 +584,7 @@ Node {
                         eulerRotation.z: modelData * (11 + actor.flap * 16 + actor.strike * actor.pose[4])
 
                         Model {
-                            objectName: String(actor.enemy.id)
+                            objectName: "outer:"+actor.enemy.id
                             source: "#Cone"
                             visible: actor.creature.origin !== "Hellborne"
                             x: modelData * 48
@@ -585,10 +592,10 @@ Node {
                             eulerRotation.z: modelData * -63
                             scale: Qt.vector3d(0.68, 1.48, 0.18)
                             pickable: actor.warp === 0
-                            materials: [membrane]
+                            materials: actor.iceMaterial ? [actor.iceMaterial] : [membrane]
                         }
                         Model {
-                            objectName: String(actor.enemy.id)
+                            objectName: "outer:"+actor.enemy.id
                             source: "#Cone"
                             visible:actor.creature.origin!=="Hellborne"
                             x: modelData * 31
@@ -597,7 +604,7 @@ Node {
                             eulerRotation.z: modelData * -137
                             scale: Qt.vector3d(0.44, 0.93, 0.18)
                             pickable: actor.warp === 0
-                            materials: [outer]
+                            materials: actor.iceMaterial ? [actor.iceMaterial] : [outer]
                         }
                         Model {
                             visible: actor.executioner
@@ -607,7 +614,7 @@ Node {
                             z: 25
                             eulerRotation.z: -modelData * (62 + actor.strike * 21)
                             scale: Qt.vector3d(.19,1.07,.15)
-                            materials: [enamel]
+                            materials: actor.iceMaterial ? [actor.iceMaterial] : [enamel]
                         }
                     }
                 }

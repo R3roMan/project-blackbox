@@ -8,6 +8,7 @@ Rectangle {
     required property var abilityState
     property bool motion: true
     property string details: ""
+    signal castRequested()
     signal entryRequested(string chapter, string id)
     readonly property var ability: abilityState.ability
     readonly property string label: ability ? ability.title : abilityState.available ? "Empty" : "Locked"
@@ -18,6 +19,14 @@ Rectangle {
     color: "#e3151b2a"
     border.color: ability ? Gear.rarities[ability.rarity].color : "#61637a"
     Accessible.name: shortcut + " " + label
+    Accessible.role:Accessible.Button
+    Accessible.onPressAction:if (ability) tile.castRequested()
+    MouseArea {
+        anchors.fill:parent
+        enabled:!!tile.ability
+        cursorShape:enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+        onClicked:tile.castRequested()
+    }
 
     HoverHandler {id:inspect; enabled:!!tile.ability}
     Ui.FieldHint {

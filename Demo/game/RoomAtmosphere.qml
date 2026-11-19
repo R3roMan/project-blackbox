@@ -82,7 +82,7 @@ Item {
         anchors.fill:parent
         sky:true
         condition:room.localWeather
-        opacity:room.front==="right" && condition!=="incursion" ? .55 : 1
+        opacity:condition==="fog" && room.front==="left" ? .58 : room.front==="right" && condition!=="incursion" ? .55 : 1
         time:room.clock
         motion:room.motion
     }

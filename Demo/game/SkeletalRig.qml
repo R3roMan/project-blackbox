@@ -4,6 +4,7 @@ import QtQuick3D
 
 Node {
     id: rig
+    property Material iceMaterial:null
     property var surfaces:null
     required property int targetId
     required property bool live
@@ -23,7 +24,7 @@ Node {
         z: 38
         y: 38
         scale: Qt.vector3d(.73,.64,.58)
-        materials: [bone]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([bone])
     }
     Model {
         source: "#Cube"
@@ -32,21 +33,21 @@ Node {
         z: 58
         y: 15 - rig.beam*14
         scale: Qt.vector3d(.45,.22,.39)
-        materials: [tooth]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([tooth])
     }
     Model {
         source: "#Sphere"
         y: 24
         z: 69
         scale: Qt.vector3d(.43,.12 + rig.beam*.14,.14)
-        materials: [hollow]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([hollow])
     }
     Model {
         source: "#Cylinder"
         y: -10
         z: 10
         scale: Qt.vector3d(.20,1.10,.26)
-        materials: [bone]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([bone])
     }
     Repeater3D {
         model: [-1, 1]
@@ -58,14 +59,14 @@ Node {
                 source: "#Sphere"
                 x: side.sign*17; y:43; z:61
                 scale: Qt.vector3d(.22,.16,.12)
-                materials: [hollow]
+                materials: rig.iceMaterial ? [rig.iceMaterial] : ([hollow])
             }
             Model { objectName:"eye:"+rig.targetId; pickable:rig.live;
                 source: "#Cube"
                 x: side.sign*17; y:43; z:69
                 eulerRotation: Qt.vector3d(26,side.sign*31,45)
                 scale: Qt.vector3d(.10,.11,.10)
-                materials: [gem]
+                materials: rig.iceMaterial ? [rig.iceMaterial] : ([gem])
             }
             Repeater3D {
                 model: 4
@@ -77,7 +78,7 @@ Node {
                     z: 22
                     eulerRotation.z: side.sign * (65 + 5*index)
                     scale: Qt.vector3d(.069,.52-index*.064,.073)
-                    materials: [index === 3 ? filigree : bone]
+                    materials: rig.iceMaterial ? [rig.iceMaterial] : ([index === 3 ? filigree : bone])
                 }
             }
             Node {
@@ -93,7 +94,7 @@ Node {
                     y: 24
                     eulerRotation.z: -side.sign*57
                     scale: Qt.vector3d(.09,1.21,.12)
-                    materials: [bone]
+                    materials: rig.iceMaterial ? [rig.iceMaterial] : ([bone])
                 }
                 Repeater3D {
                     model: 4
@@ -104,7 +105,7 @@ Node {
                         y: -index*7
                         eulerRotation.z: side.sign * (136 + index*9)
                         scale: Qt.vector3d(.075,.60-index*.08,.085)
-                        materials: [index === 0 ? filigree : bone]
+                        materials: rig.iceMaterial ? [rig.iceMaterial] : ([index === 0 ? filigree : bone])
                     }
                 }
             }
@@ -116,6 +117,6 @@ Node {
         z: 72
         y: 24
         scale: Qt.vector3d(.11+rig.beam*.12,.08+rig.beam*.09,.09)
-        materials: [gem]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([gem])
     }
 }

@@ -3,6 +3,7 @@ import QtQuick3D
 
 Node {
     id: rig
+    property Material iceMaterial:null
     property var surfaces:null
     required property int targetId
     required property bool live
@@ -28,7 +29,7 @@ Node {
         pickable: rig.live
         source: "#Sphere"
         scale: Qt.vector3d(1.50,1.31,1.09)
-        materials: [hide]
+        materials: rig.iceMaterial ? [rig.iceMaterial] : ([hide])
     }
     Repeater3D {
         model: 24
@@ -43,7 +44,7 @@ Node {
             eulerRotation.z: Math.sin(angle)*60
             eulerRotation.x: Math.cos(angle)*47
             scale: Qt.vector3d(.092 + index%4*.025,.22 + index%5*.046,.10)
-            materials: [index%3 ? fur : hair]
+            materials: rig.iceMaterial ? [rig.iceMaterial] : ([index%3 ? fur : hair])
         }
     }
     Repeater3D {
@@ -55,9 +56,9 @@ Node {
             z: -37
             eulerRotation.y: modelData*(13+Math.sin(rig.clock*8)*20)
             Model { source:"#Cone"; x:modelData*21; y:2; eulerRotation.z:modelData*-65;
-                scale:Qt.vector3d(.36,.63,.082); materials:[gums] }
+                scale:Qt.vector3d(.36,.63,.082); materials:rig.iceMaterial ? [rig.iceMaterial] : ([gums])}
             Model { source:"#Cone"; x:modelData*9; y:-14; eulerRotation.z:modelData*42;
-                scale:Qt.vector3d(.19,.41,.083); materials:[fur] }
+                scale:Qt.vector3d(.19,.41,.083); materials:rig.iceMaterial ? [rig.iceMaterial] : ([fur])}
         }
     }
     Node {
@@ -68,11 +69,11 @@ Node {
             pickable: rig.live
             source: "#Sphere"
             scale: Qt.vector3d(1.30,.73,.61)
-            materials: [gums]
+            materials: rig.iceMaterial ? [rig.iceMaterial] : ([gums])
         }
-        Model { source:"#Sphere"; y:-6; z:27; scale:Qt.vector3d(1.05,.30+rig.openness*.45,.075); materials:[pit] }
-        Model { objectName:"eye:"+rig.targetId; pickable:rig.live; source:"#Sphere"; y:31; z:19; scale:Qt.vector3d(.32,.20,.19); materials:[gaze] }
-        Model { objectName:"eye:"+rig.targetId; pickable:rig.live; source:"#Sphere"; y:31; z:28; scale:Qt.vector3d(.084,.15,.056); materials:[pit] }
+        Model { source:"#Sphere"; y:-6; z:27; scale:Qt.vector3d(1.05,.30+rig.openness*.45,.075); materials:rig.iceMaterial ? [rig.iceMaterial] : ([pit])}
+        Model { objectName:"eye:"+rig.targetId; pickable:rig.live; source:"#Sphere"; y:31; z:19; scale:Qt.vector3d(.32,.20,.19); materials:rig.iceMaterial ? [rig.iceMaterial] : ([gaze])}
+        Model { objectName:"eye:"+rig.targetId; pickable:rig.live; source:"#Sphere"; y:31; z:28; scale:Qt.vector3d(.084,.15,.056); materials:rig.iceMaterial ? [rig.iceMaterial] : ([pit])}
         Repeater3D {
             model: 13
             delegate: Model {
@@ -85,7 +86,7 @@ Node {
                 z: 32-Math.abs(toothIndex-3)*2
                 eulerRotation.z: lower ? (index%3-1)*8 : 180+(index%3-1)*8
                 scale: Qt.vector3d(.094, .19+(index%3)*.040, .095)
-                materials: [tooth]
+                materials: rig.iceMaterial ? [rig.iceMaterial] : ([tooth])
             }
         }
         Model {
@@ -95,7 +96,7 @@ Node {
             y: -23-rig.openness*39
             z: 8
             scale: Qt.vector3d(1.09,.25,.66)
-            materials: [hide]
+            materials: rig.iceMaterial ? [rig.iceMaterial] : ([hide])
         }
     }
 }
