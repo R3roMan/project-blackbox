@@ -648,16 +648,15 @@ FocusScope {
         saveCheckpoint(true)
     }
 
-    function beginQuickRun() {
-        if (Rules.canEditLoadout(run) || run.phase==="combat")
-            if (!run.debug && run.wave) saveCheckpoint(false)
+    function prepareQuickRun() {
+        if (!run.debug && !run.training && run.wave && SaveData.phases.includes(run.phase))
+            saveCheckpoint(false)
         resetRun()
         run.quickStart=true
         run.entryWave=1
         run.nextStage=null
         Rules.chooseStarter(run,run.starterOffers[Math.floor(Math.random()*run.starterOffers.length)])
         Rules.choosePet(run,run.petOffers[Math.floor(Math.random()*run.petOffers.length)])
-        startWave()
     }
 
     function newAttemptId() {

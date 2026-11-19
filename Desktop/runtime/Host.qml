@@ -100,6 +100,7 @@ FocusScope {
     property bool ctrlDown:false
     property bool ctrlAlone:false
     property int quickCount:0
+    property bool quickQueued:false
     readonly property bool idleKeys:home && claimed && mode==="idle"
         && !bookOpen && !vaultOpen && !settingsDrawer.visible && !galleryLoader.item?.drawerOpen
     Behavior on idleOpacity {NumberAnimation {duration:220;easing.type:Easing.InOutQuad}}
@@ -112,7 +113,7 @@ FocusScope {
     }
 
     Keys.onPressed:function(event) {
-        console.info("IDLE-KEY-P",event.key,event.modifiers,event.isAutoRepeat,idleKeys,ctrlDown)
+        console.warn("IDLE-KEY-P",event.key,event.modifiers,event.isAutoRepeat,idleKeys,ctrlDown)
         if (!idleKeys) return
         if (event.isAutoRepeat) {
             if (event.key===Qt.Key_Space && ctrlDown) event.accepted=true
@@ -132,7 +133,7 @@ FocusScope {
         }
     }
     Keys.onReleased:function(event) {
-        console.info("IDLE-KEY-R",event.key,event.modifiers,event.isAutoRepeat,idleKeys,ctrlDown)
+        console.warn("IDLE-KEY-R",event.key,event.modifiers,event.isAutoRepeat,idleKeys,ctrlDown)
         if (event.isAutoRepeat) return
         if (event.key===Qt.Key_Space) quickHold.stop()
         if (event.key!==Qt.Key_Control) return
@@ -152,8 +153,7 @@ FocusScope {
     Timer {
         id:quickHold;interval:420
         onTriggered:if (host.idleKeys && battle.item) {
-            galleryLoader.item?.go("shrine",true)
-            console.info("IDLE-HOLD TIMER")
+            console.warn("IDLE-HOLD TIMER")
             host.quickCount=3
             menuSound.item?.play("takeover-tick",.69)
             quickStart.start()
@@ -170,10 +170,18 @@ FocusScope {
             }
             stop()
             host.idleControls=false
+            battle.item?.prepareQuickRun()
+            host.quickQueued=true
             Native.Desktop.setOption("mode","play")
-            battle.item?.beginQuickRun()
-            host.report()
+            Qt.callLater(host.beginQuickBattle)
         }
+    }
+    function beginQuickBattle() {
+        if (!quickQueued || mode!=="play" || !home || !battle.item?.allowed)
+            return
+        quickQueued=false
+        battle.item.startWave()
+        report()
     }
     property bool gpuBudgetLimited:false
     property bool workspaceSyncQueued:false
@@ -221,8 +229,10 @@ FocusScope {
             canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,idleControls:host.idleControls,countdown:host.quickCount,weapon:Gear.current(run).id,pet:run.pet?.id || "",difficulty:run.difficulty,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(home) {
-        if (mode==="play" && battle.item) battle.item.keyTargetFocus()
-        else galleryLoader.item?.forceActiveFocus()
+        if (mode==="play" && battle.item) {
+            battle.item.keyTargetFocus()
+            Qt.callLater(beginQuickBattle)
+        } else galleryLoader.item?.forceActiveFocus()
     }
     property int initialDetail:1
     Component.onCompleted: {initialDetail=options.detail;claimVisible();report()}
@@ -247,7 +257,7 @@ FocusScope {
             enabled:host.home
             focus:host.mode!=="play"
             mouseLook:host.options.mouseTurns
-            escapeBack:true
+            escapeBack:!host.quickCount
             externalChrome:true
             chromeOpacity:host.idleOpacity
             ambientFps:Math.min(24,host.options.frameLimit)
