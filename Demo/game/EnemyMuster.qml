@@ -123,8 +123,8 @@ Item {
             anchors.bottom:parent.bottom
             anchors.rightMargin:5
             anchors.bottomMargin:8
-            width: muster.compact ? 88 : 128
-            height:Math.min(parade.height*.57,muster.compact ? 81 : 122)
+            width:muster.compact ? 101 : 154
+            height:Math.min(parade.height*.72,muster.compact ? 94 : 135)
             active:!!muster.companion
             visible:active
             z:5
@@ -152,6 +152,7 @@ Item {
                     PetPortrait3D {
                         helper:muster.companion
                         detailed:muster.detail>=2
+                        zoom:1.12
                         clock:companionCorner.item?.clock || 0
                         animate:muster.motion
                     }

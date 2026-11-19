@@ -24,6 +24,8 @@ function known(type, discoveries) {
 }
 
 function placements(groups, seed, boss) {
+    if (!boss && groups.length===1)
+        return [{x:.45+(seed%11-5)*.007,y:.51+(seed%7-3)*.013}]
     const spots = boss ? [[.29,.34],[.71,.36],[.25,.67],[.75,.68],[.42,.75],[.59,.72],[.15,.47],[.86,.51]]
         : [[.30,.29],[.53,.54],[.73,.27],[.23,.65],[.49,.20],[.74,.65],[.40,.66],[.64,.40]]
     let state = (seed^0x54e129cd) >>> 0

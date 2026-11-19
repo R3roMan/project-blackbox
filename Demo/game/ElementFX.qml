@@ -1,5 +1,6 @@
 import QtQuick
 import "Rules.js" as Rules
+import "Conditions.js" as Weather
 
 Item {
     id: field
@@ -12,6 +13,11 @@ Item {
     property bool ultra:false
     property real blindness: 0
     property real fog: 0
+    property real obscurity:0
+
+    function clarity(depth) {
+        return 1-obscurity*(1-Weather.fogVisibility(depth || 320))*.7
+    }
     readonly property bool sticky: { revision; return active && run.elements.sticky > 0 }
     readonly property bool poisoned: { revision; return active && run.elements.poison > 0 }
 
@@ -458,7 +464,7 @@ Item {
                     continue
                 const projected = point({ lane:Rules.lanePosition(enemy), elevation:Rules.elevation(enemy), depth:enemy.depth })
                 const size = Math.min(230, 170 * projected.scale * Rules.enemySize(enemy))
-                ctx.globalAlpha = (1 - field.blindness * .94) * .81
+                ctx.globalAlpha = (1 - field.blindness * .94)*.81*field.clarity(enemy.depth)
                 if (enemy.elements.burn) {
                     if (field.ultra && size > 16)
                         detailedFire(ctx,projected.pos,size,clock+enemy.id*.25,enemy.elements.burn,ctx.globalAlpha)
@@ -477,7 +483,7 @@ Item {
                         const spread = Math.sin(i * 17.3) * size * .34
                         const x = projected.pos.x + spread + Math.sin(age * 9 + i) * 5
                         const y = projected.pos.y + .37 * size - age * size * .91
-                        ctx.globalAlpha = (1 - field.blindness * .94) * (1 - age) * .78
+                        ctx.globalAlpha = (1 - field.blindness * .94)*(1-age)*.78*field.clarity(enemy.depth)
                         ctx.beginPath()
                         ctx.arc(x, y, Math.max(1, size * (.019 + age * .026)), 0, Math.PI * 2)
                         ctx.fill()
@@ -492,7 +498,7 @@ Item {
                 const origin = point({ lane:Rules.lanePosition(enemy), elevation:Rules.elevation(enemy) - 24, depth:enemy.depth - 65 }).pos
                 const hot = enemy.beamLeft > 0
                 const gold = enemy.type === "skarabatunus"
-                ctx.globalAlpha = (1 - field.blindness * .85) * (hot ? .84 : .70)
+                ctx.globalAlpha = (1 - field.blindness * .85)*(hot ? .84 : .70)*field.clarity(enemy.depth)
                 ctx.beginPath()
                 ctx.moveTo(origin.x, origin.y)
                 ctx.lineTo(width * .5, height * .77)
@@ -511,7 +517,7 @@ Item {
                 const from = point(flame).pos
                 const age = 1 - flame.remaining / flame.duration
                 if (field.ultra) {
-                    fireJet(ctx,from,age,Math.min(1,flame.remaining*3),clock)
+                    fireJet(ctx,from,age,Math.min(1,flame.remaining*3)*field.clarity(flame.depth),clock)
                     continue
                 }
                 for (let i = 0; i < 31; i += 1) {
@@ -525,7 +531,7 @@ Item {
                     glow.addColorStop(0, i % 3 ? "#ffe57d" : "#ff7344")
                     glow.addColorStop(.49, "#d6ff7b31")
                     glow.addColorStop(1, "#00d34526")
-                    ctx.globalAlpha = Math.min(1, flame.remaining * 3) * (.76 + i % 5 * .04)
+                    ctx.globalAlpha = Math.min(1, flame.remaining * 3) * (.72+i%5*.04)*field.clarity(flame.depth)
                     ctx.fillStyle = glow
                     ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2)
                 }
@@ -552,7 +558,7 @@ Item {
                     vapor.addColorStop(0, i % 3 ? "#d0aadb52" : "#d6ddf58b")
                     vapor.addColorStop(.45, i % 3 ? "#9878a445" : "#a49abc62")
                     vapor.addColorStop(1, "#0072a347")
-                    ctx.globalAlpha = life * (1 - field.blindness * .82) * (cloud.hostile ? .59 : .46)
+                    ctx.globalAlpha = life * (1 - field.blindness * .82) * (cloud.hostile ? .59 : .46)*field.clarity(cloud.depth)
                     ctx.fillStyle = vapor
                     ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2)
                 }
@@ -564,7 +570,7 @@ Item {
                 const projected = point(burst)
                 const age = Math.max(0, 1 - burst.life / (burst.span || .61))
                 const radius = Math.min(width * .49, 15 + burst.radius * projected.scale * (.22 + age * .72))
-                ctx.globalAlpha = 1 - age
+                ctx.globalAlpha=(1-age)*field.clarity(burst.depth)
                 ctx.beginPath()
                 ctx.arc(projected.pos.x, projected.pos.y, Math.max(1, radius), 0, Math.PI * 2)
                 ctx.lineWidth = 3 + (1 - age) * 9
@@ -605,7 +611,7 @@ Item {
                     else
                         ctx.moveTo(x, y)
                 }
-                const alpha = Math.min(1, (1 - age) * 1.54) * (1 - field.blindness * .80)
+                const alpha = Math.min(1, (1 - age) * 1.54) * (1 - field.blindness * .80)*field.clarity(Math.min(arc.from.depth,arc.to.depth))
                 ctx.globalAlpha = alpha * .44
                 ctx.lineWidth = 14 * charge
                 ctx.strokeStyle = "#9345f5"

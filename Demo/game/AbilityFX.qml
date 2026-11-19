@@ -1,4 +1,5 @@
 import QtQuick
+import "Conditions.js" as Weather
 
 EffectCanvas {
     id:fx
@@ -9,6 +10,7 @@ EffectCanvas {
     property bool active:true
     property bool motion:true
     property bool threeDimensional:false
+    property real obscurity:0
     property real spray:0
     textureLimit:3840
     frameRate:30
@@ -163,7 +165,9 @@ EffectCanvas {
                 const base=point ? Math.min(h*.16,Math.max(22,pos.scale*81)) : h*(e.anchor==="field" ? .23 : .135)
                 const radius=base*(.66+p*.58)+(e.power-1)*4
                 c.save();c.translate(pos.x,pos.y)
-                c.globalAlpha=alpha*(threeDimensional ? .63 : .95);c.strokeStyle=e.color;c.fillStyle=e.color
+                const atmosphere=1-obscurity*(1-Weather.fogVisibility(point?.depth || 320))*.73
+                c.globalAlpha=alpha*atmosphere*(threeDimensional ? .57 : .91)
+                c.strokeStyle=e.color;c.fillStyle=e.color
                 c.lineWidth=1.5+e.power*.44;c.lineCap="round";c.lineJoin="round"
                 drawEffect(c,e,radius,p,!threeDimensional)
                 c.restore()

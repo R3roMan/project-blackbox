@@ -192,11 +192,16 @@ Item {
         function onCommandRequested(name) {
             if(!host.claimed || !battle.item || host.vaultOpen)return
             const game=battle.item
-            if(name==="new") {Native.Desktop.setOption("mode","play");game.resetRun()}
+            if(name==="new") {
+                menuSound.item?.play("new-game",.72)
+                Native.Desktop.setOption("mode","play")
+                game.resetRun()
+            }
             else if(name==="continue") {
                 const unlocks=Progress.unlocked(host.availableRecords,host.options.achievementOverride)
                 const saved=SaveData.savedChoice(Native.Desktop.savedRun(),Native.Desktop.previousRun(),unlocks,careerVault.state)
                 if (saved) {
+                    menuSound.item?.play("continue-game",.72)
                     Native.Desktop.setOption("mode","play")
                     game.restoreRun(SaveData.decodeRun(saved.data,unlocks))
                 }

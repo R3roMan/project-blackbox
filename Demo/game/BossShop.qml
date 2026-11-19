@@ -35,6 +35,7 @@ ColumnLayout {
     }
     property int selectedSlot: -1
     readonly property var selected: cards.find(function(item) { return item.id === selectedId })
+        || cards.find(function(item) { return !item.sold }) || cards[0]
     readonly property var premium: selected && selected.action === "gear" ? Gear.catalogs[selected.group][selected.gearId] : null
     readonly property int slotForPremium: { revision; return premium ? Gear.defaultSlot(run, premium) : -1 }
     readonly property bool pickSlot: !!premium && slotForPremium === -1 && !selected.sold
@@ -100,7 +101,7 @@ ColumnLayout {
         nativeScene: shop.nativeScene
         motion: shop.motion
         cards: shop.cards
-        selectedId: shop.selectedId
+        selectedId:shop.selected?.id || ""
     }
 
     RowLayout {
@@ -215,7 +216,7 @@ ColumnLayout {
                     leftPadding: 6
                     rightPadding: 6
                     text: modelData.title
-                    primary: shop.selectedId === modelData.id
+                    primary:shop.selected?.id === modelData.id
                     accent: modelData.color || "#a8bded"
                     Accessible.description: {shop.revision;return shop.details(modelData)}
                     hintEnabled: hovered
@@ -347,7 +348,7 @@ ColumnLayout {
                     GearDrag {
                         anchors.fill: parent
                         group: shop.premium ? shop.selected.group : ""
-                        offerId: shop.selectedId
+                        offerId:shop.selected?.id || ""
                         title: shop.premium ? shop.premium.title : ""
                         available: shop.pickSlot
                     }
@@ -407,7 +408,7 @@ ColumnLayout {
                     revision: shop.revision
                     compact: true
                     groups: shop.pickSlot ? [shop.selected.group] : []
-                    offerId: shop.selectedId
+                    offerId:shop.selected?.id || ""
                     selectedGroup: shop.pickSlot ? shop.selected.group : ""
                     selectedIndex: shop.selectedSlot
                     onEntryRequested:function(chapter,id) { shop.entryRequested(chapter,id) }

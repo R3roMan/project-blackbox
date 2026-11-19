@@ -7,6 +7,7 @@ View3D {
     property bool detailed:false
     property bool animate:false
     property real clock:0
+    property real zoom:1
     explicitTextureWidth:Math.max(1,Math.min(520,Math.round(width*Screen.devicePixelRatio)))
     explicitTextureHeight:Math.max(1,Math.round(explicitTextureWidth*height/Math.max(1,width)))
     camera:eye
@@ -19,7 +20,7 @@ View3D {
         id:eye
         z:240
         y:0
-        horizontalMagnification:Math.max(.01,Math.min(portrait.width/152,portrait.height/105))
+        horizontalMagnification:Math.max(.01,portrait.zoom*Math.min(portrait.width/152,portrait.height/105))
         verticalMagnification:horizontalMagnification
     }
     DirectionalLight { eulerRotation:Qt.vector3d(-29,-34,0); brightness:2.1; color:"#ffe1bd"; ambientColor:"#69637c" }

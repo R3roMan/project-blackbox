@@ -1545,6 +1545,7 @@ FocusScope {
         motion: play.motion
         blindness: play.blindness
         fog: play.poisonFog
+        obscurity:play.obscurity
     }
     WorldLabels {
         anchors.fill: parent
@@ -2976,6 +2977,36 @@ FocusScope {
                 return audio.gameplay.fighting && audio.gameplay.run.enemies.some(function(enemy){return enemy.soulChannel})
             }
         }
+    }
+    Rectangle {
+        objectName:"crufixicatusScare"
+        anchors.fill:parent
+        z:450
+        visible:play.fighting && play.scareLeft > 0
+        color:"#030105"
+        clip:true
+        Image {
+            anchors.fill:parent
+            source:Qt.resolvedUrl("../art/crufixicatus-scream.png")
+            fillMode:Image.PreserveAspectCrop
+            scale:play.motion ? 1.03+(3-play.scareLeft)*.035+Math.sin(play.scareLeft*39)*.013 : 1
+        }
+        MouseArea {anchors.fill:parent; acceptedButtons:Qt.AllButtons}
+    }
+    AbilityFX {
+        anchors.fill:parent
+        z:12
+        objectName:"castEffects"
+        obscurity:play.obscurity
+        textureLimit:play.graphicsDetail===3 ? 2240 : 1600
+        effects:{play.revision;return play.run.abilityEvents}
+        world:play.worldItem
+        threeDimensional:!play.projectedMode && play.graphicsDetail>0 && !play.hypnotised
+        clock:play.elapsed
+        frontId:play.frontId
+        active:play.fighting
+        motion:play.motion
+        spray:{play.revision;return play.run.sprayTime/5}
     }
     PetActionMeter {
         z:14
