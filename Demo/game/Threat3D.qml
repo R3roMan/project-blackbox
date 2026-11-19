@@ -58,7 +58,8 @@ Node {
     LitSurface {
         id:frostShell
         surfaces:actor.surfaces;finish:"ice"
-        baseColor:"#b3dcfa";roughness:.23;metalness:detailed ? .30 : .14
+        baseColor:"#d0eaff";roughness:.28;metalness:detailed ? .19 : .14
+        emissiveFactor:detailed ? Qt.vector3d(.023,.041,.064) : Qt.vector3d(0,0,0)
         specularAmount:.89;cullMode:Material.NoCulling
     }
     property bool preview:false

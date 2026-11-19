@@ -12,8 +12,8 @@ Node {
     readonly property bool frozen:{revision;return fieldFrozen || enemy.elements?.frozen>0}
     LitSurface {
         id:ice
-        surfaces:ship.surfaces;finish:"ice";baseColor:"#acd6ef"
-        roughness:.23;metalness:detailed ? .31 : .22;specularAmount:.89
+        surfaces:ship.surfaces;finish:"ice";baseColor:"#d0eaff"
+        roughness:.28;metalness:detailed ? .19 : .14;specularAmount:.89
     }
     property real visibility: 1
     readonly property bool coreOpen: { revision; return enemy.turrets.every(function(part) { return !part.hp }) }
