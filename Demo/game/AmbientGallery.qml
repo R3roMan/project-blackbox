@@ -7,8 +7,10 @@ Template.Scene {
     roomArtwork:({shrine:Scenery.asset("front"),media:Scenery.asset("left"),lab:Scenery.asset("right"),
         sky:Scenery.asset("up"),abyss:Scenery.asset("down")})
     property date localTime:new Date()
+    property double cycleOrigin:Date.now()
+    property int phaseMinutes:10
     property int sceneryDetail:1
-    property var forecast:Scenery.idleWeather(localTime)
+    property var forecast:Scenery.idleWeather(localTime,(localTime.getTime()-cycleOrigin)/1000,phaseMinutes)
     property var labAppearance:({})
     property bool mouseLook:false
     property bool escapeBack:false
@@ -46,7 +48,7 @@ Template.Scene {
     }
     Timer {
         running:gallery.exposed && gallery.visible && !gallery.coverDemo
-        interval:60000;repeat:true;triggeredOnStart:true
+        interval:1000;repeat:true;triggeredOnStart:true
         onTriggered:gallery.localTime=new Date()
     }
     artworkView:Component {

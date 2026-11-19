@@ -35,24 +35,27 @@ function roomWeather(weather,front) {
     return weather
 }
 
-function dayPart(hour) {
-    return hour<5 || hour>=21 ? "night" : hour<8 ? "sunrise" : hour<17 ? "daytime" : "sunset"
+var idlePhases=["daytime","sunset","sunrise","night"]
+
+function idleLighting(elapsedSeconds, minutes) {
+    const duration=Math.max(1,minutes || 10)*60
+    const elapsed=Math.max(0,elapsedSeconds)
+    const step=Math.floor(elapsed/duration)
+    return {phase:idlePhases[step%idlePhases.length],solarTime:(elapsed%duration)/duration*240}
 }
 
-// A stable, local three-hour forecast shared by every idle room.
-function idleWeather(date) {
+// The weather forecast stays shared by all rooms. The lighting has its own timer.
+function idleWeather(date,elapsedSeconds,minutes) {
     const hour=date.getHours(), block=Math.floor(hour/3)
     const seed=date.getFullYear()*372+date.getMonth()*31+date.getDate()
     const roll=Conditions.roll(block,seed,0x276f821d)
     const cold=[11,0,1].includes(date.getMonth())
-    const phase=dayPart(hour)
+    const light=idleLighting(elapsedSeconds || 0,minutes)
+    const phase=light.phase
     const weather=roll<.41 ? "clear" : roll<.63 ? "cloudy" : roll<.76 ? "rain"
         : roll<.80 ? "thunder" : roll<.88 ? "fog" : roll<.95 ? "windy"
         : cold ? "winter" : Conditions.isNight(phase) ? "clear" : "heatwave"
     const stage={weather:weather,extraWeather:Conditions.companionWeather(weather,block,seed)}
-    const minute=hour*60+date.getMinutes()
-    const solarTime=phase==="sunrise" ? (minute-300)*4/3 : phase==="daytime" ? (minute-480)*4/9
-        : phase==="sunset" ? minute-1020 : (minute+(hour<5 ? 180 : -1260))*.5
-    return {phase:phase,solarTime:solarTime,weather:weather,cloudy:Conditions.hasWeather(weather,stage,"cloudy"),
+    return {phase:phase,solarTime:light.solarTime,weather:weather,cloudy:Conditions.hasWeather(weather,stage,"cloudy"),
         windy:Conditions.hasWeather(weather,stage,"windy"),swarm:Conditions.roll(block,seed,0x298fd269)<.16}
 }
