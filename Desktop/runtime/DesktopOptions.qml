@@ -204,6 +204,14 @@ Item {
                 onValueModified:settings.set("idlePhaseMinutes",value)
             }
             Copy {text:"Day → Sunset → Night → Sunrise. Each phase has about a 70% chance of weather and a 30% chance of clear skies."}
+            Copy {text:"Idle effects updates per second"}
+            NumberField {
+                objectName:"idleFps"
+                from:5;to:30
+                value:settings.options.idleFps
+                onValueModified:settings.set("idleFps",value)
+            }
+            Toggle {text:"Safe rendering · use 2D combat and static Idle";checked:settings.options.safeRendering;onToggled:value=>settings.set("safeRendering",value)}
             Title {text:"KDE workspace integration"}
             Toggle {text:"Link each wallpaper to a KDE virtual desktop";checked:settings.options.linkDesktops;onToggled:value=>settings.set("linkDesktops",value)}
             Copy {text:"Blackbox uses your current KDE panels, apps and widgets. Add tray or panel widgets in KDE’s Edit Mode. Use KDE Activities for separate desktop widget layouts."}

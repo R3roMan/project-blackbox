@@ -37,10 +37,9 @@ Item {
         strip.source=snapshot ? String(snapshot.url) : ""
         if (strip.source) strip.loadImage(strip.source)
     }
-    visible:active && (strip.loaded || seamTint.a>0) && feather>1
+    visible:active && feather>1
     Canvas {
         id:strip
-        visible:loaded
         property string source:""
         property bool loaded:false
         x:join.horizontal ? join.boundary-(join.positive ? 0 : join.feather) : 0
@@ -91,9 +90,9 @@ Item {
         gradient:Gradient {
             orientation:join.horizontal ? Gradient.Horizontal : Gradient.Vertical
             GradientStop {position:0;color:"transparent"}
-            GradientStop {position:.23;color:Qt.alpha(join.seamTint,.24)}
+            GradientStop {position:.23;color:Qt.rgba(join.seamTint.r,join.seamTint.g,join.seamTint.b,.24)}
             GradientStop {position:.5;color:join.seamTint}
-            GradientStop {position:.77;color:Qt.alpha(join.seamTint,.24)}
+            GradientStop {position:.77;color:Qt.rgba(join.seamTint.r,join.seamTint.g,join.seamTint.b,.24)}
             GradientStop {position:1;color:"transparent"}
         }
     }
