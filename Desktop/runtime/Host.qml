@@ -197,6 +197,11 @@ FocusScope {
     function petTerminalReady(room) {
         return currentPetRoom()===room && (room==="back" ? !!pureCode.item?.visible : !!extraTerminal.item?.visible)
     }
+    function flyPetToTerminal(room) {
+        const surface=room==="back" ? pureCode : extraTerminal
+        const point=surface.mapToItem(idleInput,surface.width*.52,surface.height*.48)
+        companionLoader.item?.flyTo(point.x,point.y,.95)
+    }
     function placePetDraft(room,text) {
         if (!petTerminalReady(room)) return false
         return (room==="back" ? pureCode.item : extraTerminal.item).stageDraft(text)
@@ -848,6 +853,7 @@ FocusScope {
             paletteJson:host.options.terminalPalette
             wallpaperImage:host.options.terminalImage || host.options.wallpaper_back || ""
             surfaceOpacity:host.options.terminalOpacity
+            draftPreview:petAssistant.draftRoom==="back" ? petAssistant.typedText : ""
             exposed:pureCode.visible
             onReturnRequested:galleryLoader.item?.go(galleryLoader.item.previousRoom==="code" ? "shrine" : galleryLoader.item.previousRoom)
         }
@@ -871,6 +877,7 @@ FocusScope {
             paletteJson:host.options.terminalPalette
             wallpaperImage:host.options.terminalImage || ""
             surfaceOpacity:host.options.terminalOpacity
+            draftPreview:petAssistant.draftRoom===host.extraTerminalRoom ? petAssistant.typedText : ""
             exposed:extraTerminal.visible
             onReturnRequested:host.extraTerminalRoom=""
         }
@@ -900,13 +907,17 @@ FocusScope {
             onSubmitted:command=>petAssistant.submit(command)
         }
     }
+    function petFilePerch(path) {
+        const name=path.split("/").pop()
+        return petPerches().find(surface=>surface.label===name) || null
+    }
     function petPerches() {
         const perches=[]
-        function add(item,key,kind) {
+        function add(item,key,kind,label="") {
             if (!item?.visible || item.width<9 || item.height<9) return
             const pos=item.mapToItem(host,0,0)
             if (pos.y+item.height>0 && pos.y<host.height-host.areaBottom && pos.x+item.width>0 && pos.x<host.width)
-                perches.push({key,kind,x:pos.x,y:Math.max(host.areaTop+25,pos.y+Math.min(8,item.height*.12)),width:item.width})
+                perches.push({key,kind,label,x:pos.x,y:Math.max(host.areaTop+25,pos.y+Math.min(8,item.height*.12)),width:item.width})
         }
         if (!home) {
             for (const entry of Native.Desktop.appPerches) {
@@ -921,7 +932,7 @@ FocusScope {
         const folder=desktopInputParent?.folderViewLayer?.view?.view
             || desktopInputParent?.folderViewLayer?.item?.view?.view
         for (const child of folder?.contentItem?.children || []) {
-            if (child.blank===false && child.iconArea) add(child.iconArea,child,child.isDir ? "folder" : "icon")
+            if (child.blank===false && child.iconArea) add(child.iconArea,child,child.isDir ? "folder" : "icon",child.display || "")
         }
         for (const child of desktopInputParent?.appletsLayout?.children || []) {
             if (child.applet) add(child,child,"widget")

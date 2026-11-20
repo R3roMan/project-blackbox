@@ -27,10 +27,12 @@ Item {
     property real refuseUntil:0
     property int gift:0
     property string carriedFile:""
+    property var queuedVisit:null
     property string typedText:""
     property string draft:""
     property string draftRoom:""
     property real draftTimeout:0
+    property real draftArrival:0
     readonly property var specs:Object.values(Catalog.groups).reduce((all,group)=>all.concat(group),[])
     readonly property var index: {
         const out={}
@@ -45,13 +47,14 @@ Item {
         lastWake=0
         gift=0
         carriedFile=""
+        queuedVisit=null
         cancel(false)
         cancelDraft()
         player.stop()
         if (!enabledAdmin) desktopHost.dismissPetConsole()
     }
     onMutedChanged:if (muted) {player.stop();voice.item?.stopSpeech()}
-    onWendyChanged:if (wendy && mood<.5) mood=.5
+    onWendyChanged:if (wendy) {mood=Math.max(.5,mood);refuseUntil=0}
     function adjust(amount) {
         const delta=amount<0 && mischievous ? amount*1.55 : amount
         mood=Math.max(wendy ? .5 : 0,Math.min(1,mood+delta))
@@ -144,7 +147,7 @@ Item {
         pet.route(route,name==="dash" ? .56 : 1.12)
         return result(true,"On my way.")
     }
-    function cancelDraft() {typedText="";draft="";draftRoom=""}
+    function cancelDraft() {typedText="";draft="";draftRoom="";draftArrival=0}
     function code(text) {
         if (!text || text.length>1200 || /[\r\n\t\u0000-\u001f\u007f]/.test(text))
             return result(false,"Use one printable line for a shell draft.")
@@ -154,10 +157,20 @@ Item {
             if (!desktopHost.summonPetTerminal(draftRoom)) {record("The terminal is unavailable.");cancelDraft();return}
             draft=text
             typedText=""
+            draftArrival=0
             draftTimeout=Date.now()+8500
         },"Insert draft")
     }
-    function fileTask(op,path,extra) {
+    function fileTask(op,path,extra,visit=true) {
+        if (visit && pet && ["open","reveal"].includes(op)) {
+            const surface=desktopHost.petFilePerch(Native.Desktop.petPath(path))
+            if (surface) {
+                pet.flyTo(surface.x+surface.width*.5,surface.y,1)
+                queuedVisit={op,path,extra,room:desktopHost.currentPetRoom()}
+                visitTimer.restart()
+                return {ok:true,message:record("Visiting the desktop icon.")}
+            }
+        }
         const answer=Native.Desktop.petTask(op,path || "",extra || "")
         if (answer.ok && ["open","reveal"].includes(op)) pet?.perform("inside",2.4)
         record(answer.message)
@@ -295,7 +308,10 @@ Item {
                 const file=Native.Desktop.petTask("locate",source,"")
                 if (!file.ok) return result(false,file.message)
                 carriedFile=file.message
-                pet.flyTo(Math.max(80,pet.cursor.x),Math.max(80,pet.cursor.y))
+                const surface=desktopHost.petFilePerch(source)
+                const target=[Math.max(.10,pet.cursor.x/Math.max(1,pet.width)),Math.max(.15,pet.cursor.y/Math.max(1,pet.height))]
+                if (surface) pet.route([[(surface.x+surface.width*.5)/pet.width,Math.max(.08,surface.y/pet.height)],target],1.04)
+                else pet.flyTo(Math.max(80,pet.cursor.x),Math.max(80,pet.cursor.y))
                 pet.say("Carrying "+source.split("/").pop())
                 return result(true,"Click the file carried by the pet to open it.")
             }
@@ -322,6 +338,17 @@ Item {
         fileTask("open",carriedFile)
         carriedFile=""
     }
+    Timer {
+        id:visitTimer
+        interval:1100
+        onTriggered:{
+            const visit=assistant.queuedVisit
+            assistant.queuedVisit=null
+            if (!visit || !assistant.enabledAdmin || !assistant.desktopHost.home || Native.Desktop.sessionLocked
+                || visit.room!==assistant.desktopHost.currentPetRoom()) return
+            assistant.fileTask(visit.op,visit.path,visit.extra,false)
+        }
+    }
     property string voiceRequest:""
     Loader {
         id:voice
@@ -341,12 +368,16 @@ Item {
         repeat:true
         interval:9000
         onTriggered:{
-            if (assistant.pet.droppingCount>20) assistant.adjust(-.035)
-            else assistant.adjust(assistant.mood<.5 ? .025 : -.015)
             const roll=Math.random()
+            if (assistant.pet.droppingCount>20) assistant.adjust(-.035)
+            else if (Math.random() < (assistant.mischievous ? .14 : .065)) assistant.adjust(-.12)
+            else assistant.adjust(assistant.mood<.5 ? .025 : -.015)
             if (assistant.pet.pose==="sleep" || !assistant.pet.roaming) return
             if (roll<.17 && assistant.mood>.78 && !assistant.gift) {
                 assistant.gift=1;assistant.pet.perform("cheer",3);assistant.say("A little gift for you!",false)
+            } else if (roll<.25 && assistant.mood>.84) {
+                assistant.record("[idea] pet code printf 'The shrine is clear.'")
+                assistant.pet.perform("typing",2)
             } else if (roll<(assistant.mischievous ? .36 : .18) && assistant.mood<.34) {
                 assistant.record("[mischief] printf 'I demand snacks.'")
                 assistant.pet.perform("sulk",3)
@@ -363,6 +394,12 @@ Item {
                 assistant.record("Draft cancelled.");assistant.cancelDraft();return
             }
             if (!assistant.desktopHost.petTerminalReady(assistant.draftRoom)) return
+            if (!assistant.draftArrival) {
+                assistant.desktopHost.flyPetToTerminal(assistant.draftRoom)
+                assistant.draftArrival=Date.now()+1050
+                return
+            }
+            if (Date.now()<assistant.draftArrival) return
             if (!assistant.typedText) assistant.pet?.perform("typing",4)
             const step=assistant.draft.length>180 ? 16 : 3
             assistant.typedText=assistant.draft.slice(0,assistant.typedText.length+step)

@@ -38,6 +38,7 @@ FocusScope {
     property string paletteJson:"{}"
     property url wallpaperImage:""
     property real surfaceOpacity:.87
+    property string draftPreview:""
     readonly property var terminalColors: {
         try {return JSON.parse(paletteJson)} catch (_) {return {}}
     }
@@ -239,6 +240,18 @@ FocusScope {
                     cursorColor:workbench.accent
                     fontSize:Math.max(9,Math.min(workbench.baseFont,Math.floor(width/24),Math.floor(height/4.1)))
                     onActiveFocusChanged:if (activeFocus) workbench.activePane=pane.paneId
+                    Rectangle {
+                        anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom
+                        anchors.margins:8
+                        height:29;radius:5;color:workbench.chrome;border.color:workbench.accent
+                        visible:pane.current && !pane.outputOnly && !!workbench.draftPreview
+                        Text {
+                            anchors.fill:parent;anchors.margins:5;verticalAlignment:Text.AlignVCenter
+                            color:workbench.ink;font.family:"monospace";elide:Text.ElideLeft
+                            text:"Draft · "+workbench.draftPreview
+                            textFormat:Text.PlainText
+                        }
+                    }
                     TapHandler {
                         acceptedButtons:Qt.RightButton
                         onTapped:function(point) {workbench.activePane=pane.paneId;terminalMenu.popup(screen,point.position.x,point.position.y)}
