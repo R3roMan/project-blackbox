@@ -171,9 +171,25 @@ FocusScope {
     property bool terminalVisited:false
     property string extraTerminalRoom:""
     property bool petConsoleOpen:false
+    property bool petBoxOpen:false
     property bool petAutoQueued:false
     function currentPetRoom() {return galleryLoader.item?.liveFront || "front"}
     function petWeather() {return galleryLoader.item?.forecast.weather || "clear"}
+    function changePetBox(action) {
+        if (action==="remove") {
+            petBoxOpen=false
+            companionLoader.item?.releaseEnclosure()
+            return "Enclosure removed."
+        }
+        petBoxOpen=true
+        if (action==="open") {
+            petBox.armed=false
+            companionLoader.item?.releaseEnclosure()
+            return "Enclosure open."
+        }
+        if (action==="close") petBox.armed=true
+        return petBox.armed ? "Enclosure ready. Drag its title or resize its corner." : "Enclosure open. Use Arm to latch it."
+    }
     function showPetConsole() {
         if (!options.petAdmin || !home || Native.Desktop.sessionLocked || compositorCube) return
         petConsoleOpen=true
@@ -522,6 +538,7 @@ FocusScope {
             terminalActive:host.terminalInput,terminalPanes:pureCode.item?.paneCount || 0,idleBackground:host.options.backgroundIdle,
             petMood:petAssistant.mood,petName:petAssistant.petName,petConsole:host.petConsoleOpen,
             petPending:petAssistant.pendingTitle,petGift:petAssistant.gift,petSinging:petAssistant.singing,petDrafting:!!petAssistant.draft,
+            petBox:petBox.visible,petConfined:petBox.trapped,petBoxRect:[petBox.x,petBox.y,petBox.width,petBox.height],
             petPose:companionLoader.item?.pose || "",petSurface:companionLoader.item?.landedOn || "",
             appPerches:Native.Desktop.appPerches.length,idleFront:galleryLoader.item?.liveFront || "",idlePhase:galleryLoader.item?.forecast.phase || "",idleWeather:galleryLoader.item?.forecast.weather || "",previewing:game.previewing,canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,debugBuild:run.debugBuild,debugMoney:run.debugMoney,debugWeapon:run.debugWeapon,debugLayer:run.debugLayer,debugUnlocks:run.debugUnlockAll,phase:run.phase,idleControls:host.idleControls,overview:host.overviewOpen || host.compositorCube,cubeEffect:host.compositorCube,appPerch:Native.Desktop.appPerch.width,appPet:host.appPetVisible && !!petOverlay.item?.visible,idleChrome:idleQuickBar.visible,idleSettings:settingsDrawer.visible,idlePet:companionLoader.visible ? companionLoader.item?.helper.id || "" : "",hudVisible:game.fieldHudVisible,countdown:host.quickCount,weapon:Gear.current(run).id,pet:run.pet?.id || "",difficulty:run.difficulty,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
@@ -907,6 +924,17 @@ FocusScope {
             onSubmitted:command=>petAssistant.submit(command)
         }
     }
+    PetBox {
+        id:petBox
+        parent:idleInput
+        z:39
+        visible:host.petBoxOpen && host.options.petAdmin && host.ambientMode && host.home && !host.idleOverlay && !host.quickCount
+        trapped:!!companionLoader.item?.confined
+        petSize:companionLoader.item?.petWidth || 180
+        edgeBottom:host.areaBottom
+        onReleased:host.changePetBox("open")
+        onRemoved:host.changePetBox("remove")
+    }
     function petFilePerch(path) {
         const name=path.split("/").pop()
         return petPerches().find(surface=>surface.label===name) || null
@@ -941,6 +969,7 @@ FocusScope {
     }
     readonly property bool appPetVisible:!home && useWorkArea && ambientMode && idleExposure && options.backgroundIdle
         && options.idlePet && !options.safeRendering && mode==="idle" && !Native.Desktop.fullscreenApp && Native.Desktop.appPerches.length>0
+        && !petBox.trapped
     Loader {
         id:petOverlay
         active:host.useWorkArea && host.claimed && host.options.idlePet && host.options.backgroundIdle
@@ -960,6 +989,9 @@ FocusScope {
             floorInset:host.areaBottom
             motion:host.options.motion
             audioEnabled:!host.options.petMuted && host.options.audioMaster>0 && host.options.audioAmbience>0
+            mood:petAssistant.mood
+            enclosure:petBox.inner
+            enclosureArmed:host.petBoxOpen && host.options.petAdmin && petBox.armed
             draftText:petAssistant.typedText
             carriedTitle:petAssistant.carriedFile.split("/").pop()
             giftCount:petAssistant.gift

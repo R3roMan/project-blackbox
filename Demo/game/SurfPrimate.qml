@@ -5,6 +5,7 @@ Node {
     id:ape
     required property real clock
     property string action:"flight"
+    property string expression:"neutral"
     readonly property real beat:Math.sin(clock*6.3)
     readonly property bool banana:action==="banana"
     readonly property bool globe:action==="globe"
@@ -32,12 +33,14 @@ Node {
     }
     Node {
         y:ape.vine ? ape.beat*5 : 0
-        eulerRotation.z:ape.vine ? ape.beat*14 : 0
+        eulerRotation.z:ape.vine ? ape.beat*14 : ape.action==="laugh" ? ape.beat*9 : 0
         Model {source:"#Sphere";y:-3;scale:Qt.vector3d(.36,.43,.28);materials:[fur]}
         Model {source:"#Sphere";y:-7;z:9;scale:Qt.vector3d(.32,.34,.24);materials:[wetSuit]}
         Model {source:"#Sphere";y:19;z:2;scale:Qt.vector3d(.33,.32,.28);materials:[fur]}
         Model {source:"#Sphere";y:15;z:16;scale:Qt.vector3d(.25,.17,.13);materials:[skin]}
-        Model {source:"#Sphere";y:12;z:21;scale:Qt.vector3d(.10,ape.banana ? .035+(.032*(ape.beat+1)) : .027,.055);materials:[black]}
+        Model {source:"#Sphere";y:12;z:21;scale:Qt.vector3d(ape.expression==="happy" || ape.action==="laugh" ? .17 : .10,
+            ape.action==="laugh" ? .066+ape.beat*.024 : ape.banana ? .035+(.032*(ape.beat+1)) : .027,.055);materials:[black]}
+        Model {visible:ape.expression==="happy" || ape.action==="laugh";source:"#Sphere";y:13;z:23;scale:Qt.vector3d(.11,.023,.012);materials:[ivory]}
         Model {source:"#Sphere";y:20;z:24;scale:Qt.vector3d(.10,.047,.045);materials:[skin]}
         Model {source:"#Sphere";x:-6;y:24;z:22;scale:Qt.vector3d(.069,.073,.044);materials:[ivory]}
         Model {source:"#Sphere";x:6;y:24;z:22;scale:Qt.vector3d(.069,.073,.044);materials:[ivory]}
@@ -50,13 +53,26 @@ Node {
         Repeater3D {
             model:2
             delegate:Node {
+                id:arm
                 required property int index
                 readonly property int side:index ? 1 : -1
+                readonly property bool thumbs:ape.action==="thumbs" && index===1
+                readonly property bool toss:ape.action==="throw" && index===0
                 x:side*17;y:7
-                eulerRotation.z:side*(ape.vine ? 142 : ape.globe && index ? 120 : ape.banana && !index ? 95 : 26+ape.beat*8)
+                eulerRotation.z:side*(thumbs ? 125 : toss ? 105+ape.beat*40 : ape.vine ? 142
+                    : ape.globe && index ? 120 : ape.banana && !index ? 95 : 26+ape.beat*8)
                 Model {source:"#Sphere";y:-9;scale:Qt.vector3d(.11,.236,.10);materials:[fur]}
                 Model {source:"#Sphere";y:-18;z:3;scale:Qt.vector3d(.11,.094,.088);materials:[skin]}
+                Model {visible:arm.thumbs;source:"#Sphere";x:5;y:-20;z:5;eulerRotation.z:-36;scale:Qt.vector3d(.038,.098,.05);materials:[skin]}
                 Model {source:"#Sphere";x:-side*6;y:-23;z:7;scale:Qt.vector3d(.126,.065,.19);materials:[stripe]}
+            }
+        }
+        Repeater3D {
+            model:ape.expression==="upset" ? [-1,1] : []
+            Model {
+                required property int modelData
+                source:"#Sphere";x:modelData*6;y:27;z:27;eulerRotation.z:modelData*29
+                scale:Qt.vector3d(.11,.032,.023);materials:[black]
             }
         }
         Node {

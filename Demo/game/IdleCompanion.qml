@@ -35,6 +35,17 @@ Item {
     property real curiosityReady:12
     property real alertedUntil:0
     property bool affectionate:false
+    property real mood:.5
+    property string clickMood:"neutral"
+    readonly property string expression:mood<.34 ? "upset" : mood>.71 ? "happy" : "neutral"
+    property bool enclosureArmed:false
+    property rect enclosure:Qt.rect(0,0,0,0)
+    property double confinedSince:0
+    readonly property bool confined:confinedSince>0
+    readonly property real cageLeft:confined ? enclosure.x : 0
+    readonly property real cageTop:confined ? enclosure.y : 0
+    readonly property real cageRight:confined ? Math.max(cageLeft,enclosure.x+enclosure.width-creature.width) : maxX
+    readonly property real cageBottom:confined ? Math.max(cageTop,enclosure.y+enclosure.height-creature.height) : floorY
     property string speech:""
     property string draftText:""
     property string carriedTitle:""
@@ -63,11 +74,33 @@ Item {
         cursor=Qt.point(x,y)
         cursorSeen=clock
     }
-    function chirp() {audio.item?.play("idle-chirp",.58)}
+    function chirp() {audio.item?.play(Pets.voice(helper).call,.58)}
     function say(text) {speech=text;if (text) speechTimer.restart()}
     function transformInto(form) {
         helper=form
         perform("surprise",1.2)
+    }
+    function releaseEnclosure() {
+        if (!confined) return
+        confinedSince=0
+        wander()
+    }
+    function updateEnclosure(now) {
+        if (!enclosureArmed || enclosure.width<1 || enclosure.height<1) {
+            releaseEnclosure()
+            return
+        }
+        const cx=creature.x+creature.width*.5, cy=creature.y+creature.height*.5
+        if (!confined && cx>=enclosure.x && cx<=enclosure.x+enclosure.width
+            && cy>=enclosure.y && cy<=enclosure.y+enclosure.height) {
+            confinedSince=now
+            perch=null
+            landedOn=""
+            if (!dragging) wander()
+        }
+        if (!confined || dragging) return
+        creature.x=Math.max(cageLeft,Math.min(cageRight,creature.x))
+        creature.y=Math.max(cageTop,Math.min(cageBottom,creature.y))
     }
     function perform(next,seconds) {
         routePoints=[]
@@ -117,8 +150,8 @@ Item {
         origin=Qt.point(creature.x,creature.y)
         originScale=poseScale
         destinationScale=scale
-        destination=Qt.point(Math.max(0,Math.min(width-widthAtLanding,x)),
-            Math.max(0,Math.min(height-floorInset-widthAtLanding*99/134,y)))
+        destination=Qt.point(Math.max(cageLeft,Math.min(confined ? Math.max(cageLeft,enclosure.x+enclosure.width-widthAtLanding) : width-widthAtLanding,x)),
+            Math.max(cageTop,Math.min(confined ? Math.max(cageTop,enclosure.y+enclosure.height-widthAtLanding*99/134) : height-floorInset-widthAtLanding*99/134,y)))
         if (Math.abs(destination.x-origin.x)>8) heading=destination.x>origin.x ? 1 : -1
         arrival=next
         pose=next==="flight" ? "flight" : "landing"
@@ -133,6 +166,10 @@ Item {
         routeAnimation=""
         perch=null
         landedOn=""
+        if (confined) {
+            beginFlight(cageLeft+Math.random()*(cageRight-cageLeft),cageTop+Math.random()*(cageBottom-cageTop),"flight",1.6+Math.random())
+            return
+        }
         beginFlight(Math.max(0,width-petWidth)*(.08+Math.random()*.84),floorY*(.13+Math.random()*.67),"flight",3.2+Math.random()*2.4)
     }
     function perchPoint(surface) {
@@ -141,6 +178,7 @@ Item {
         return {x,y:Math.max(0,surface.y-widthAtRest*.445),scale:widthAtRest/petWidth}
     }
     function chooseLanding(next,preferSurface=false) {
+        if (confined) {wander();return}
         const candidates=(typeof perchLookup==="function" ? perchLookup() : []).filter(candidate=>candidate.width>0)
         if (candidates.length && (preferSurface || Math.random()<.9)) {
             perch=candidates[perchIndex++%candidates.length]
@@ -256,6 +294,7 @@ Item {
         onTriggered:{
             const now=Date.now()
             idle.tick(idle.lastTick ? Math.max(0,Math.min(.09,(now-idle.lastTick)*.001)) : interval*.001)
+            idle.updateEnclosure(now)
             idle.lastTick=now
         }
     }
@@ -331,15 +370,27 @@ Item {
             Text {
                 objectName:"idlePetReaction"
                 anchors.horizontalCenter:parent.horizontalCenter;anchors.top:parent.top
-                text:idle.affectionate ? "♥  ♥" : idle.pose==="curious" ? "?" : idle.clock<idle.alertedUntil ? "!" : ""
-                color:idle.affectionate ? "#ffa5bf" : "#ffe4a5";style:Text.Outline;styleColor:"#30243a"
+                text:idle.affectionate ? (idle.clickMood==="upset" ? "♥  ♥" : idle.clickMood==="happy" ? "♥ ♥ ♥ ♥ ♥" : "♥  ♥")
+                    : idle.pose==="curious" ? "?" : idle.clock<idle.alertedUntil ? "!" : ""
+                color:idle.affectionate ? idle.clickMood==="upset" ? "#130f1a" : "#ffa5bf" : "#ffe4a5"
+                style:Text.Outline;styleColor:idle.affectionate && idle.clickMood==="upset" ? "#ba90b4" : "#30243a"
                 font.pixelSize:Math.max(1,Math.round(parent.width*.15));font.bold:true
+                Repeater {
+                    model:idle.affectionate && idle.clickMood==="upset" ? 2 : 0
+                    Text {
+                        required property int index
+                        x:index ? parent.width*.72 : parent.width*.11
+                        y:parent.height*.09;text:"ϟ";color:"#e6bbdf"
+                        font.pixelSize:parent.font.pixelSize*.83
+                    }
+                }
             }
         }
         Component {
             id:solid
             PetPortrait3D {
                 helper:idle.helper;clock:idle.clock;animate:idle.motion
+                expression:idle.expression
                 idlePose:idle.actionArt
                 heading:idle.airborne ? idle.heading*35 : 15
                 textureWidthLimit:900
@@ -350,6 +401,7 @@ Item {
             id:flat
             ProjectedPet {
                 helper:idle.helper;idlePose:idle.actionArt;flap:idle.motion ? Math.sin(idle.clock*(idle.dragging ? 21 : 9)) : 0
+                expression:idle.expression
                 resting:!idle.dragging && !idle.airborne
                 glowTint:Ui.FieldStyle.petGlow
                 transform:Scale {origin.x:width/2;xScale:idle.heading<0 ? -1 : 1}
@@ -392,10 +444,10 @@ Item {
             id:pointer
             anchors.fill:parent;anchors.margins:parent.width*.11
             drag.target:creature
-            drag.minimumX:0;drag.maximumX:idle.maxX
-            drag.minimumY:0;drag.maximumY:idle.floorY
+            drag.minimumX:idle.cageLeft;drag.maximumX:idle.cageRight
+            drag.minimumY:idle.cageTop;drag.maximumY:idle.cageBottom
             cursorShape:pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-            onClicked:{idle.affectionate=true;hearts.restart();idle.attention("click")}
+            onClicked:{idle.clickMood=idle.expression;idle.affectionate=true;hearts.restart();idle.attention("click")}
         }
     }
     Repeater {

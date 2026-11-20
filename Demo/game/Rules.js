@@ -77,6 +77,7 @@ function create(seed, unlocks) {
         starterChoice:"", starterOffers:[], starterSeed:(seed >>> 0)^0x614f93cd,
         cursed:false, smokes:[], smokeRoster:0, fastTurn:0, remoteGuard:0,
         health: Gear.startingHealth, gold: 0, kills: 0, slots: Gear.starter(), inventory:Array(Gear.startingInventorySize).fill(null), selectedWeapon: 0, shopStock: [], unlocks: unlocks || [], pet:null, petChoice:"", petOffers:[], guestPet:null, guestTime:0,
+        petHudLost:false, petGlitchUntil:0,
         refreshUsed:0, rewireCredit:false, paidRerolls:0, refreshBank:0, frozenOffer:null, shopEdition:0, shopCapacity:5, shopQuality:0, repeatRank:0, nextSeal:0,
         shopStats:{health:0,damage:0,speed:0}, bossOffers:[], boons:{ health:0, damage:0, speed:0 },
         waveSize: 0, barrier: 0, barrierHp: 0, barrierMax: 0, barrierBreak: 0, barrierRefill:0,
@@ -960,6 +961,8 @@ function startWave(run) {
     }
     run.omenCounts={}
     run.guestTime = 0
+    run.petHudLost = false
+    run.petGlitchUntil = 0
     run.infiniteAmmo = 0
     run.maxGearTime = 0
     run.burnSource = ""
@@ -2079,7 +2082,10 @@ function wound(run, enemy, amount, source, element, level, impact) {
     const frosted = enemy.elements.frozen > 0 && (source === "gun" || source === "grenade")
         ? 1 + rank(run,"iceSight")*.10 + Gear.perk(run,"coldDamage")+Gear.kitBonus(run,"coldDamage") : 1
     const damage = amount * multiplier * frosted * (enemy.eyesTime > 0 ? 2 : 1)
-    const dealt = bankDamage(run, enemy, impact && impact.breakBarrier && shield > 0 ? Math.max(shield,damage) : damage)
+    const finisher=!!impact?.petFinish && spec.role!=="boss"
+    if (finisher && shield>0) breakBarrier(run,enemy)
+    const dealt = finisher ? enemy.hp
+        : bankDamage(run, enemy, impact && impact.breakBarrier && shield > 0 ? Math.max(shield,damage) : damage)
     const shattered = shield > 0 && !enemy.barrier
     if (dealt > 0 && !shield && source === "gun" && enemy.weaponSource === "veinDrinker")
         feedVeinDrinker(run,Math.min(enemy.hp,dealt))
@@ -2111,7 +2117,9 @@ function wound(run, enemy, amount, source, element, level, impact) {
         if (!resisted && enemy.hp > 0 && random(run) < Elements.electricStun(level))
             applyToEnemy(run, enemy, "stun", 1)
     } else if (element && dealt > 0) {
-        applyToEnemy(run, enemy, element, level, impact?.durationScale ? {durationScale:impact.durationScale} : null)
+        applyToEnemy(run, enemy, element, level, Object.assign({},
+            impact?.durationScale ? {durationScale:impact.durationScale} : null,
+            impact?.forceFreeze ? {forceFreeze:true} : null))
         if (element === "burn" && !Conditions.isRain(run.weatherEffect))
             enemy.infernoBurn = false
     }
@@ -4750,10 +4758,10 @@ function petStrike(run, pet, helper, enemy) {
     pet.aimDepth = enemy.depth
     pet.flash = .45
     pet.strikes += 1
-    announce(run, null, "pet")
     const power = helper.power
     const secondary=Pets.secondary[helper.id]
     const charged=!!secondary && pet.chargePending && pet.chargeLeft<=0
+    announce(run,null,power==="banana" ? "petBanana" : power==="frost" ? "petIce" : "pet")
     if (charged) {
         pet.chargePending=false
         pet.chargedFlash=.72
@@ -4779,14 +4787,19 @@ function petStrike(run, pet, helper, enemy) {
     }
     const third = pet.strikes % 3 === 0
     const element=charged && secondary.kind==="burn" || power==="greenfire" && third ? "burn"
-        : power==="blind" ? "blind" : power==="mind" ? "weaken" : power==="spark" && third ? "electric" : ""
+        : power==="blind" ? "blind" : power==="mind" || power==="banana" ? "weaken"
+            : power==="frost" ? "freeze" : power==="spark" && third ? "electric" : ""
     wound(run, enemy, damage * (pet.cursed ? .78 : 1), pet,
-        element,power==="blind" ? 2 : 1)
+        element,power==="blind" || power==="frost" && charged ? 2 : 1,
+        power==="frost" && charged ? {forceFreeze:true} : null)
     if (charged && helper.id==="owl") recoverBlood(run,3)
     if (charged && helper.id==="chicken" && enemy.hp>0)
         applyKnockback(run,enemy,1)
-    if (power === "mend" && third)
-        run.health = Math.min(Gear.maxHealth(run), run.health + 2 + pet.level * .70)
+    if (power === "mend" && run.health<Gear.maxHealth(run) && random(run)<.14) {
+        recoverBlood(run,4+pet.level*.75)
+        passiveVisual(run,"fairyMend",run.playerFront,"heal","companion",null,"",.5)
+        announce(run,null,"petMend")
+    }
     if (power === "heal" && enemy.hp <= 0)
         run.health = Math.min(Gear.maxHealth(run), run.health + 2 + pet.level * 1.15)
     if (power === "splash" || power==="greenfire" && charged) {
@@ -4811,6 +4824,35 @@ function petStrike(run, pet, helper, enemy) {
     }
 }
 
+function vesperTrick(run,pet) {
+    if (!pet.trickAt) pet.trickAt=run.waveTime+30+random(run)*15
+    if (!pet.flickerAt) pet.flickerAt=run.waveTime+12+random(run)*10
+    if (run.waveTime>=pet.flickerAt) {
+        pet.flickerAt=run.waveTime+12+random(run)*10
+        run.petGlitchUntil=run.waveTime+.46
+        announce(run,null,"petFlicker")
+    }
+    if (run.waveTime<pet.trickAt) return
+    pet.trickAt=run.waveTime+30+random(run)*15
+    const chance=random(run)
+    if (chance<.50) {
+        const choices=run.enemies.filter(enemy=>enemy.hp>0 && !enemy.warp && !enemy.waitingBoss && !ghosted(enemy)
+            && enemy.type!=="hallucination" && enemyTypes[enemy.type].role!=="boss"
+            && (enemy.type!=="archfellanus" || !Abyss.mirror(enemy.age)))
+        if (!choices.length) return
+        const enemy=sample(run,choices)
+        pet.trickPose="thumbs";pet.trickUntil=run.waveTime+1.55
+        wound(run,enemy,enemy.hp,pet,"",0,{petFinish:true})
+        passiveVisual(run,"vesperThumb",enemy.front,"void","companion",arcPoint(enemy),"",.5)
+        announce(run,null,"petThumb")
+    } else if (chance<.62 && !run.petHudLost) {
+        pet.trickPose="laugh";pet.trickUntil=run.waveTime+1.7
+        run.petGlitchUntil=run.waveTime+1.30
+        run.petHudLost=true
+        announce(run,null,"petLaugh")
+    }
+}
+
 function updatePet(run, pet, dt) {
     if (!pet)
         return
@@ -4819,6 +4861,7 @@ function updatePet(run, pet, dt) {
         return enemy.type === "archfellanus" && enemy.front === run.playerFront && enemy.hp > 0 && !enemy.warp
     })
     pet.hostile = !!fallen
+    if (helper.id==="vesper" && !fallen) vesperTrick(run,pet)
     pet.next = Math.max(0, pet.next - dt)
     pet.flash = Math.max(0, pet.flash - dt)
     pet.chargedFlash=Math.max(0,(pet.chargedFlash || 0)-dt)
@@ -4894,7 +4937,7 @@ function updatePet(run, pet, dt) {
     }
 
     const targetLane = focused ? lanePosition(focused) + pet.heading * 95 : Math.sin(run.time * 1.4) * 120 - 142
-    const targetDepth = focused ? Math.max(220, focused.depth - 104) : 725
+    const targetDepth = focused ? Math.max(220, focused.depth - (helper.power==="frost" || helper.power==="banana" ? 260 : 104)) : 725
     const targetElevation = helper.crawl ? -124 : focused ? elevation(focused) + 81 : 76
     const approach = Math.min(1, dt * 3.1)
     pet.lane += (targetLane - pet.lane) * approach

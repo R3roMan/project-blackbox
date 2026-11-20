@@ -6,14 +6,16 @@ Canvas {
     required property var helper
     required property real flap
     property string idlePose:"flight"
+    property string expression:"neutral"
     onIdlePoseChanged:requestPaint()
+    onExpressionChanged:requestPaint()
     property bool resting: false
     property color glowTint:"transparent"
     property bool motion: true
     property real strike: 0
     property real fold: resting ? 1 : 0
     Behavior on fold { enabled: pet.motion; NumberAnimation { duration: 270; easing.type: Easing.InOutSine } }
-    readonly property bool angry: strike > .04
+    readonly property bool angry: strike > .04 || expression==="upset"
     readonly property bool machine: ["wasp", "kite", "ray", "beetle"].includes(helper.form)
     readonly property bool membrane: ["bat", "ray", "drake", "fox"].includes(helper.form)
     onFlapChanged: requestPaint()
@@ -45,13 +47,19 @@ Canvas {
             oval(.29,.41,.43,.34,"#694899");oval(.33,.51,.35,.20,"#243e55")
             oval(.27,.29,.15,.15,"#9571ab");oval(.61,.28,.15,.15,"#9571ab");oval(.32,.20,.36,.34,"#7453a0")
             oval(.38,.37,.25,.13,"#b693c3");oval(.405,.30,.060,.074,"#fff1bb");oval(.535,.30,.06,.074,"#fff1bb")
-            oval(.433,.322,.032,.044,"#292133");oval(.542,.318,.034,.043,"#292133");oval(.455,.431,.09,.026,"#302033")
+            oval(.433,.322,.032,.044,"#292133");oval(.542,.318,.034,.043,"#292133")
+            oval(pet.expression==="happy" ? .426 : .455,.431,pet.expression==="happy" ? .15 : .09,idlePose==="laugh" ? .06 : .026,"#302033")
             oval(.31,.18,.38,.074,"#203c55")
-            if (idlePose==="banana") oval(.32,.441,.16,.046,"#f6d258")
+            if (pet.expression==="upset") {
+                path(ctx,[.392,.282,.469,.310,.465,.325,.390,.298],"#292133")
+                path(ctx,[.535,.309,.601,.280,.602,.298,.534,.326],"#292133")
+            }
+            if (idlePose==="thumbs") {oval(.65,.45,.15,.10,"#9571ab");oval(.753,.367,.045,.15,"#b693c3")}
+            if (idlePose==="banana" || idlePose==="throw") oval(.32,.441,.16,.046,"#f6d258")
             if (idlePose==="globe") {oval(.71,.14,.18,.20,"#3789ba");oval(.761,.17,.048,.117,"#9acb70")}
             return
         }
-        if (["crow","owl","finch","chicken"].includes(pet.helper.form)) {
+        if (["crow","owl","finch","chicken","falcon"].includes(pet.helper.form)) {
             drawBird(ctx)
             return
         }
@@ -253,8 +261,9 @@ Canvas {
 
     function drawBird(ctx) {
         const wendy=helper.id==="chicken", owl=helper.id==="owl", finch=helper.id==="finch", raven=helper.id==="archive"
-        const tan=wendy ? "#f0d7af" : owl ? "#c6a062" : finch ? "#c3d5a1" : raven ? "#baccc4" : "#6d5668"
-        const bill=wendy || finch ? "#e4af5b" : owl ? "#b98755" : "#191a25"
+        const falcon=helper.form==="falcon"
+        const tan=falcon ? "#b4cdd4" : wendy ? "#f0d7af" : owl ? "#c6a062" : finch ? "#c3d5a1" : raven ? "#baccc4" : "#6d5668"
+        const bill=wendy || finch || falcon ? "#e4af5b" : owl ? "#b98755" : "#191a25"
         for (const side of [-1,1]) {
             const tip=owl ? .46 : finch ? .34 : wendy ? .33 : .46
             for (let i=0;i<6;i++) {
@@ -277,11 +286,22 @@ Canvas {
             for (const side of [-1,1])
                 path(ctx,[.5+side*.11,.37,.5+side*.156,.19,.5+side*.068,.30],helper.skin)
         }
+        if (falcon) {
+            for (let index=0;index<3;index++) {
+                const x=.43+.067*index
+                path(ctx,[x-.027,.28,x-.017,.12+Math.abs(index-1)*.057,x+.022,.259],"#96dce5")
+            }
+            if (strike>0 || idlePose==="frost")
+                for (let index=0;index<6;index++) {
+                    const x=.15+.137*index, y=.19+((index*7)%13)*.049+flap*.10
+                    path(ctx,[x,y-.068,x+.03,y,x,y+.054,x-.024,y],"#bef5ff")
+                }
+        }
         for (const side of [-1,1]) {
             const x=.50+side*(owl ? .095 : .067)
             if (owl || finch) oval(ctx,x-.071,.318,.142,.156,tan)
             oval(ctx,x-.041,.372+fold*.033,.082,.091-fold*.067,"#151420")
-            if (fold < .62) oval(ctx,x-.027,.388,.054,(angry ? .031 : .057)*(1-fold),angry ? "#ff544a" : helper.accent)
+            if (fold < .62) oval(ctx,x-.027,.388,.054,(angry ? .031 : expression==="happy" ? .074 : .057)*(1-fold),angry ? "#ff544a" : helper.accent)
         }
         if (angry) brows(ctx)
         path(ctx,[.451,.475,.55,.475,.52+(raven ? .043 : 0),finch ? .534 : .588,.49,.562],bill)

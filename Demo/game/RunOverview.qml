@@ -193,6 +193,7 @@ ColumnLayout {
             Layout.fillWidth:true
             run:overview.run
             revision:overview.revision
+            paged:true
         }
     }
 }

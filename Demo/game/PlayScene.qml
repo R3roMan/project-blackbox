@@ -88,7 +88,9 @@ FocusScope {
     property bool hudHidden:false
     property int hudTapKey:0
     property real hudFade:hudHidden ? 0 : 1
-    readonly property bool fieldHudVisible:fighting && hudFade>0
+    readonly property bool petHudObscured:{revision;return fighting && !!run.petHudLost}
+    readonly property real petGlitchLeft:{revision;return fighting ? Math.max(0,(run.petGlitchUntil || 0)-run.waveTime) : 0}
+    readonly property bool fieldHudVisible:fighting && hudFade>0 && !petHudObscured
     Behavior on hudFade {NumberAnimation {duration:play.motion ? 175 : 0}}
     signal hudScaleRequested(real scale)
     signal textScaleRequested(real value)
@@ -2791,7 +2793,7 @@ FocusScope {
         readonly property int inset:play.compactLayout ? 12 : 17
         implicitHeight:screen.implicitHeight+menuFooter.implicitHeight+inset*2+9
         // The frame stays put when the selected tab changes. Only its contents scroll.
-        height:play.paused ? Math.max(1,Math.min(parent.height-fieldHeader.height-16,588*Math.sqrt(Ui.UiMetrics.textScale)))
+        height:play.paused ? Math.max(1,parent.height-fieldHeader.height-24)
             : play.phase==="shop" ? Math.min(parent.height*.91,725*Math.sqrt(Ui.UiMetrics.textScale))
             : Math.min(implicitHeight,parent.height*(play.previewing ? .61 : .91))
         decorated:true
@@ -2801,6 +2803,9 @@ FocusScope {
 
         ScrollView {
             id: sheetScroll
+            objectName:"pauseSheet"
+            readonly property bool fittedLoadout:play.paused && ["build","inventory"].includes(play.pauseTab)
+            onFittedLoadoutChanged:if (contentItem) contentItem.contentY=0
             anchors.left:parent.left
             anchors.right:parent.right
             anchors.top:parent.top
@@ -2810,11 +2815,18 @@ FocusScope {
             anchors.topMargin:selectionPanel.inset
             anchors.bottomMargin:9
             contentWidth:availableWidth
+            contentHeight:screen.implicitHeight*screen.scale
             clip:true
             ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
+            ScrollBar.vertical.policy:fittedLoadout ? ScrollBar.AlwaysOff : ScrollBar.AsNeeded
+            Binding {target:sheetScroll.contentItem;property:"interactive";value:false;when:sheetScroll.fittedLoadout}
             ColumnLayout {
                 id: screen
+                objectName:"pauseSheetContent"
                 width:sheetScroll.availableWidth-(sheetScroll.contentHeight>sheetScroll.availableHeight ? 10 : 0)
+                transformOrigin:Item.TopLeft
+                x:sheetScroll.fittedLoadout ? Math.max(0,(sheetScroll.availableWidth-width*scale)*.5) : 0
+                scale:sheetScroll.fittedLoadout ? Math.min(1,sheetScroll.availableHeight/Math.max(1,implicitHeight)) : 1
                 spacing:play.compactLayout ? 8 : 12
 
             Text {
@@ -3384,7 +3396,7 @@ FocusScope {
     }
     PetActionMeter {
         z:14
-        pet:play.fighting && !play.hypnotised && !play.turning ? play.flyingPet : null
+        pet:play.fighting && !play.petHudObscured && !play.hypnotised && !play.turning ? play.flyingPet : null
         world:play.worldItem
         clock:play.elapsed
         revision:play.revision
@@ -3393,7 +3405,7 @@ FocusScope {
     }
     PetActionMeter {
         z:14
-        pet:play.fighting && !play.hypnotised && !play.turning ? play.guestPet : null
+        pet:play.fighting && !play.petHudObscured && !play.hypnotised && !play.turning ? play.guestPet : null
         world:play.worldItem
         clock:play.elapsed
         revision:play.revision
@@ -3402,7 +3414,7 @@ FocusScope {
     }
     PetActionMeter {
         z:14
-        pet:play.fighting && !play.hypnotised && !play.turning ? play.tarotPet : null
+        pet:play.fighting && !play.petHudObscured && !play.hypnotised && !play.turning ? play.tarotPet : null
         world:play.worldItem
         clock:play.elapsed
         revision:play.revision
@@ -3411,7 +3423,7 @@ FocusScope {
     }
     Rectangle {
         z:26
-        visible:play.fighting && !!play.weapon.staff
+        visible:play.fieldHudVisible && !!play.weapon.staff
         width:Math.min(270,play.width*.32);height:40
         anchors.bottom:parent.bottom;anchors.horizontalCenter:parent.horizontalCenter;anchors.bottomMargin:11
         color:"#ee171320";border.color:play.weapon.color;radius:5
@@ -3422,6 +3434,21 @@ FocusScope {
             color:"#fff1e3";font.family:"monospace";font.pixelSize:10
         }
         Rectangle {anchors.left:parent.left;anchors.bottom:parent.bottom;height:3;width:parent.width*Math.min(1,play.runes/Math.max(1,play.runeCost));color:play.weapon.color}
+    }
+    Item {
+        anchors.fill:parent;z:60;visible:play.petGlitchLeft>0 && play.motion
+        Repeater {
+            model:7
+            Rectangle {
+                required property int index
+                x:parent.width*(.10+(index*7%19)*.027)
+                y:parent.height*((index*19+Math.floor(play.elapsed*12)*7)%71)*.014
+                width:parent.width*(.17+(index*27%72)*.01)
+                height:Math.max(2,parent.height*(.002+.0023*(index%3)))
+                color:index%2 ? "#af81ff" : "#94f1d8"
+                opacity:Math.min(.46,play.petGlitchLeft*.8)*(.55+index*.044)
+            }
+        }
     }
     Rectangle {
         anchors.fill:parent;z:70

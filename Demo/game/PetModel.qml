@@ -10,6 +10,7 @@ Node {
     required property real strike
     property bool animate: true
     property string idlePose:"flight"
+    property string expression:"neutral"
     property bool resting: false
     property bool detailed: false
     property real chargeProgress:0
@@ -18,8 +19,8 @@ Node {
     Behavior on fold { enabled:pet.animate; NumberAnimation {duration:430;easing.type:Easing.OutCubic} }
     readonly property bool brain: helper.form === "brain"
     readonly property bool miniShadow: helper.form === "minishade"
-    readonly property bool bird:["crow","owl","finch","chicken"].includes(helper.form)
-    readonly property bool angry: strike > .04
+    readonly property bool bird:["crow","owl","finch","chicken","falcon"].includes(helper.form)
+    readonly property bool angry: strike > .04 || expression==="upset"
     readonly property bool fairy: helper.form === "fairy"
     readonly property bool spriteGirl: fairy || helper.form === "chibi"
     opacity: 1-fold*.23
@@ -88,12 +89,12 @@ Node {
         sourceComponent:BirdPet {
             helper:pet.helper; phase:pet.phase; strike:pet.strike; animate:pet.animate; resting:pet.resting
             detailed:pet.detailed
-            idlePose:pet.idlePose
+            idlePose:pet.idlePose;expression:pet.expression;chargedFlash:pet.chargedFlash
         }
     }
     Loader3D {
         active:pet.helper.form==="surfPrimate"
-        sourceComponent:SurfPrimate {clock:pet.phase;action:pet.idlePose}
+        sourceComponent:SurfPrimate {clock:pet.animate ? pet.phase : 0;action:pet.idlePose;expression:pet.expression}
     }
     Loader3D {
         active:pet.helper.form==="jacko"

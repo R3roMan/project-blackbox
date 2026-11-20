@@ -58,6 +58,7 @@ Item {
         lureStart:"lure-start", lureBreak:"lure-break", inkWindup:"ink-windup", inkFire:"ink-fire",
         endmeBreak:"endme-break", faeelBite:"faeel-bite", orbBolt:"orb-bolt", returnBolt:"return-bolt",
         petBetray:"pet-betray", angelArrival:"angel-arrival", alienArrival:"alien-arrival",
+        petBanana:"pet-banana",petIce:"pet-ice",petMend:"pet-mend",petThumb:"pet-thumb",petLaugh:"pet-laugh",petFlicker:"pet-flicker",
         lalaLaugh:"lala-laugh", winterArrival:"winter-arrival", winterPulse:"winter-pulse",
         bloodMoonArrival:"blood-moon-arrival",bloodBolt:"blood-bolt",bloodDrain:"blood-drain",stoneBreak:"stone-break",
         rainArrival:"rain-arrival",nightArrival:"night-arrival",meteorArrival:"meteor-arrival",thunderStrike:"thunder-strike",

@@ -5,6 +5,7 @@ View3D {
     id: portrait
     property real heading:-18
     property string idlePose:"flight"
+    property string expression:"neutral"
     required property var helper
     property bool detailed:false
     property bool animate:false
@@ -29,5 +30,5 @@ View3D {
     }
     DirectionalLight { eulerRotation:Qt.vector3d(-29,-34,0); brightness:2.1; color:"#ffe1bd"; ambientColor:"#69637c" }
     DirectionalLight { eulerRotation:Qt.vector3d(11,141,0); brightness:1.7; color:"#b4cfff" }
-    PetModel {helper:portrait.helper;idlePose:portrait.idlePose; phase:portrait.clock; strike:0; detailed:portrait.detailed; animate:portrait.animate;resting:portrait.resting; eulerRotation:Qt.vector3d(-7,portrait.heading,0)}
+    PetModel {helper:portrait.helper;idlePose:portrait.idlePose;expression:portrait.expression;phase:portrait.clock; strike:0; detailed:portrait.detailed; animate:portrait.animate;resting:portrait.resting; eulerRotation:Qt.vector3d(-7,portrait.heading,0)}
 }

@@ -36,13 +36,15 @@ var pets = [
     { id:"chicken", title:"Wendy", form:"chicken", skin:"#ae8c66", accent:"#ff6a50", damage:.95, interval:4.05, travel:1.33,
         power:"peck", duty:20, rest:8, description:"Dives beak-first with a forceful peck. It hits harder against enemies close to you." },
     { id:"fairy", title:"Thorn Fairy", form:"fairy", skin:"#436079", accent:"#90e8be", damage:.72, interval:4.40, travel:1.13,
-        power:"mend", duty:23, rest:9, description:"A winged fairy mends 2 HP every third strike. Trades damage for steady healing." },
+        power:"mend", duty:23, rest:9, description:"While you are hurt, each strike has a small chance to heal you. Trades damage for occasional healing." },
     { id:"chibi", title:"Rose Sprite", form:"chibi", skin:"#613751", accent:"#ff83be", damage:.93, interval:4.45, travel:1.34,
         power:"spark", duty:21, rest:9, description:"A pink-haired flying chibi. Every third attack sends a small Electric jump." },
     { id:"minishade", title:"Mini Shadow", form:"minishade", skin:"#21182e", accent:"#cba2ff", damage:1.68, interval:4.45,
         travel:1.07, power:"blind", duty:21, rest:11, description:"Sends bursts of ink that blind targets and make them drift off course.",locked:true },
-    {id:"vesper",title:"Vesper",form:"surfPrimate",skin:"#694899",accent:"#ffd04a",idleOnly:true,damage:.8,interval:4.5,travel:1.2,power:"rush",duty:21,rest:8,
-        description:"A mischievous purple primate with a yellow surfboard, blue wetsuit and a weakness for bananas."},
+    {id:"vesper",title:"Vesper",form:"surfPrimate",skin:"#694899",accent:"#ffd04a",damage:.78,interval:4.8,travel:1.2,power:"banana",duty:21,rest:8,
+        description:"Throws low-damage bananas with Weaken I. Every 30–45 seconds his thumbs-up has a 50% chance to erase a non-boss foe. His laugh can hide your HUD for the rest of the wave."},
+    {id:"frostFalcon",title:"Rime Falcon",form:"falcon",skin:"#274761",accent:"#8cf5ff",damage:.86,interval:4.8,travel:.94,power:"frost",duty:20,rest:10,
+        description:"Throws ice splinters from range. Its charged icicle freezes a target for two seconds unless it resists freeze."},
     {id:"jacko",title:"Jacko",form:"jacko",skin:"#b55322",accent:"#95ef5b",damage:1.21,interval:4.9,travel:1.22,
         power:"greenfire",duty:20,rest:10.5,tarot:true,
         description:"The Devil card lends you a second companion. Jacko attacks with green fire. His charged breath scorches the target and nearby enemies."}
@@ -53,7 +55,8 @@ var attackGestures = {
     moth:[-16,45,-29,9], drake:[37,-21,9,33], kite:[-47,63,-32,49], ray:[20,36,55,8],
     finch:[-31,-45,35,24], beetle:[13,85,-11,14], archive:[-56,17,-31,22], wyvern:[34,50,-20,37],
     firefly:[-9,-70,23,21], warden:[39,-44,25,34], brain:[-22,11,7,40], chicken:[76,-12,18,34],
-    fairy:[-27,77,56,13], chibi:[-31,-49,-46,27], minishade:[51,-28,32,37], jacko:[-28,37,-18,25]
+    fairy:[-27,77,56,13], chibi:[-31,-49,-46,27], minishade:[51,-28,32,37], jacko:[-28,37,-18,25],
+    vesper:[-7,3,17,9], frostFalcon:[38,-56,17,7]
 }
 
 var secondary = {
@@ -62,7 +65,18 @@ var secondary = {
     drake:{title:"Flux breath",every:3,charge:2.45,kind:"burn",power:1.38,description:"A wider breath attack with Burn I."},
     beetle:{title:"Aegis discharge",every:3,charge:2.3,kind:"intercept",power:1.32,description:"Breaks up to two hostile projectiles on its wallpaper before striking."},
     jacko:{title:"Witchfire volley",every:3,charge:2.65,kind:"burn",power:1.38,description:"A spread of green fire that scorches a small cluster with Burn I."},
-    chicken:{title:"Wind-up peck",every:3,charge:2.1,kind:"knockback",power:1.63,description:"A stronger peck that knocks its target back."}
+    chicken:{title:"Wind-up peck",every:3,charge:2.1,kind:"knockback",power:1.63,description:"A stronger peck that knocks its target back."},
+    frostFalcon:{title:"Ice lance",every:2,charge:2.05,kind:"freeze",power:1.42,description:"A crystal lance that freezes for two seconds. Freeze immunity still applies."}
+}
+
+function voice(helper) {
+    const form=helper?.form
+    if (form==="surfPrimate") return {style:"retro",call:"idle-retro",rate:.82,pitch:-.24}
+    if (form==="brain") return {style:"slime",call:"idle-slime",rate:.77,pitch:-.38}
+    if (["kite","wasp","ray","beetle"].includes(form)) return {style:"robot",call:"idle-robot",rate:1.23,pitch:.16}
+    if (["minishade","jacko","bat"].includes(form)) return {style:"shade",call:"idle-shade",rate:.87,pitch:-.35}
+    if (["falcon","fairy","chibi"].includes(form)) return {style:"chime",call:"idle-chime",rate:1.16,pitch:.49}
+    return {style:"bird",call:"idle-chirp",rate:form==="chicken" ? 1.27 : 1.12,pitch:.36}
 }
 
 function attackPose(id, remaining) {
@@ -118,5 +132,6 @@ function deploy(id, level) {
     return { id:id, level:rank, stats:stats, front:"front", lane:-155, elevation:helper.crawl ? -126 : 75, depth:720,
         stamina:stats.duty, resting:0, restLength:0, heading:-1, travel:0, destination:"", next:4.0, flash:0,
         chargeLeft:0, chargeLength:0, chargePending:false, chargedFlash:0, ordinaryStrikes:0,
-        targetId: 0, strikes: 0, aimLane: 0, aimElevation: 0, aimDepth: 0 }
+        targetId: 0, strikes: 0, aimLane: 0, aimElevation: 0, aimDepth: 0,
+        trickAt:0, flickerAt:0, trickPose:"", trickUntil:0 }
 }

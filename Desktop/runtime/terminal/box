@@ -55,6 +55,7 @@ VERBS = {
               "Select an interface theme or mix a Pure Code palette.", ["box theme dark", "box theme custom --accent '#b585ee'", "box theme reset"]),
     "wallpaper": ("ROOM IMAGE|default", "Choose a local image for a room or the cube backdrop.", ["box wallpaper cube ~/Pictures/sky.webp"]),
     "room": ("ROOM", "Go straight to an Idle wallpaper.", ["box room back"]),
+    "exit": ("", "Return to the Shrine and keep your terminal panes open.", ["box exit"]),
     "look": ("left|right|up|down", "Move one turn from the current Idle room.", ["box look left"]),
     "files": ("[FOLDER]", "List a local directory, including hidden files.", ["box files ~/Projects"]),
     "location": ("[FOLDER]", "Resolve a folder for shell commands such as cd.", ['cd "$(box location ~/Projects)" && pwd']),
@@ -395,8 +396,8 @@ def main():
     elif args.command == "look":
         if service("IdleTurn", args.direction).strip() != "true":
             raise ValueError("Wallpaper turns require an active Blackbox Idle session.")
-    elif args.command == "room":
-        if service("IdleRoom", args.face).strip() != "true":
+    elif args.command in ("room", "exit"):
+        if service("IdleRoom", "front" if args.command == "exit" else args.face).strip() != "true":
             raise ValueError("Room selection requires an active Blackbox Idle session.")
     elif args.command == "wallpaper":
         set_option("wallpaper_" + args.face, args.image)

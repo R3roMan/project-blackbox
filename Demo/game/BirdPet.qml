@@ -5,6 +5,8 @@ import QtQuick3D
 Node {
     id: bird
     property string idlePose:"flight"
+    property string expression:"neutral"
+    property real chargedFlash:0
     required property var helper
     required property real phase
     required property real strike
@@ -18,8 +20,9 @@ Node {
     readonly property bool owl:helper.id==="owl"
     readonly property bool finch:helper.id==="finch"
     readonly property bool wendy:helper.id==="chicken"
+    readonly property bool falcon:helper.form==="falcon"
     readonly property real flap:animate ? Math.sin(phase*(owl ? 7 : finch ? 18 : wendy ? 14 : 11))*(1-tuck) : 0
-    readonly property bool attacking:strike>.04
+    readonly property bool attacking:strike>.04 || expression==="upset"
 
     PetFeatherGeometry {id: feather; textured:bird.detailed}
     PetBeakGeometry {id: bill}
@@ -45,7 +48,7 @@ Node {
         id: chest
         textured:bird.detailed
         pattern:plumage.pattern
-        baseColor:bird.wendy ? "#efe0b9" : bird.owl ? "#d5b582" : bird.raven ? "#c0d3cf" : bird.finch ? "#bfd097" : "#675668"
+        baseColor:bird.falcon ? "#b4cdd4" : bird.wendy ? "#efe0b9" : bird.owl ? "#d5b582" : bird.raven ? "#c0d3cf" : bird.finch ? "#bfd097" : "#675668"
         roughness:.78
         normalStrength:.48
         cullMode:Material.NoCulling
@@ -77,16 +80,17 @@ Node {
         normalStrength:.65
         cullMode:Material.NoCulling
     }
-    PrincipledMaterial {id: horn; baseColor:bird.wendy ? "#e5a54e" : bird.finch ? "#eebe69" : bird.owl ? "#a77748" : "#292534"; roughness:.54}
+    PrincipledMaterial {id: horn; baseColor:bird.falcon ? "#e0bb88" : bird.wendy ? "#e5a54e" : bird.finch ? "#eebe69" : bird.owl ? "#a77748" : "#292534"; roughness:.54}
     PrincipledMaterial {id: comb; baseColor:"#d3434d"; roughness:.48}
     PrincipledMaterial {id: pupil; baseColor:"#130e18"; roughness:.34}
-    PrincipledMaterial {id: eye; baseColor:bird.attacking ? "#ff5945" : bird.helper.accent; lighting:PrincipledMaterial.NoLighting}
+    PrincipledMaterial {id: eye; baseColor:bird.falcon && bird.strike>0 ? "#ecffff" : bird.attacking ? "#ff5945" : bird.helper.accent; lighting:PrincipledMaterial.NoLighting}
     PrincipledMaterial {id: catchlight; baseColor:"#fff5de"; lighting:PrincipledMaterial.NoLighting}
+    PrincipledMaterial {id: ice;baseColor:"#91dbe7";roughness:.28;metalness:.25;clearcoatAmount:.66}
 
     Model {
         source:"#Sphere"
         y:bird.wendy ? -9 : -5; z:-8
-        scale:bird.wendy ? Qt.vector3d(.62,.49,.53) : bird.owl ? Qt.vector3d(.59,.57,.42)
+        scale:bird.falcon ? Qt.vector3d(.34,.38,.75) : bird.wendy ? Qt.vector3d(.62,.49,.53) : bird.owl ? Qt.vector3d(.59,.57,.42)
             : bird.finch ? Qt.vector3d(.33,.32,.35) : Qt.vector3d(.42,.40,bird.raven ? .66 : .57)
         materials:[plumage]
     }
@@ -142,14 +146,14 @@ Node {
                 }
                 Model {
                     source:"#Sphere"; z:3
-                    scale:Qt.vector3d(bird.owl ? .074 : .050,bird.resting ? .014 : bird.attacking ? .045 : bird.owl ? .097 : .069,.045)
+                    scale:Qt.vector3d(bird.owl ? .074 : .050,bird.resting ? .014 : bird.attacking ? .045 : bird.expression==="happy" ? .083 : bird.owl ? .097 : .069,.045)
                     materials:[eye]
                 }
                 Model {visible:!bird.resting;source:"#Sphere";x:-1.5;y:1.8;z:5;scale:Qt.vector3d(.019,.020,.013);materials:[catchlight]}
                 Model {
-                    visible:bird.attacking || bird.owl
+                    visible:bird.attacking || bird.owl || bird.expression==="happy"
                     source:"#Sphere"; y:bird.attacking ? 3.9 : 7; z:6
-                    eulerRotation.z:socket.modelData*(bird.attacking ? 27 : 9)
+                    eulerRotation.z:socket.modelData*(bird.attacking ? 27 : bird.expression==="happy" ? -18 : 9)
                     scale:Qt.vector3d(bird.owl ? .175 : .106,.039,.041);materials:[plumage]
                 }
                 Model {
@@ -159,6 +163,16 @@ Node {
                     eulerRotation.z:socket.modelData>0 ? 54 : 126
                     scale:Qt.vector3d(bird.owl ? .17 : .12,.44,.55);materials:[secondaryFlight]
                 }
+            }
+        }
+        Repeater3D {
+            model:bird.falcon ? 3 : 0
+            Model {
+                required property int index
+                source:"#Cone";x:(index-1)*6;y:13+(index===1 ? 4 : 0);z:-6
+                eulerRotation.x:-44;eulerRotation.z:(1-index)*14
+                scale:Qt.vector3d(.078,index===1 ? .265 : .18,.067)
+                materials:[ice]
             }
         }
         Repeater3D {
@@ -173,6 +187,17 @@ Node {
             visible:bird.wendy
             source:"#Sphere"; y:-16; z:18
             scale:Qt.vector3d(.089,.169,.09); materials:[comb]
+        }
+    }
+    Repeater3D {
+        model:bird.falcon && (bird.idlePose==="frost" || bird.strike>0) ? 6 : 0
+        Model {
+            required property int index
+            readonly property real angle:index*Math.PI/3+(bird.animate ? bird.phase*2.4 : .6)
+            source:"#Cone";x:Math.cos(angle)*42;y:Math.sin(angle)*19-3;z:Math.sin(angle)*27
+            eulerRotation.x:42;eulerRotation.z:-40+index*16
+            opacity:bird.idlePose==="frost" ? .75 : Math.min(.92,bird.strike*3+bird.chargedFlash)
+            scale:Qt.vector3d(.04,bird.chargedFlash>0 ? .23 : .14,.052);materials:[ice]
         }
     }
     Repeater3D {
