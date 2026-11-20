@@ -1,11 +1,11 @@
 /Desktop/build/
 /Desktop/stage/
+/.agents/
+/.codex/
+/.aws/
 **/__pycache__/
 *.pyc
 *.log
 *.core
 .env
 .env.*
-/.agents/
-/.codex/
-/.aws/

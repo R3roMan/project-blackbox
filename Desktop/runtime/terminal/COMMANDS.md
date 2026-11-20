@@ -48,6 +48,7 @@ Quote tokens beginning with `=` when using a shell that expands them, for exampl
 | `box theme reset` | Restore the terminal colours supplied by the active KDE appearance. |
 | `box wallpaper ROOM FILE` | Choose an image. Use `default` as the file to restore bundled art. `cube` is the overview backdrop. |
 | `box room ROOM` | Go directly to `front`, `left`, `right`, `up`, `down`, or `back` in Idle. |
+| `box exit` | Return to the Shrine. Terminal panes stay open for your next visit. |
 | `box look DIRECTION` | Turn one step left, right, up, or down. |
 | `box files [FOLDER]` | List a local folder, including hidden entries. Defaults to your current folder. |
 | `box location [FOLDER]` | Resolve a folder to an absolute path. Use `cd "$(box location FOLDER)"` to enter it. |
@@ -55,12 +56,12 @@ Quote tokens beginning with `=` when using a shell that expands them, for exampl
 | `box report [TEXT]` | Save a report to the local issue ledger. With no text, open the reporter where you can add an optional screenshot. |
 | `box reset settings --yes` | Restore Blackbox desktop preferences and keep your artwork and saves. |
 | `box reset images --yes` | Restore bundled images and keep your preferences and saves. |
-| `box admin [-password =PHRASE]` | Unlock game practice for the current Pure Code shell for 15 minutes. The interactive prompt keeps the phrase out of shell history. |
-| `box admin --lock` | Lock game practice for this shell. |
+| `box admin [-password =PHRASE]` | Unlock game practice for your Blackbox desktop profile until you lock it. The interactive prompt keeps the phrase out of shell history. |
+| `box admin --lock` | Lock game practice for this desktop profile. |
 
 ## Game practice
 
-`box admin` enables Blackbox game commands in that shell. Normal Linux account permissions still apply. Practice commands apply to the setup screen before a wave. For example, run `box debug practice 20 --difficulty hard --build star && box debug money on`.
+`box admin` enables Blackbox game-practice commands in your desktop profile across shells and restarts. Normal Linux account permissions still apply. Practice commands apply to the setup screen before a wave. For example, run `box debug practice 20 --difficulty hard --build star && box debug money on`.
 
 | Command | What it does |
 | --- | --- |

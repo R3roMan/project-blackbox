@@ -85,6 +85,10 @@ Item {
         confinedSince=0
         wander()
     }
+    function canReach(x,y) {
+        return !confined || x>=enclosure.x && x<=enclosure.x+enclosure.width
+            && y>=enclosure.y && y<=enclosure.y+enclosure.height
+    }
     function updateEnclosure(now) {
         if (!enclosureArmed || enclosure.width<1 || enclosure.height<1) {
             releaseEnclosure()
@@ -112,13 +116,13 @@ Item {
         if (next==="inside") poseScale=.53
         else if (next!=="typing") poseScale=1
     }
-    function flyTo(x,y,seconds=1.8) {
+    function flyTo(x,y,seconds=1.8,scale=1) {
         routePoints=[]
         routeAnimation=""
         actionUntil=0
         perch=null
         landedOn=""
-        beginFlight(x-petWidth*.5,y-petWidth*.35,"flight",seconds)
+        beginFlight(x-petWidth*scale*.5,y-petWidth*scale*.35,"flight",seconds,scale)
     }
     function route(points,seconds,animation="") {
         routePoints=points

@@ -311,6 +311,7 @@ View3D {
         readonly property var helper: Pets.spec(petAnchor.pet ? petAnchor.pet.id : "crow")
         readonly property real flash: { world.revision; return petAnchor.pet ? petAnchor.pet.flash : 0 }
         readonly property var gesture: Pets.attackPose(helper.id, world.motion ? flash : 0)
+        readonly property string trickPose:{world.revision;return pet?.trickLeft>0 ? pet.trickPose : ""}
         readonly property var flight:{
             world.revision
             return pet ? Pets.flight(pet,world.elapsed,world.motion) : {lane:0,elevation:0,depth:900,pitch:0,yaw:0,bank:0}
@@ -325,6 +326,7 @@ View3D {
             detailed:world.detail>=2 && !!petAnchor.pet
             phase: world.elapsed
             strike: petAnchor.flash
+            idlePose:petAnchor.trickPose || (petAnchor.helper.id==="vesper" && petAnchor.flash>0 ? "throw" : "flight")
             resting: { world.revision; return petAnchor.pet ? petAnchor.pet.resting > 0 : false }
             animate: world.motion
             chargeProgress:{
@@ -347,7 +349,8 @@ View3D {
             materials:PrincipledMaterial {baseColor:Ui.FieldStyle.petGlow;lighting:PrincipledMaterial.NoLighting}
         }
         Repeater3D {
-            model: petAnchor.helper.form === "bat" || petAnchor.helper.form === "chicken" ? 3 : 5
+            model:["surfPrimate","falcon"].includes(petAnchor.helper.form) ? 0
+                : petAnchor.helper.form === "bat" || petAnchor.helper.form === "chicken" ? 3 : 5
             delegate: Model {
                 required property int index
                 readonly property real blend: (index + 1) / 6
@@ -372,6 +375,33 @@ View3D {
                     lighting: PrincipledMaterial.NoLighting
                 }
             }
+        }
+        Node {
+            id:petShot
+            readonly property bool banana:petAnchor.helper.form==="surfPrimate"
+            readonly property bool frost:petAnchor.helper.form==="falcon"
+            readonly property real flight:Math.max(0,Math.min(1,1-petAnchor.flash/.45))
+            visible:(banana || frost) && petAnchor.flash>0
+            position:{
+                world.revision
+                const pet=petAnchor.pet
+                if (!pet) return Qt.vector3d(0,0,0)
+                return Qt.vector3d(pet.lane+(pet.aimLane-pet.lane)*flight,
+                    pet.elevation+(pet.aimElevation-pet.elevation)*flight+Math.sin(flight*Math.PI)*(banana ? 109 : 17),
+                    -pet.depth+(pet.depth-pet.aimDepth)*flight)
+            }
+            eulerRotation:Qt.vector3d(banana ? 25 : 65,banana ? flight*230 : 0,banana ? flight*300 : -38)
+            PrincipledMaterial {id:projectileMaterial;baseColor:petShot.banana ? "#ffe071" : "#adf1ff";roughness:petShot.banana ? .54 : .27;clearcoatAmount:.55}
+            Repeater3D {
+                model:petShot.banana && petShot.visible ? 4 : 0
+                Model {
+                    required property int index
+                    x:(index-1.5)*5;y:(index===1 || index===2 ? 0 : 3)
+                    source:"#Sphere";eulerRotation.z:(index-1.5)*20
+                    scale:Qt.vector3d(.083,.040,.047);materials:[projectileMaterial]
+                }
+            }
+            Model {visible:petShot.frost && petShot.visible;source:"#Cone";scale:Qt.vector3d(.075,.33,.105);materials:[projectileMaterial]}
         }
     }
 

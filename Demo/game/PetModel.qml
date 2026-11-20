@@ -226,14 +226,14 @@ Node {
                     Model {
                         source: "#Sphere"
                         z: 4
-                        scale: Qt.vector3d(pet.angry ? .066 : .050, pet.resting ? .017 : pet.angry ? .048 : .079, .04)
+                        scale: Qt.vector3d(pet.angry ? .066 : .050, pet.resting ? .017 : pet.angry ? .048 : pet.expression==="happy" ? .094 : .079, .04)
                         materials: [glow]
                     }
                     Model {
-                        visible: pet.angry
+                        visible: pet.angry || pet.expression==="happy"
                         source: "#Cube"
                         y: 4.5; z: 6
-                        eulerRotation.z: brow.side * 25
+                        eulerRotation.z: brow.side * (pet.angry ? 25 : -17)
                         scale: Qt.vector3d(.094,.027,.044)
                         materials: [dark]
                     }

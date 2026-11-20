@@ -213,13 +213,26 @@ FocusScope {
     function petTerminalReady(room) {
         return currentPetRoom()===room && (room==="back" ? !!pureCode.item?.visible : !!extraTerminal.item?.visible)
     }
-    function flyPetToTerminal(room) {
+    function petTerminalTarget(room) {
+        if (!petTerminalReady(room)) return null
         const surface=room==="back" ? pureCode : extraTerminal
         const point=surface.mapToItem(idleInput,surface.width*.52,surface.height*.48)
-        companionLoader.item?.flyTo(point.x,point.y,.95)
+        const pet=companionLoader.item
+        if (!pet?.confined) return point
+        const corner=surface.mapToItem(idleInput,0,0), cage=pet.enclosure
+        const left=Math.max(corner.x,cage.x), top=Math.max(corner.y,cage.y)
+        const right=Math.min(corner.x+surface.width,cage.x+cage.width)
+        const bottom=Math.min(corner.y+surface.height,cage.y+cage.height)
+        return right-left>=25 && bottom-top>=25 ? Qt.point((left+right)*.5,(top+bottom)*.5) : null
+    }
+    function flyPetToTerminal(room) {
+        const point=petTerminalTarget(room)
+        if (!point) return false
+        companionLoader.item?.flyTo(point.x,point.y,.95,.57)
+        return true
     }
     function placePetDraft(room,text) {
-        if (!petTerminalReady(room)) return false
+        if (!petTerminalTarget(room)) return false
         return (room==="back" ? pureCode.item : extraTerminal.item).stageDraft(text)
     }
     function petGame(action) {
@@ -708,8 +721,14 @@ FocusScope {
         }
         function onPetCommandRequested(args) {
             if (!host.claimed) return
-            const reply=petAssistant.operate(args)
-            Native.Desktop.petReply(reply.ok,reply.message)
+            try {
+                const reply=petAssistant.operate(args)
+                Native.Desktop.petReply(reply.ok,reply.message)
+            } catch (error) {
+                console.warn("Blackbox pet task:",error)
+                petAssistant.recover()
+                Native.Desktop.petReply(false,petAssistant.record("Recovered from a failed task. Try again."))
+            }
             host.report()
         }
         function onCommandRequested(name) {
@@ -935,17 +954,19 @@ FocusScope {
         onReleased:host.changePetBox("open")
         onRemoved:host.changePetBox("remove")
     }
-    function petFilePerch(path) {
+    function petFilePerch(path,exact=false) {
+        const surfaces=petPerches()
+        if (exact) return surfaces.find(surface=>surface.path===path || surface.kind==="folder" && surface.path && path.startsWith(surface.path+"/")) || null
         const name=path.split("/").pop()
-        return petPerches().find(surface=>surface.label===name) || null
+        return surfaces.find(surface=>surface.path===path) || surfaces.find(surface=>surface.label===name) || null
     }
     function petPerches() {
         const perches=[]
-        function add(item,key,kind,label="") {
+        function add(item,key,kind,label="",path="") {
             if (!item?.visible || item.width<9 || item.height<9) return
             const pos=item.mapToItem(host,0,0)
             if (pos.y+item.height>0 && pos.y<host.height-host.areaBottom && pos.x+item.width>0 && pos.x<host.width)
-                perches.push({key,kind,label,x:pos.x,y:Math.max(host.areaTop+25,pos.y+Math.min(8,item.height*.12)),width:item.width})
+                perches.push({key,kind,label,path,x:pos.x,y:Math.max(host.areaTop+25,pos.y+Math.min(8,item.height*.12)),width:item.width})
         }
         if (!home) {
             for (const entry of Native.Desktop.appPerches) {
@@ -960,7 +981,11 @@ FocusScope {
         const folder=desktopInputParent?.folderViewLayer?.view?.view
             || desktopInputParent?.folderViewLayer?.item?.view?.view
         for (const child of folder?.contentItem?.children || []) {
-            if (child.blank===false && child.iconArea) add(child.iconArea,child,child.isDir ? "folder" : "icon",child.display || "")
+            if (child.blank===false && child.iconArea) {
+                const url=String(child.linkDestinationUrl || "")
+                const path=url.startsWith("file:") ? Native.Desktop.petPath(url) : ""
+                add(child.iconArea,child,child.isDir ? "folder" : "icon",child.display || "",path)
+            }
         }
         for (const child of desktopInputParent?.appletsLayout?.children || []) {
             if (child.applet) add(child,child,"widget")

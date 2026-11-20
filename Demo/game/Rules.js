@@ -2117,9 +2117,8 @@ function wound(run, enemy, amount, source, element, level, impact) {
         if (!resisted && enemy.hp > 0 && random(run) < Elements.electricStun(level))
             applyToEnemy(run, enemy, "stun", 1)
     } else if (element && dealt > 0) {
-        applyToEnemy(run, enemy, element, level, Object.assign({},
-            impact?.durationScale ? {durationScale:impact.durationScale} : null,
-            impact?.forceFreeze ? {forceFreeze:true} : null))
+        applyToEnemy(run, enemy, element, level, impact?.forceFreeze ? {forceFreeze:true}
+            : impact?.durationScale ? {durationScale:impact.durationScale} : null)
         if (element === "burn" && !Conditions.isRain(run.weatherEffect))
             enemy.infernoBurn = false
     }
@@ -4841,12 +4840,12 @@ function vesperTrick(run,pet) {
             && (enemy.type!=="archfellanus" || !Abyss.mirror(enemy.age)))
         if (!choices.length) return
         const enemy=sample(run,choices)
-        pet.trickPose="thumbs";pet.trickUntil=run.waveTime+1.55
+        pet.trickPose="thumbs";pet.trickLeft=1.55
         wound(run,enemy,enemy.hp,pet,"",0,{petFinish:true})
         passiveVisual(run,"vesperThumb",enemy.front,"void","companion",arcPoint(enemy),"",.5)
         announce(run,null,"petThumb")
     } else if (chance<.62 && !run.petHudLost) {
-        pet.trickPose="laugh";pet.trickUntil=run.waveTime+1.7
+        pet.trickPose="laugh";pet.trickLeft=1.7
         run.petGlitchUntil=run.waveTime+1.30
         run.petHudLost=true
         announce(run,null,"petLaugh")
@@ -4861,6 +4860,7 @@ function updatePet(run, pet, dt) {
         return enemy.type === "archfellanus" && enemy.front === run.playerFront && enemy.hp > 0 && !enemy.warp
     })
     pet.hostile = !!fallen
+    if (pet.trickLeft>0) pet.trickLeft=Math.max(0,pet.trickLeft-dt)
     if (helper.id==="vesper" && !fallen) vesperTrick(run,pet)
     pet.next = Math.max(0, pet.next - dt)
     pet.flash = Math.max(0, pet.flash - dt)

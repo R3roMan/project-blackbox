@@ -14,6 +14,8 @@ Item {
     readonly property string petName:pet?.helper.title || "Pet"
     readonly property bool wendy:pet?.helper.id==="chicken"
     readonly property bool mischievous:pet?.helper.id==="vesper"
+    readonly property var petVoice:Pets.voice(pet?.helper)
+    property int lastMelody:0
     property real mood:.5
     property string pendingTitle:""
     property string approvalLabel:"Approve"
@@ -51,6 +53,7 @@ Item {
         queuedVisit=null
         cancel(false)
         cancelDraft()
+        if (!enabledAdmin) desktopHost.changePetBox("remove")
         player.stop()
         if (!enabledAdmin) desktopHost.dismissPetConsole()
     }
@@ -112,7 +115,12 @@ Item {
         if (!pending || !enabledAdmin || !desktopHost.home || Native.Desktop.sessionLocked || Date.now()>approveBy) {cancel();return}
         const action=pending
         cancel(false)
-        action()
+        try {action()}
+        catch (error) {
+            console.warn("Blackbox pet approval:",error)
+            recover()
+            record("Recovered from a failed task. Check the target before retrying.")
+        }
     }
     function confirm(label,action,button="Approve") {
         if (pending) return result(false,"Resolve the pending action first.")
@@ -128,6 +136,7 @@ Item {
         const line=text.trim().slice(0,150)
         pet?.say(line)
         if (spoken && !muted && line && Ui.SoundMix.master>0 && Ui.SoundMix.ambience>0) {
+            if (petVoice.style==="slime") {pet?.chirp();return}
             voiceRequest=line
             if (voice.item) voice.item.speak(line)
         }
@@ -151,12 +160,26 @@ Item {
         return result(true,"On my way.")
     }
     function cancelDraft() {typedText="";draft="";draftRoom="";draftArrival=0}
+    function recover() {
+        cancel(false)
+        cancelDraft()
+        visitTimer.stop()
+        queuedVisit=null
+        player.stop()
+        voice.item?.stopSpeech()
+        if (pet?.roaming) pet.wander()
+    }
     function code(text) {
         if (!text || text.length>1200 || /[\r\n\t\u0000-\u001f\u007f]/.test(text))
             return result(false,"Use one printable line for a shell draft.")
+        if (pet?.confined && !desktopHost.petTerminalTarget(desktopHost.currentPetRoom()))
+            return result(false,"That terminal is outside the cage.")
         return confirm("Insert a shell draft for your review?\n"+text,()=>{
             desktopHost.dismissPetConsole()
             draftRoom=desktopHost.currentPetRoom()
+            if (pet?.confined && !desktopHost.petTerminalTarget(draftRoom)) {
+                record("That terminal is outside the cage.");cancelDraft();return
+            }
             if (!desktopHost.summonPetTerminal(draftRoom)) {record("The terminal is unavailable.");cancelDraft();return}
             draft=text
             typedText=""
@@ -164,9 +187,19 @@ Item {
             draftTimeout=Date.now()+8500
         },"Insert draft")
     }
+    function canReachFile(path) {
+        if (!pet?.confined) return true
+        const icon=desktopHost.petFilePerch(Native.Desktop.petPath(path),true)
+        return !!icon && pet.canReach(icon.x+icon.width*.5,icon.y)
+    }
     function fileTask(op,path,extra,visit=true) {
+        if (pet?.confined && (["volume","close-app"].includes(op) || !canReachFile(path) || op==="fetch" && !canReachFile(extra))) {
+            const message="That target is outside the cage."
+            record(message)
+            return {ok:false,message:message}
+        }
         if (visit && pet && ["open","reveal"].includes(op)) {
-            const surface=desktopHost.petFilePerch(Native.Desktop.petPath(path))
+            const surface=desktopHost.petFilePerch(Native.Desktop.petPath(path),pet.confined)
             if (surface) {
                 pet.flyTo(surface.x+surface.width*.5,surface.y,1)
                 queuedVisit={op,path,extra,room:desktopHost.currentPetRoom()}
@@ -192,7 +225,8 @@ Item {
             return topic ? result(false,"Unknown help topic. Try pet help.")
                 : result(true,"Groups: flight · care · show · tasks\nTry pet help tasks or box help -pet =commands.")
         }
-        if (name==="status") return result(true,pendingTitle || "No approval pending.")
+        if (name==="status") return result(true,pendingTitle || (draft ? "Typing a shell draft." : queuedVisit ? "Visiting a desktop icon."
+            : pet?.confined ? "Inside the enclosure." : "Ready."))
         const spec=index[name]
         if (!spec) return result(false,"Unknown pet command. Try pet help.")
         const type=spec.operation
@@ -210,6 +244,13 @@ Item {
         if (type==="report") return result(Native.Desktop.boxReport(text),text ? "Report saved locally." : "Opening the local bug reporter.")
         if (!pet || !desktopHost.ambientMode && !["save","load","auto"].includes(type))
             return result(false,"The pet is available in Idle.")
+        if (type==="box") {
+            if (text && !["open","close","remove"].includes(text)) return result(false,"Use pet box [open|close|remove].")
+            return result(true,desktopHost.changePetBox(text))
+        }
+        if (type==="recover") {recover();return result(true,"Ready for a new task.")}
+        if (pet?.confined && ["battle","auto","save","load","close-app","volume"].includes(type))
+            return result(false,"That control is outside the cage.")
         if (!["stop","hush"].includes(type) && now<refuseUntil)
             return result(false,"I need a break. Try again shortly.")
         if (type==="awake") {
@@ -238,18 +279,28 @@ Item {
         if (type==="hush") {player.stop();voice.item?.stopSpeech();pet.say("");return result(true,"Quiet now.")}
         if (type==="sing") {
             if (muted) return result(false,"Use pet unquiet first.")
-            const path=Native.Desktop.petPath(text)
-            if (!path || !/\.(wav|ogg|flac|mp3|m4a|opus|aac)$/i.test(path)) return result(false,"Choose a supported local audio file.")
-            if (!Native.Desktop.petTask("locate",path,"").ok) return result(false,"Audio file not found.")
-            player.source=Qt.resolvedUrl("file://"+encodeURI(path).replace(/#/g,"%23").replace(/\?/g,"%3F"))
+            player.stop()
+            player.originalTune=!text
+            if (!text) {
+                lastMelody=(lastMelody+1+Math.floor(Math.random()*2))%3
+                player.source=Qt.resolvedUrl("../Demo/audio/pet-song-"+petVoice.style+"-"+(lastMelody+1)+".wav")
+            } else {
+                const path=Native.Desktop.petPath(text)
+                if (!path || !/\.(wav|ogg|flac|mp3|m4a|opus|aac)$/i.test(path)) return result(false,"Choose a supported local audio file.")
+                if (!Native.Desktop.petTask("locate",path,"").ok) return result(false,"Audio file not found.")
+                player.source=Qt.resolvedUrl("file://"+encodeURI(path).replace(/#/g,"%23").replace(/\?/g,"%3F"))
+            }
             player.play()
             pet.perform("sing",12)
             return result(true,"Singing.")
         }
-        if (type==="transform") {
-            const form=Pets.pets.find(p=>p.id.toLowerCase()===text.toLowerCase() || p.title.toLowerCase()===text.toLowerCase())
+        if (type==="transform" || type==="shop") {
+            const named=text.toLowerCase()
+            const alias=type==="shop" || named==="pet shop" ? "frostfalcon" : ["bonzi","bonzi buddy","bonzibuddy"].includes(named) ? "vesper" : named
+            const form=Pets.pets.find(p=>p.id.toLowerCase()===alias || p.title.toLowerCase()===alias)
             if (!form) return result(false,"Unknown form. Try pet forms.")
             pet.transformInto(form)
+            if (type==="shop") pet.perform("frost",4.4)
             return result(true,"Now "+form.title+".")
         }
         if (type==="sweep") {pet.sweep();adjust(.08);return result(true,"This wallpaper is clean.")}
@@ -275,11 +326,13 @@ Item {
             const point=text.split(",").map(Number)
             if (point.length!==2 || !/^\d+,\s*\d+$/.test(text) || point[0]>16384 || point[1]>16384)
                 return result(false,"Use X,Y in logical pixels.")
+            if (!pet.canReach(point[0],point[1])) return result(false,"That point is outside the cage.")
             pet.flyTo(point[0],point[1])
             return result(true,"Flying there.")
         }
         if (["come","chase","locate"].includes(type) && (!text || text==="me")) {
             if (pet.cursor.x<0) return result(false,"Move the pointer over the wallpaper first.")
+            if (!pet.canReach(pet.cursor.x,pet.cursor.y)) return result(false,"The pointer is outside the cage.")
             if (type==="chase") pet.startCuriosity()
             else pet.flyTo(pet.cursor.x,pet.cursor.y)
             return result(true,"Pointer at "+Math.round(pet.cursor.x)+","+Math.round(pet.cursor.y)+".")
@@ -291,12 +344,17 @@ Item {
             return result(true,info[name])
         }
         if (type==="code") return code(text)
-        if (type==="terminal") return result(desktopHost.summonPetTerminal(text || desktopHost.currentPetRoom()),"Terminal requested.")
+        if (type==="terminal") {
+            const room=text || desktopHost.currentPetRoom()
+            if (pet?.confined && !desktopHost.petTerminalTarget(room)) return result(false,"That terminal is outside the cage.")
+            const opened=desktopHost.summonPetTerminal(room)
+            return result(opened,opened ? "Terminal requested." : "That wallpaper is unavailable.")
+        }
         if (type==="save") return result(desktopHost.petGame("save"),"Checkpoint save requested.")
         if (["battle","auto","load"].includes(type)) return confirm(type==="load" ? "Load the saved expedition?" :
             type==="auto" ? "Enable Auto or begin an eligible expedition?" : "Begin a Normal expedition?",()=>{
             desktopHost.dismissPetConsole()
-            record(desktopHost.petGame(type) ? "Game action requested." : "That game action is unavailable.")
+            record(pet?.confined ? "That control is outside the cage." : desktopHost.petGame(type) ? "Game action requested." : "That game action is unavailable.")
         })
         if (type==="close-app") {
             const window=Native.Desktop.petWindow()
@@ -319,6 +377,8 @@ Item {
             if (to<1 || to===argv.length-1) return result(false,"Use pet fetch SOURCE to DESTINATION.")
             const source=Native.Desktop.petPath(argv.slice(0,to).join(" "))
             const target=argv.slice(to+1).join(" ")
+            const reachable=target==="me" ? pet.canReach(pet.cursor.x,pet.cursor.y) : canReachFile(target)
+            if (!canReachFile(source) || !reachable) return result(false,"That address is outside the cage.")
             if (target==="me") {
                 const file=Native.Desktop.petTask("locate",source,"")
                 if (!file.ok) return result(false,file.message)
@@ -340,10 +400,12 @@ Item {
             const path=Native.Desktop.petPath(argv.slice(0,separator).join(" "))
             const content=argv.slice(separator).join(" ").slice(1).trim()
             if (!content) return result(false,"Give me text to append.")
+            if (!canReachFile(path)) return result(false,"That file is outside the cage.")
             return confirm("Append this text to “"+path+"”?\n"+content,()=>{pet.perform("typing",3);fileTask(type,path,content)})
         }
         if (type==="mkdir" && text) {
             const path=Native.Desktop.petPath(text)
+            if (!canReachFile(path)) return result(false,"That folder is outside the cage.")
             return confirm("Create folder “"+path+"”?",()=>fileTask(type,path))
         }
         return result(false,"Missing argument. Try pet help "+spec.name+".")
@@ -359,8 +421,10 @@ Item {
         onTriggered:{
             const visit=assistant.queuedVisit
             assistant.queuedVisit=null
-            if (!visit || !assistant.enabledAdmin || !assistant.desktopHost.home || Native.Desktop.sessionLocked
-                || visit.room!==assistant.desktopHost.currentPetRoom()) return
+            if (!visit || !assistant.enabledAdmin || Native.Desktop.sessionLocked) return
+            if (!assistant.desktopHost.home || visit.room!==assistant.desktopHost.currentPetRoom()) {
+                assistant.record("Visit cancelled when the wallpaper changed.");return
+            }
             assistant.fileTask(visit.op,visit.path,visit.extra,false)
         }
     }
@@ -371,9 +435,11 @@ Item {
         source:active ? Qt.resolvedUrl("PetVoice.qml") : ""
         onLoaded:if (!assistant.muted) item.speak(assistant.voiceRequest)
     }
+    Binding {target:voice.item;property:"pitch";value:assistant.petVoice.pitch;when:!!voice.item}
     MediaPlayer {
         id:player
-        playbackRate:assistant.wendy ? 1.27 : assistant.mischievous ? .81 : 1.12
+        property bool originalTune:false
+        playbackRate:originalTune ? 1 : assistant.petVoice.rate
         audioOutput:AudioOutput {volume:assistant.muted ? 0 : Ui.SoundMix.master*Ui.SoundMix.ambience*.65}
         Component.onCompleted:if ("pitchCompensation" in player) player.pitchCompensation=false
         onErrorOccurred:assistant.record("Could not play that audio file.")
@@ -395,7 +461,8 @@ Item {
         interval:9000
         onTriggered:{
             const roll=Math.random()
-            if (assistant.pet.droppingCount>20) assistant.adjust(-.035)
+            if (assistant.pet.confinedSince && Date.now()-assistant.pet.confinedSince>=30*60*1000) assistant.adjust(-.028)
+            else if (assistant.pet.droppingCount>20) assistant.adjust(-.035)
             else if (Math.random() < (assistant.mischievous ? .14 : .065)) assistant.adjust(-.12)
             else assistant.adjust(assistant.mood<.5 ? .025 : -.015)
             if (assistant.pet.pose==="sleep" || !assistant.pet.roaming) return
@@ -423,7 +490,13 @@ Item {
             if (!assistant.enabledAdmin || !assistant.desktopHost.home || Native.Desktop.sessionLocked || Date.now()>assistant.draftTimeout) {
                 assistant.record("Draft cancelled.");assistant.cancelDraft();return
             }
+            if (assistant.draftRoom!==assistant.desktopHost.currentPetRoom()) {
+                assistant.record("Draft cancelled when the wallpaper changed.");assistant.cancelDraft();return
+            }
             if (!assistant.desktopHost.petTerminalReady(assistant.draftRoom)) return
+            if (!assistant.desktopHost.petTerminalTarget(assistant.draftRoom)) {
+                assistant.record("That terminal moved outside the cage.");assistant.cancelDraft();return
+            }
             if (!assistant.draftArrival) {
                 assistant.desktopHost.flyPetToTerminal(assistant.draftRoom)
                 assistant.draftArrival=Date.now()+1050
@@ -435,7 +508,7 @@ Item {
             assistant.typedText=assistant.draft.slice(0,assistant.typedText.length+step)
             if (assistant.typedText===assistant.draft) {
                 const placed=assistant.desktopHost.placePetDraft(assistant.draftRoom,assistant.draft)
-                assistant.record(placed ? "Draft inserted. Review it before pressing Enter." : "The shell is unavailable.")
+                assistant.record(placed ? "Draft inserted. Review it before pressing Enter." : "Wait for the shell prompt, then retry pet code.")
                 assistant.cancelDraft()
             }
         }

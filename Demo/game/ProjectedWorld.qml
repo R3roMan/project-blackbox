@@ -939,6 +939,11 @@ Item {
             helper: Pets.spec(companion.model ? companion.model.id : "crow")
             motion: world.motion
             strike: { world.revision; return companion.model ? companion.model.flash : 0 }
+            idlePose:{
+                world.revision
+                return companion.model?.trickLeft>0 ? companion.model.trickPose
+                    : helper.id==="vesper" && strike>0 ? "throw" : "flight"
+            }
             readonly property var gesture: Pets.attackPose(helper.id, world.motion ? strike : 0)
             visible: { world.revision; return !world.hypnotised && !!companion.model && companion.model.front === world.frontId }
             readonly property var pose: {
@@ -958,6 +963,7 @@ Item {
             rotation: gesture[2]+gesture[1]*.18+pose.bank
         }
         Rectangle {
+            id:petTrail
             readonly property real flash: { world.revision; return companion.model ? companion.model.flash : 0 }
             readonly property var hit: {
                 world.revision
@@ -970,10 +976,36 @@ Item {
             width: Math.hypot(hit.x - x, hit.y - y)
             transformOrigin: Item.Left
             rotation: Math.atan2(hit.y - y, hit.x - x) * 180 / Math.PI
-            visible: pet.visible && flash > 0
+            visible:pet.visible && flash>0 && !["surfPrimate","falcon"].includes(pet.helper.form)
             opacity: flash * 1.65
             color: pet.helper.accent
             z: 2002
+        }
+        Canvas {
+            readonly property bool banana:pet.helper.form==="surfPrimate"
+            readonly property real travel:Math.max(0,Math.min(1,1-pet.strike/.45))
+            visible:pet.visible && pet.strike>0 && (banana || pet.helper.form==="falcon")
+            width:banana ? 25 : 16;height:banana ? 14 : 28
+            x:pet.point.x+(petTrail.hit.x-pet.point.x)*travel-width*.5
+            y:pet.point.y+(petTrail.hit.y-pet.point.y)*travel-height*.5-Math.sin(travel*Math.PI)*(banana ? 75 : 14)
+            rotation:banana ? travel*400 : 58
+            z:2002
+            onBananaChanged:requestPaint()
+            onVisibleChanged:if (visible) requestPaint()
+            onPaint:{
+                const ctx=getContext("2d")
+                ctx.reset();ctx.clearRect(0,0,width,height);ctx.scale(width,height)
+                ctx.beginPath()
+                if (banana) {
+                    ctx.moveTo(.05,.18);ctx.quadraticCurveTo(.56,1,.97,.15)
+                    ctx.quadraticCurveTo(.65,1.33,.05,.18)
+                    ctx.fillStyle="#ffe36d"
+                } else {
+                    ctx.moveTo(.53,.04);ctx.lineTo(.93,.65);ctx.lineTo(.47,.96);ctx.lineTo(.06,.58)
+                    ctx.fillStyle="#93ddff"
+                }
+                ctx.closePath();ctx.fill()
+            }
         }
     }
     FieldPet { model: world.flyingPet }

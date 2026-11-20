@@ -7,6 +7,10 @@ pet say hello
 pet transform Vesper
 pet banana
 pet locate me
+pet box
+pet box open
+pet shop
+pet sing
 pet folder "~/Projects"
 pet fetch "notes.txt" to me
 pet write in "notes.txt" -Remember the Shrine
@@ -21,7 +25,9 @@ In this reference, **[ ]** mark optional arguments, **+** adds a second help bra
 
 The mini console shows the mood and pending actions. Approve file copies, text appends, folder creation, app closes, volume changes, battle or load requests, and terminal drafts there. The pet can open a local file or show its location. A fetch to `me` produces a clickable file card. Pass a shell draft as one quoted argument to preserve its own quoting. The pet types it into a Blackbox shell while its prompt has focus. Press Enter yourself to run the draft. Idle antics use the pet’s own log and animation.
 
-Mute pet audio with `pet quiet` and restore it with `pet unquiet`. `pet sing` pitches playback of a supported local audio file and animates singing. Mood changes come from attention, dragging, repeated waking, droppings and occasional whims. A rush of commands makes the pet nap. Vesper gets annoyed faster. Wendy moves faster and stays at neutral or higher. Switching Pet admin off and back on resets mood and cancels pending actions.
+Mute pet audio with `pet quiet` and restore it with `pet unquiet`. `pet sing` chooses a short melody in the current pet’s voice. Giving it a file pitches the playback. Mood changes come from attention, dragging, repeated waking, droppings and occasional whims. A rush of commands makes the pet nap. Vesper gets annoyed faster. Wendy moves faster and stays at neutral or higher. Switching Pet admin off and back on resets mood and cancels pending actions.
+
+Use `pet box` to place an armed enclosure. Drag its title to move it and its lower-right corner to resize it. Let the pet fly in or drag it in. The enclosure follows the wallpaper switch. From inside, the pet can only reach objects within the enclosure. After 30 minutes inside, the pet starts to lose patience. Use `pet box open` to release it or `pet box remove` to put the enclosure away.
 
 ## Flight
 
@@ -32,6 +38,8 @@ Mute pet audio with `pet quiet` and restore it with `pet unquiet`. `pet sing` pi
 | `pet chase` | — | Follow the cursor for a few seconds. |
 | `pet stop` | — | Cancel the current activity and hover in place. |
 | `pet resume` | — | Resume ordinary roaming. |
+| `pet box` | [open\|close\|remove] | Place, release, arm, or remove the enclosure. |
+| `pet recover` | — | Clear a pending or stuck task and resume roaming. |
 | `pet perch` | — | Land on an available folder, file, widget, or window. |
 | `pet land` | — | Land at the bottom of this wallpaper. |
 | `pet circle` | — | Fly a circle around the work area. |
@@ -64,6 +72,7 @@ Mute pet audio with `pet quiet` and restore it with `pet unquiet`. `pet sing` pi
 | `pet quiet` | — | Mute all pet sounds and stop singing. |
 | `pet unquiet` | — | Allow pet sounds again. |
 | `pet transform` | NAME | Change into any listed pet form. |
+| `pet shop` | — | Transform into the Rime Falcon and show its ice animation. |
 | `pet forms` | — | List all available pet forms. |
 | `pet sweep` | — | Clean droppings from this wallpaper. |
 | `pet droppings` | — | Count droppings across wallpapers. |
@@ -75,7 +84,7 @@ Mute pet audio with `pet quiet` and restore it with `pet unquiet`. `pet sing` pi
 | Command | Arguments | Action |
 | --- | --- | --- |
 | `pet say` | TEXT | Show words in the pet’s speech bubble. |
-| `pet sing` | FILE | Play an audio file in the pet’s pitched voice. |
+| `pet sing` | [FILE] | Sing a short tune, or play an audio file in the pet’s pitched voice. |
 | `pet hush` | — | Stop the current song and dismiss the bubble. |
 | `pet dance` | — | Dance in place. |
 | `pet spin` | — | Spin in the air. |

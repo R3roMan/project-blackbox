@@ -32,6 +32,18 @@ var groups = {
       "operation": "resume"
     },
     {
+      "name": "box",
+      "args": "[open|close|remove]",
+      "description": "Place a movable pet enclosure, release the pet, arm it, or remove it.",
+      "operation": "box"
+    },
+    {
+      "name": "recover",
+      "args": "",
+      "description": "Clear a stuck action and return the pet to ordinary flight.",
+      "operation": "recover"
+    },
+    {
       "name": "perch",
       "args": "",
       "description": "Land on an available folder, file, widget, or window.",
@@ -196,6 +208,12 @@ var groups = {
       "operation": "transform"
     },
     {
+      "name": "shop",
+      "args": "",
+      "description": "Transform into the Rime Falcon and send ice around its wings.",
+      "operation": "shop"
+    },
+    {
       "name": "forms",
       "args": "",
       "description": "List all available pet forms.",
@@ -235,8 +253,8 @@ var groups = {
     },
     {
       "name": "sing",
-      "args": "FILE",
-      "description": "Play an audio file in the pet’s pitched voice.",
+      "args": "[FILE]",
+      "description": "Sing an original short tune, or play a local audio file in the pet’s pitched voice.",
       "operation": "sing"
     },
     {

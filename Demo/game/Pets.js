@@ -133,5 +133,5 @@ function deploy(id, level) {
         stamina:stats.duty, resting:0, restLength:0, heading:-1, travel:0, destination:"", next:4.0, flash:0,
         chargeLeft:0, chargeLength:0, chargePending:false, chargedFlash:0, ordinaryStrikes:0,
         targetId: 0, strikes: 0, aimLane: 0, aimElevation: 0, aimDepth: 0,
-        trickAt:0, flickerAt:0, trickPose:"", trickUntil:0 }
+        trickAt:0, flickerAt:0, trickPose:"", trickLeft:0 }
 }

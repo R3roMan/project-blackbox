@@ -62,7 +62,7 @@ VERBS = {
     "pet": ("COMMAND [ARGS]", "Send a command to the desktop companion.", ["box pet say hello", "box help -pet =commands"]),
     "report": ("[TEXT]", "Open the local bug reporter or record a short report.", ["box report", "box report 'The pet did not land.'"]),
     "reset": ("settings|images --yes", "Restore Blackbox preferences or bundled artwork.", ["box reset images --yes"]),
-    "admin": ("[-password =PHRASE] [--lock]", "Unlock or lock this shell’s game-practice commands.", ["box admin", "box admin --lock"]),
+    "admin": ("[-password =PHRASE] [--lock]", "Unlock or lock game-practice commands in this desktop profile.", ["box admin", "box admin --lock"]),
     "debug": ("practice|money|weapon|weather|unlocks ...", "Configure an unstarted practice run.", ["box help debug"]),
 }
 DEBUG = {
@@ -433,19 +433,20 @@ def main():
     elif args.command == "admin":
         session = terminal_session()
         if args.lock:
-            service("BoxLock", session)
-            print("Game-practice commands locked.")
+            if service("BoxLock", session).strip() != "true":
+                raise ValueError("Could not lock game-practice commands.")
+            print("Game-practice commands locked for this profile.")
             return
         phrase = args.password.removeprefix("=") if args.password is not None else getpass.getpass("Game-practice phrase: ")
         if service("BoxAdmin", session, phrase).strip() != "true":
             raise ValueError("Game-practice phrase rejected.")
-        print("Game-practice commands unlocked for this shell for 15 minutes. Run box help debug.")
+        print("Game-practice commands stay unlocked until box admin --lock. Run box help debug.")
     elif args.command == "debug":
         value = f"{args.difficulty},{args.wave},{args.build}" if args.action == "practice" else args.value
         if args.action in ("money", "unlocks"):
             value = str(as_bool(value)).lower()
         if service("BoxDebug", terminal_session(), args.action, value).strip() != "true":
-            raise ValueError("Unlock this shell with box admin and use an unstarted practice run.")
+            raise ValueError("Run box admin and use an unstarted practice run.")
         state = json.loads(service("Status"))
         key = {"practice": "startAt", "money": "debugMoney", "weapon": "debugWeapon",
                "weather": "debugLayer", "unlocks": "debugUnlocks"}[args.action]

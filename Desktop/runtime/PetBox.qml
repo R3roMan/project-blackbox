@@ -8,8 +8,8 @@ Item {
     property bool trapped:false
     property real petSize:180
     property real edgeBottom:0
-    property real left:75
-    property real top:85
+    property real desiredX:75
+    property real desiredY:85
     property real desiredWidth:380
     property real desiredHeight:290
     signal released()
@@ -19,8 +19,8 @@ Item {
     readonly property rect inner:Qt.rect(x+7,y+36,Math.max(0,width-14),Math.max(0,height-43))
     width:Math.min(parent.width,Math.max(minimumWidth,desiredWidth))
     height:Math.min(parent.height-edgeBottom,Math.max(minimumHeight,desiredHeight))
-    x:Math.max(0,Math.min(left,parent.width-width))
-    y:Math.max(0,Math.min(top,parent.height-edgeBottom-height))
+    x:Math.max(0,Math.min(desiredX,parent.width-width))
+    y:Math.max(0,Math.min(desiredY,parent.height-edgeBottom-height))
 
     Rectangle {
         anchors.fill:parent
@@ -42,8 +42,8 @@ Item {
             onPositionChanged:mouse=>{
                 if (!pressed) return
                 const point=mapToItem(box.parent,mouse.x,mouse.y)
-                box.left=Math.max(0,Math.min(box.parent.width-box.width,original.x+point.x-start.x))
-                box.top=Math.max(0,Math.min(box.parent.height-box.edgeBottom-box.height,original.y+point.y-start.y))
+                box.desiredX=Math.max(0,Math.min(box.parent.width-box.width,original.x+point.x-start.x))
+                box.desiredY=Math.max(0,Math.min(box.parent.height-box.edgeBottom-box.height,original.y+point.y-start.y))
             }
         }
         Text {
