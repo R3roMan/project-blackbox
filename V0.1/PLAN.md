@@ -21,17 +21,15 @@ Sources: [Shader Wallpaper upstream](https://github.com/y4my4my4m/kde-shader-wal
 
 ## Environments and directional effects
 
-The two cycles share the Shrine. To the right: Shrine → Droid Lab → Pure Code → Media → Shrine. Downwards: Shrine → Abyss → Birth Place → Star Sky → Shrine. Reverse input follows the same links in reverse. A Home shortcut works everywhere. Arrow movements have defined destinations only on their respective axis. Tabs offer direct access.
+The Shrine connects to the Droid Lab on the right, Media on the left, Star Sky above and the Abyss below. Reverse input returns to the Shrine. The Home shortcut works everywhere and tabs offer direct access.
 
 | Room | Behaviour | Art and motion |
 | --- | --- | --- |
 | Home Shrine | Default home, shortcuts to daily work | Fixed forward view. Pitch up to Star Sky, yaw left to Media, yaw right to Droid Lab. |
-| Star Sky | Clickable links to projects and research. Shuffle constellation layout while preserving labels and destinations. | Static stars in the plate plus a sparse moving layer. Pitch down to Shrine. Reverse wrap fades to Birth Place. |
+| Star Sky | Clickable links to projects and research. Shuffle constellation layout while preserving labels and destinations. | Static stars in the plate plus a sparse moving layer. Pitch down to Shrine. |
 | Abyss | Research, experiments, writing and unfinished work | Ruins and Trench samples. Add cave and drowned-city variants later. Shrine descent pushes through a hole. Rising returns to the surface. |
-| Birth Place | Vault entry points, backups and recovery | Slow door aperture from Abyss. Fold into darkness and reveal stars on the downward wrap. Use a quiet static view after arrival. |
-| Media | Watchlist, artwork and reference shelf | Wide scene plate or user image. Introduce a view from the Shrine's left and keep transitions into Pure Code short. |
-| Droid Lab | Game library, Ace Druggie development, assets and builds | View to the right of the Shrine. Use restrained terminal and lighting effects. Develop routes to Pure Code. |
-| Pure Code | Editor, terminal and docs | Still background. Short scans from adjacent rooms. Optional terminal-only animation later. |
+| Media | Watchlist, artwork and reference shelf | Wide scene plate or user image. Approach from the Shrine's left. |
+| Droid Lab | Game library, Ace Druggie development, assets and builds | View to the right of the Shrine. Use restrained terminal and lighting effects. |
 
 For the first production camera pass, create a continuous pano or compact 3D courtyard with four authored viewpoints. Give the forward and sky plates matching horizon, exposure and colour. Give left and right views consistent occlusion and foreground anchors. Start the downward move with a shared shot of the path and a foreground hole rim. Hand off at the dark crossing to a short descent shot, then reveal the current Abyss variant. The prototype uses rotation and translation of image layers, scale and fades to establish timing. A single perspective panorama or small 3D scene is required for a continuous camera rotation with correct perspective.
 
@@ -54,7 +52,7 @@ In native integration, track pause reasons independently. Treat fullscreen, sess
 
 ## Implementation order and checks
 
-1. **Run the prototype.** Check both loops, the main camera directions, the Abyss fall, Birth Place → Star Sky, image replacement and static mode. This version has working editor controls, image selection, per-room art and names, a mock pulse and sample load controls. Transitional artwork is temporary.
+1. **Run the prototype.** Check the four camera directions, the Abyss fall, image replacement and static mode. This version has working editor controls, image selection, per-room art and names, a mock pulse and sample load controls. Transitional artwork is temporary.
 2. **Test Plasma and plugin independently.** Identify the locally installed package and version. Test the bundled wallpaper package on one screen. Verify that covering the desktop preserves application input, right-click still exposes normal Plasma settings, colours work with the active Qt style, and settings survive logging out. Switch back to the previous wallpaper if the trial fails. Run the plugin test described below before deciding whether to bring a shader into BLACKBOX.
 3. **Connect seven native virtual desktops.** Give each room a stable room ID mapped to a KDE desktop ID. Set up explicit Meta+arrow routes and a direct Home shortcut through a KWin script. Keep the scene and KWin in sync when using the pager, Overview, a keyboard shortcut or a star. Handle missing desktops with a clear fallback to the Shrine. Keep configuration in one room manifest. First prove this handoff without an effect.
 4. **Add the KDE transitions.** Use KWin's effect API to own the fullscreen transition and restore input/focus. Prototype Shrine ↔ Sky with an open window. Fade out the source windows, move the viewpoint, switch the workspace at the handoff, then reveal the destination windows. Ensure an interrupted effect returns to the correct desktop and releases input immediately. Test directional and reduced-motion paths before adding the drop and wrap. Use QML first, then assess whether the camera needs a separately rendered sequence or custom effect backend.
