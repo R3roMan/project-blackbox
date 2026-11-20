@@ -316,7 +316,11 @@ ApplicationWindow {
                 gradient:Gradient {
                     orientation:Gradient.Horizontal
                     GradientStop {position:0;color:Qt.darker(Ui.InterfaceTheme.current.base,1.4)}
-                    GradientStop {position:.40;color:Qt.rgba(Ui.InterfaceTheme.current.base.r,Ui.InterfaceTheme.current.base.g,Ui.InterfaceTheme.current.base.b,.76)}
+                    GradientStop {
+                        position:.40
+                        readonly property color paint:Ui.InterfaceTheme.current.base
+                        color:Qt.rgba(paint.r,paint.g,paint.b,.76)
+                    }
                     GradientStop {position:.79;color:"#3b100a15"}
                     GradientStop {position:1;color:"#0f160b19"}
                 }
