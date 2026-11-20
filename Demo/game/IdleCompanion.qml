@@ -113,7 +113,7 @@ Item {
             if (pose==="landing") {
                 pose=arrival
                 poseEnd=clock+(pose==="sleep" ? 23+Math.random()*15 : 3.4+Math.random()*2)
-                if (pose==="sleep") {breathe();respiration.restart()}
+                if (pose==="sleep") breathe()
                 return
             }
         } else if (clock<poseEnd) return
@@ -145,7 +145,7 @@ Item {
         interval:idle.motion ? 33 : 83;repeat:true;running:idle.roaming
         onTriggered:{
             const now=Date.now()
-            idle.tick(idle.lastTick ? Math.min(.09,(now-idle.lastTick)*.001) : interval*.001)
+            idle.tick(idle.lastTick ? Math.max(0,Math.min(.09,(now-idle.lastTick)*.001)) : interval*.001)
             idle.lastTick=now
         }
     }

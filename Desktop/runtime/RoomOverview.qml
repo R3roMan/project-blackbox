@@ -29,7 +29,16 @@ FocusScope {
     function stock(room) {
         return Scenery.asset(room) || Qt.resolvedUrl("../V0.1/kde/contents/images/sky.jpg")
     }
+    readonly property var neighbors:({
+        front:{left:"left",right:"right",up:"up",down:"down"},
+        left:{left:"back",right:"front",up:"up",down:"down"},
+        right:{left:"front",right:"back",up:"up",down:"down"},
+        up:{left:"left",right:"right",up:"back",down:"front"},
+        down:{left:"left",right:"right",up:"front",down:"back"},
+        back:{left:"right",right:"left",up:"down",down:"up"}
+    })
     function select(room) {
+        if (!available.includes(room)) return
         const face=faces.find(entry=>entry.room===room)
         if (!face) return
         selected=room
@@ -46,10 +55,10 @@ FocusScope {
     focus:true
     Component.onCompleted:{select(currentRoom);forceActiveFocus()}
     Keys.onEscapePressed:closeRequested()
-    Keys.onLeftPressed:step(-1)
-    Keys.onRightPressed:step(1)
-    Keys.onUpPressed:select(selected==="up" ? "back" : "up")
-    Keys.onDownPressed:select(selected==="down" ? "back" : "down")
+    Keys.onLeftPressed:select(neighbors[selected]?.left)
+    Keys.onRightPressed:select(neighbors[selected]?.right)
+    Keys.onUpPressed:select(neighbors[selected]?.up)
+    Keys.onDownPressed:select(neighbors[selected]?.down)
     Keys.onReturnPressed:enter()
     Keys.onEnterPressed:enter()
     Behavior on yaw {enabled:overview.motion && !rotationDrag.active; NumberAnimation {duration:300;easing.type:Easing.OutCubic}}
@@ -174,6 +183,14 @@ FocusScope {
                 source:visible ? overview.pictures[overview.selected] || overview.stock(overview.selected) : ""
                 sourceSize.width:600;fillMode:Image.PreserveAspectFit
             }
+        }
+        Text {
+            Layout.alignment:Qt.AlignHCenter
+            text:GraphicsInfo.api===GraphicsInfo.Software ? "Arrow keys to turn  ·  Enter to open" : "Drag or use arrow keys to turn  ·  Enter to open"
+            color:Ui.InterfaceTheme.text
+            opacity:.66
+            font.pixelSize:Ui.UiMetrics.text(12)
+            visible:overview.height>=410
         }
         Flow {
             Layout.alignment:Qt.AlignHCenter
