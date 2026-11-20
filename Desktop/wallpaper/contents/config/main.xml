@@ -1,2 +1,2 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"><kcfgfile name=""/><group name="General"><entry name="PackageVersion" type="String"><default>0.4.11</default></entry></group></kcfg>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"><kcfgfile name=""/><group name="General"><entry name="PackageVersion" type="String"><default>0.4.12</default></entry></group></kcfg>

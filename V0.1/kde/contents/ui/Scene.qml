@@ -314,9 +314,9 @@ FocusScope {
 
     Rectangle {
         anchors.fill: parent
-        visible: root.moving && !root.artworkDescent && ["drop","seal","unseal","birthstars","extinguish"].indexOf(root.transitionKind) >= 0
+        visible: root.moving && !root.artworkDescent && root.transitionKind === "drop"
         color: "#02040a"
-        opacity: Math.sin(root.progress * Math.PI) * (root.transitionKind === "drop" ? .85 : .95)
+        opacity: Math.sin(root.progress * Math.PI) * .85
     }
 
     Rectangle {
@@ -330,48 +330,6 @@ FocusScope {
         border.color: "#343b42"
         border.width: Math.max(2, root.width * .008 * (1 - root.progress))
         opacity: Math.min(1, (1 - root.progress / .66) * 3.8)
-    }
-
-    Repeater {
-        model: root.moving && ["seal", "unseal"].indexOf(root.transitionKind) >= 0 ? 2 : 0
-        Rectangle {
-            readonly property real closed: Math.sin(root.progress * Math.PI)
-            width: root.width * .52 * closed
-            height: root.height
-            x: index === 0 ? 0 : root.width - width
-            color: "#05080e"
-            Rectangle {
-                anchors.right: index === 0 ? parent.right : undefined
-                width: 2
-                height: parent.height
-                color: "#29374c"
-                opacity: .6
-            }
-        }
-    }
-
-    Repeater {
-        model: root.moving && root.transitionKind === "birthstars" ? 32 : 0
-        Rectangle {
-            readonly property real angle: index * 2.399963
-            readonly property real spread: (.08 + ((index * 7) % 29) / 70) * root.progress
-            x: root.width * (.5 + Math.cos(angle) * spread)
-            y: root.height * (.50 + Math.sin(angle) * spread)
-            width: 2 + index % 3
-            height: width
-            radius: width
-            color: index % 3 ? "#b2c7ff" : "#f4daba"
-            opacity: Math.sin(root.progress * Math.PI) * .84
-        }
-    }
-
-    Rectangle {
-        visible: root.moving && (root.transitionKind === "scan" || root.transitionKind === "open")
-        x: root.width * root.progress - 30
-        width: 60
-        height: root.height
-        color: root.accent
-        opacity: Math.sin(root.progress * Math.PI) * .21
     }
 
     Repeater {

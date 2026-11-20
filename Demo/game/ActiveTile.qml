@@ -11,7 +11,7 @@ Rectangle {
     signal castRequested()
     signal entryRequested(string chapter, string id)
     readonly property var ability: abilityState.ability
-    readonly property string label: ability ? ability.title : abilityState.available ? "Empty" : "Locked"
+    readonly property string label:ability ? ability.title : abilityState.available ? "empty" : "locked"
 
     implicitWidth: 56
     implicitHeight: 56
@@ -57,9 +57,10 @@ Rectangle {
         height:tile.ability ? parent.height*Math.min(1,tile.abilityState.cooldown/tile.abilityState.duration) : 0
         color:"#66ffffff";radius:5
     }
+    Ui.ChainedLock {visible:!tile.abilityState.available}
     Text {
         anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.margins:5
-        text:tile.abilityState.cooldown>0 ? Math.ceil(tile.abilityState.cooldown)+"s" : tile.ability ? "" : tile.abilityState.available ? "–" : "🔒"
+        text:tile.abilityState.cooldown>0 ? Math.ceil(tile.abilityState.cooldown)+"s" : ""
         font.family:"IBM Plex Mono";font.bold:true;font.pixelSize:Ui.UiMetrics.text(12)
         color:"white";style:Text.Outline;styleColor:"#191723"
     }

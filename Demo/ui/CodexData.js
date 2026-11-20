@@ -112,8 +112,8 @@ function linkText(text, chapter, id) {
 }
 
 function kitLinks(entry, group) {
-    return Gear.kits.filter(function(kit) { return kit[group] === entry.id })
-        .map(function(kit) { return link("kits",kitKey(kit),kit.title) }).join(" · ")
+    const kit=Gear.kitFor(group,entry.id)
+    return kit ? link("kits",kitKey(kit),kit.title) : ""
 }
 
 function entryText(entry, chapter, live, terms) {

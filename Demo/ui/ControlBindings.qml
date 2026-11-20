@@ -23,7 +23,8 @@ ColumnLayout {
         if (!Controls.valid(encoded)) {
             const conflict=typeof replacement==="object" && replacement ? Controls.conflict(profile,id,replacement) : null
             const mouseId=id==="mouseFire" ? "mouseReload" : "mouseFire"
-            notice=conflict ? Controls.sequence(replacement)+" is assigned to "+conflict.title.toLowerCase()+"."
+            notice=!Controls.safeQuickBinding(id,replacement) ? "Quick start requires a modifier and an unused key or mouse button."
+                : conflict ? Controls.sequence(replacement)+" is assigned to "+conflict.title.toLowerCase()+"."
                 : id.startsWith("mouse") ? "That button is assigned to "+(mouseId==="mouseFire" ? "fire." : "reload.")
                 : "That binding overlaps another action. Choose a different key or change the other binding."
             return false

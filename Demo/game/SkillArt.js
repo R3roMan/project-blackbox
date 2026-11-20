@@ -64,7 +64,7 @@ var forms = {
 }
 
 function profile(ability) {
-    const known=profiles[ability.id]
+    const known=profiles[ability.effectId || ability.id]
     if (known) return known
     const form=forms[ability.form]
     if (form) return {kind:form[0],anchor:form[1],motif:form[2]}

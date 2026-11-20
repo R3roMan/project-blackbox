@@ -113,6 +113,8 @@ FocusScope {
     readonly property double idleClockOrigin:Date.now()
     property int quickCount:0
     property bool quickQueued:false
+    property int armedQuickKey:0
+    property bool armedQuickClick:false
     readonly property bool idleKeys:home && claimed && ambientMode && !idleOverlay
     readonly property bool idleWatch:useWorkArea && !!desktopInputParent
     Binding {target:Native.Desktop;property:"idleInputWindow";value:host.Window.window;when:host.idleWatch && host.claimed}
@@ -122,12 +124,14 @@ FocusScope {
         function onIdleKey(key,modifiers,pressed,repeated) {
             if (repeated) return
             host.trackIdleToggle(key,modifiers,pressed)
+            host.trackQuickKey(key,modifiers,pressed)
             const direction=pressed && host.idleActionsAvailable ? Controls.idleDirection(key,modifiers) : ""
             if (direction) galleryLoader.item?.move(direction)
         }
         function onIdlePointerChanged(held) {
             host.idlePointerHeld=held
             if (held) {
+                host.disarmQuickKey()
                 host.idleEdgeArmed=false
                 host.idleToggleAlone=false
                 galleryLoader.item?.leaveEdge()
@@ -143,7 +147,8 @@ FocusScope {
         idlePointerHeld=false
         idleToggleHeld=false
         idleToggleAlone=false
-        quickHold.stop()
+        disarmQuickKey()
+        armedQuickClick=false
         quickStart.stop()
         quickCount=0
     } else {
@@ -152,9 +157,13 @@ FocusScope {
     onBindingsChanged:{
         idleToggleHeld=false
         idleToggleAlone=false
-        quickHold.stop()
+        disarmQuickKey()
+        armedQuickClick=false
     }
 
+    Keys.onShortcutOverride:function(event) {
+        if (idleActionsAvailable && Controls.matches(bindings,"quickStart",event)) event.accepted=true
+    }
     Keys.onPressed:function(event) {
         if (!idleKeys) return
         if (event.isAutoRepeat) {
@@ -165,20 +174,36 @@ FocusScope {
             event.accepted=cancelQuickStart()
             return
         }
-        if (!idleWatch) trackIdleToggle(event.key,event.modifiers,true)
-        if (!Controls.matches(bindings,"idleControls",event)) {
-            if (!quickCount && Controls.matches(bindings,"quickStart",event)) {
-                quickHold.restart()
-                event.accepted=true
-            } else {
-                quickHold.stop()
-            }
+        if (!idleWatch) {
+            trackIdleToggle(event.key,event.modifiers,true)
+            event.accepted=trackQuickKey(event.key,event.modifiers,true)
+        } else if (Controls.matches(bindings,"quickStart",event)) {
+            event.accepted=true
         }
     }
     Keys.onReleased:function(event) {
-        if (event.isAutoRepeat) return
-        if (Controls.releases(bindings,"quickStart",event.key)) quickHold.stop()
-        if (!idleWatch && idleKeys) trackIdleToggle(event.key,event.modifiers,false)
+        if (!idleWatch && idleKeys && !event.isAutoRepeat) {
+            trackIdleToggle(event.key,event.modifiers,false)
+            trackQuickKey(event.key,event.modifiers,false)
+        }
+    }
+    function disarmQuickKey() {
+        armedQuickKey=0
+        quickHold.stop()
+    }
+    function trackQuickKey(key,modifiers,pressed) {
+        if (!pressed) {
+            if (Controls.releases(bindings,"quickStart",key)) disarmQuickKey()
+            return false
+        }
+        if (idleActionsAvailable && !idlePointerHeld && Controls.matches(bindings,"quickStart",{key,modifiers})) {
+            armedQuickKey=key
+            idleToggleAlone=false
+            quickHold.restart()
+            return true
+        }
+        disarmQuickKey()
+        return false
     }
     function trackIdleToggle(key,modifiers,pressed) {
         if (pressed) {
@@ -211,7 +236,8 @@ FocusScope {
     }
     function requestQuickStart() {
         if (!idleActionsAvailable || !battle.item) return
-        quickHold.stop()
+        disarmQuickKey()
+        armedQuickClick=false
         idleToggleAlone=false
         quickCount=3
         restoreIdleFocus()
@@ -256,30 +282,36 @@ FocusScope {
             hoverEnabled:enabled && !host.idleWatch && host.options.mouseTurns
             acceptedButtons:host.quickPointer.button
             preventStealing:true
+            property point pressPoint:Qt.point(0,0)
             onPressed:function(mouse) {
-                mouse.accepted=(mouse.modifiers & Controls.modifierMask)===host.quickPointer.mods
-                if (mouse.accepted) host.idleToggleAlone=false
+                host.disarmQuickKey()
+                host.armedQuickClick=mouse.button===host.quickPointer.button
+                    && (mouse.modifiers & Controls.modifierMask)===host.quickPointer.mods
+                mouse.accepted=host.armedQuickClick
+                if (mouse.accepted) {
+                    pressPoint=Qt.point(mouse.x,mouse.y)
+                    host.idleToggleAlone=false
+                }
             }
-            onClicked:host.requestQuickStart()
+            onReleased:function(mouse) {
+                const launch=host.armedQuickClick && contains(Qt.point(mouse.x,mouse.y))
+                    && (mouse.modifiers & Controls.modifierMask)===host.quickPointer.mods
+                    && Math.hypot(mouse.x-pressPoint.x,mouse.y-pressPoint.y)<=8
+                host.armedQuickClick=false
+                if (launch) host.requestQuickStart()
+            }
+            onCanceled:host.armedQuickClick=false
             onPositionChanged:function(mouse) {
+                if (host.armedQuickClick && Math.hypot(mouse.x-pressPoint.x,mouse.y-pressPoint.y)>8)
+                    host.armedQuickClick=false
                 if (!host.idleWatch && mouse.buttons===Qt.NoButton) host.trackIdleEdge(x+mouse.x,y+mouse.y,mouse.modifiers)
             }
             onExited:galleryLoader.item?.leaveEdge()
         }
     }
-    Shortcut {
-        sequences:Controls.sequences(host.bindings,"quickStart");context:Qt.WindowShortcut
-        enabled:host.idleKeys && !host.quickCount
-        autoRepeat:false
-        onActivated:{
-            host.idleToggleAlone=false
-            galleryLoader.item?.forceActiveFocus()
-            quickHold.restart()
-        }
-    }
     Timer {
         id:quickHold;interval:420
-        onTriggered:host.requestQuickStart()
+        onTriggered:if (host.armedQuickKey && host.idleActionsAvailable) host.requestQuickStart()
     }
     Timer {
         id:quickStart;interval:1000;repeat:true
@@ -338,6 +370,7 @@ FocusScope {
         onTriggered:host.requestedWorkspace=""
     }
     onModeChanged:{
+        if (mode!=="play") quickQueued=false
         if (mode==="idle") idleControls=false
         if (options.linkDesktops && mode==="play" && battle.item) Native.Desktop.switchWorkspace(battle.item.frontId)
         else Qt.callLater(syncWorkspace)
@@ -534,8 +567,7 @@ FocusScope {
                 }
             } else if(name==="settings") settingsDrawer.open()
             else if(name==="pause" || name==="loadout") game.pauseRun("build")
-            else if(name==="begin" && !host.bookOpen && host.home) {
-                Native.Desktop.setOption("mode","play")
+            else if(name==="begin" && host.mode==="play" && !host.bookOpen && host.home) {
                 game.startWave()
             }
             else if(name==="resume") {if(host.home && !host.bookOpen) {game.paused=false;game.keyTargetFocus()}}

@@ -13,6 +13,7 @@
 .import "Meta.js" as Meta
 .import "Tarot.js" as Tarot
 .import "GradeGear.js" as Grades
+.import "KitEquipment.js" as KitEquipment
 .import "WeatherGear.js" as Weather
 
 var weapons = {
@@ -260,22 +261,24 @@ weapons.starDestroyerPlus = Object.assign({}, weapons.starDestroyer, {
     id:"starDestroyerPlus", title:"Star Destroyer+", capacity:1, damage:100, trace:18, afterglow:.62,
     spinup:.36, penetration:12, debugOnly:true, description:"A fast-charging, fully penetrating debug beam with infinite ammunition."
 })
+var inventoryDestination = -2
+var inventoryLimit = 10
+var startingInventorySize = 5
+var limits = { weapon:2, active:2, passive:8 }
+var groupLabels = { weapon:"Weapon", active:"Active", passive:"Passive" }
+var catalogs = { weapon:weapons, active:activeAbilities, passive:passives }
+
+assignKitEquipment()
 for (const weapon of Object.values(weapons)) {
     if (weapon.capacity > 0 && !weapon.debugOnly)
         weapon.capacity += Math.max(1,Math.round(weapon.capacity*.12))
 }
-
-var inventoryDestination = -2
-var inventoryLimit = 10
-var startingInventorySize = 5
-var limits = { weapon: 2, active: 2, passive: 8 }
-var groupLabels = { weapon: "Weapon", active: "Active", passive: "Passive" }
-var catalogs = { weapon: weapons, active: activeAbilities, passive: passives }
 var starterPool = Object.values(weapons).filter(function(item) {
     return item.rarity !== "legendary" && !item.debugOnly && (!item.firstOfferWave || item.firstOfferWave <= 1)
 })
-var primaryKits = buildPrimaryKits()
-kits = kits.concat(primaryKits.filter(function(kit) { return kit.generated }))
+kits = buildKits()
+var kitByKey = kitIndex()
+var kitForItem = {weapon:kitIndex("weapon"),active:kitIndex("active"),passive:kitIndex("passive")}
 var unlockPrices = { weapon: [0, 440], active: [0, 390], passive: [0, 0, 0, 0, 565, 565, 565, 565] }
 var slotPowers = {
     weapon: [
@@ -397,58 +400,97 @@ function findSlot(run, group, id) {
     return run.slots[group].findIndex(function(slot) { return slot.item && slot.item.id === id })
 }
 
-function kitFor(group, id) {
-    return primaryKits.find(function(kit) { return kit[group] === id })
+function kitFor(group,id) {
+    return kitForItem[group]?.[id]
 }
 
-function kitDescription(group, id, description) {
-    const kit = kitFor(group,id)
-    return kit ? description + "\n" + kit.title : description
+function kitDescription(group,id,description) {
+    const kit=kitFor(group,id)
+    return kit ? description+"\n"+kit.title : description
 }
 
-function buildPrimaryKits() {
-    const taken = { weapon:{}, active:{}, passive:{} }
-    const result = []
-    function add(kit) {
-        for (const key of Object.keys(taken))
-            taken[key][kit[key]] = true
-        result.push(kit)
+function kitIndex(group) {
+    const index=Object.create(null)
+    for (const kit of kits)
+        index[group ? kit[group] : kit.key || kit.weapon]=kit
+    return index
+}
+
+function assignKitEquipment() {
+    const byKey=kitIndex()
+    const install=function(group,key,id,title,changes) {
+        const kit=byKey[key]
+        const base=catalogs[group][kit[group]]
+        catalogs[group][id]=Object.assign({},base,{id,title,locked:false},changes)
+        kit[group]=id
     }
-    for (const kit of kits) {
-        if (Object.keys(taken).every(function(key) { return !taken[key][kit[key]] }))
-            add(kit)
-    }
-    const unassigned = function(group) {
-        return Object.values(catalogs[group]).filter(function(item) {
-            return !item.debugOnly && !taken[group][item.id]
-        }).sort(function(a, b) {
-            return Object.keys(rarities).indexOf(a.rarity) - Object.keys(rarities).indexOf(b.rarity)
+    KitEquipment.weaponVariants.forEach(([key,id,title,impact,cycle,color,description,capacity=1],index)=>{
+        const base=weapons[byKey[key].weapon]
+        const rounded=value=>Math.round(value*100)/100
+        install("weapon",key,id,title,{
+            damage:rounded(base.damage*impact),delay:rounded(base.delay*cycle),
+            reload:base.throwing ? rounded(base.reload*cycle) : base.reload,
+            art:base.art || base.id,frame:34+index,color,description,
+            firstOfferWave:Math.max(base.firstOfferWave || 0,6),
+            capacity:Math.round(base.capacity*capacity)
+        })
+    })
+    for (const [key,id,title,cooldown,effectStrength,description] of KitEquipment.activeVariants) {
+        const base=activeAbilities[byKey[key].active]
+        install("active",key,id,title,{
+            effectId:base.id,effectStrength,description,
+            cooldown:Math.round(base.cooldown*cooldown*10)/10
         })
     }
-    const actives = unassigned("active")
-    const passives = unassigned("passive")
-    const survivors = unassigned("weapon")
-    for (let index = 0; index < survivors.length; index += 1) {
-        const weapon = survivors[index]
-        const active = actives[index]
-        const passive = passives[index]
-        if (!active || !passive)
-            continue
-        const bonusOptions = [
-            { stat:"damage", value:.057, scope:weapon.id, bonus:weapon.title + " deals another 5.7% damage." },
-            { stat:"recovery", value:.067, scope:weapon.id, bonus:weapon.title + " recovers from attacks another 6.7% sooner." },
-            { stat:"crit", value:.038, scope:weapon.id, bonus:weapon.title + " gains 3.8 percentage points of critical chance." },
-            { stat:"active", value:.09, scope:active.id, bonus:active.title + " recharges another 9% sooner." },
-            { stat:"critPower", value:.18, scope:weapon.id, bonus:weapon.title + " critical hits add another ×0.18 to their multiplier." }
-        ]
-        add(Object.assign({ key:"fieldKit-" + weapon.id, title:weapon.title + " kit", weapon:weapon.id,
-            active:active.id, passive:passive.id, generated:true }, bonusOptions[index % bonusOptions.length]))
+    for (const [key,id,title,rankScale] of KitEquipment.passiveVariants) {
+        const base=passives[byKey[key].passive]
+        install("passive",key,id,title,{rankFamily:base.id,rankScale,
+            description:base.title+" variant. Its base effect uses "+Math.round(rankScale*100)+"% of the original rank. Rank 2 adds the same secondary perk."})
     }
+    for (const [id,title,rarity,description,stat,value,extra,extraValue,upgrade] of KitEquipment.newPassives) {
+        passives[id]={id,title,rarity,category:"Passive",description,basePerk:{[stat]:value},
+            rankPerk:{[extra]:extraValue,text:upgrade}}
+    }
+    weapons.shrineRepeater={id:"shrineRepeater",title:"Shrine repeater",category:"Weapon",rarity:"rare",
+        effect:"burst",art:"carbine",frame:67,capacity:12,damage:4.2,delay:.78,reload:1.50,aim:27,
+        color:"#e69f7e",trace:3,afterglow:.16,handling:"capacity",firstOfferWave:7,
+        burst:{count:3,interval:.10},description:"Fire three evenly spaced rounds. Its large magazine stays useful through several bursts."}
+}
+
+function buildKits() {
+    const groups=Object.keys(catalogs)
+    const result=kits.slice()
+    const remaining=groups.map(group=>{
+        const assigned=new Set()
+        for (const kit of kits) {
+            const id=kit[group]
+            if (assigned.has(id) || !catalogs[group][id]) throw new Error("Invalid kit member: "+group+" "+id)
+            assigned.add(id)
+        }
+        return Object.values(catalogs[group]).filter(item=>!item.debugOnly && !assigned.has(item.id))
+            .sort((left,right)=>Object.keys(rarities).indexOf(left.rarity)-Object.keys(rarities).indexOf(right.rarity))
+    })
+    const [weaponsLeft,activesLeft,passivesLeft]=remaining
+    if (activesLeft.length!==weaponsLeft.length || passivesLeft.length!==weaponsLeft.length)
+        throw new Error("Kit equipment totals differ")
+    weaponsLeft.forEach((weapon,index)=>{
+        const active=activesLeft[index]
+        const passive=passivesLeft[index]
+        const bonusOptions=[
+            {stat:"damage",value:.057,scope:weapon.id,bonus:weapon.title+" deals another 5.7% damage."},
+            {stat:"recovery",value:.067,scope:weapon.id,bonus:weapon.title+" recovers from attacks another 6.7% sooner."},
+            {stat:"crit",value:.038,scope:weapon.id,bonus:weapon.title+" gains 3.8 percentage points of critical chance."},
+            {stat:"active",value:.09,scope:active.id,bonus:active.title+" recharges another 9% sooner."},
+            {stat:"critPower",value:.18,scope:weapon.id,bonus:weapon.title+" critical hits add another ×0.18 to their multiplier."}
+        ]
+        result.push(Object.assign({key:"fieldKit-"+weapon.id,title:weapon.title+" kit",weapon:weapon.id,
+            active:active.id,passive:passive.id,generated:true},bonusOptions[index%bonusOptions.length]))
+    })
     return result
 }
 
 function kitBonus(run, stat, id) {
-    return primaryKits.reduce(function(total, kit) {
+    return kits.reduce(function(total, kit) {
         return total + (kit.stat === stat && (!kit.scope || kit.scope === id) && completeKit(run,kit) ? kit.value : 0)
     }, 0)
 }
@@ -467,12 +509,11 @@ function kitStatus(run,kit) {
 }
 
 function kitOwnership(run,group,id) {
-    if (!run) return ""
-    return kits.filter(kit=>kit[group]===id).map(function(kit) {
-        const other=kitMembers(run,kit).filter(part=>part.group!==group && part.owned)
-        const status=kitStatus(run,kit)
-        return other.length ? kit.title+(status ? " · "+status : "")+" · You own "+other.map(part=>part.title).join(" + ") : ""
-    }).filter(Boolean).join("\n")
+    const kit=run && kitFor(group,id)
+    if (!kit) return ""
+    const other=kitMembers(run,kit).filter(part=>part.group!==group && part.owned)
+    const status=kitStatus(run,kit)
+    return other.length ? kit.title+(status ? " · "+status : "")+" · You own "+other.map(part=>part.title).join(" + ") : ""
 }
 
 function completeKit(run, kit) {
@@ -480,7 +521,7 @@ function completeKit(run, kit) {
 }
 
 function hasKit(run, id) {
-    return completeKit(run, kits.find(function(kit) { return (kit.key || kit.weapon) === id }))
+    return completeKit(run, kitByKey[id])
 }
 
 var secondPerks = {
@@ -501,13 +542,18 @@ var secondPerks = {
 }
 Object.assign(secondPerks, Extra.perks, Arsenal.perks, Defense.perks, Deep.perks, Milestones.perks,Campaign.perks,Blood.perks,Grades.perks,Weather.perks)
 
-function passiveRank(run, id) {
-    const index = findSlot(run, "passive", id)
-    if (index < 0)
-        return 0
-    const slot = run.slots.passive[index]
-    const level = slot.item.level
-    return 1 + (level >= 1 ? 1 : 0) + (level >= 3 ? 2 : 0) + (slotPower("passive", slot).strength || 0)
+function passiveRank(run,id) {
+    const family=passives[id]?.rankFamily || id
+    let strongest=0
+    for (const slot of run.slots.passive) {
+        if (!slot.item) continue
+        const card=passives[slot.item.id]
+        if ((card.rankFamily || card.id)!==family) continue
+        const level=slot.item.level
+        const rank=1+(level>=1 ? 1 : 0)+(level>=3 ? 2 : 0)+(slotPower("passive",slot).strength || 0)
+        strongest=Math.max(strongest,rank*(card.rankScale || 1))
+    }
+    return strongest
 }
 
 function environmentMatches(run,phase) {
@@ -533,14 +579,18 @@ function perk(run, stat) {
     for (const slot of run.slots.passive) {
         const item=slot.item
         if (!item) continue
-        const basic=Grades.basic[item.id] || Weather.conditional[item.id]
+        const basic=passives[item.id].basePerk || Grades.basic[item.id] || Weather.conditional[item.id]
         if (basic && basic[stat] && environmentMatches(run,basic.when))
             total+=basic[stat]*(1+(item.level>=1 ? .35 : 0)+(item.level>=3 ? .55 : 0))
-        const extra=secondPerks[item.id]
+        const extra=passiveUpgrade(passives[item.id])
         if (item.level>=2 && extra && extra[stat] && environmentMatches(run,extra.when))
             total+=extra[stat]*polish
     }
     return total
+}
+
+function passiveUpgrade(card) {
+    return card.rankPerk || secondPerks[card.rankFamily || card.id]
 }
 
 function weaponStats(item) {
@@ -609,7 +659,7 @@ function activeStats(item, bonus) {
     const level = item.level || 0
     return {
         cooldown:spec.cooldown * (level >= 1 ? .78 : 1) * (level >= 3 ? .78 : 1),
-        strength:(bonus || 0) + (spec.element ? (level >= 3 ? 2 : 0) : (level >= 3 ? 3 : level >= 2 ? 2 : 0)),
+        strength:(bonus || 0)+(spec.effectStrength || 0)+(spec.element ? (level >= 3 ? 2 : 0) : (level >= 3 ? 3 : level >= 2 ? 2 : 0)),
         element:spec.element || "", elementLevel:Math.min(3, (spec.elementLevel || 0) + (spec.element && level >= 2 ? 1 : 0))
     }
 }
@@ -642,7 +692,7 @@ function upgradeText(card, level) {
         return card.element ? Elements.kinds[card.element].title + " level +1" : "Effect strength +2 ranks"
     }
     if (level === 2)
-        return secondPerks[card.id].text
+        return passiveUpgrade(card).text
     return card.id === "rewire" ? level === 3 ? "Shop price −10%" : "Shop price −5%"
         : level === 3 ? "Passive strength +2 ranks" : "Passive strength +1 rank"
 }
@@ -1479,7 +1529,7 @@ function abilityDamageDescription(run,item,bonus) {
         const impact=format((spec.value+s*.9)*affinity(run,spec))
         return spec.form==="stormGlass" ? impact+" impact per shot shattered" : impact+" impact per target"
     }
-    const base=activeImpacts[item.id]
+    const base=activeImpacts[spec.effectId || item.id]
     if(base)return format(base[0]+s*base[1])+" impact before build/kit bonuses"
     if(spec.form && ["edgeRing","seekMark","electrify","ember","interrupt","corrode","burstPulse","pierceScroll"].includes(spec.form))
         return format(spec.value+s*.9)+" impact"+(spec.form==="pierceScroll" ? "; successive targets retain84%" : spec.form==="burstPulse" ? "; ×1.72 with a burst weapon" : "")

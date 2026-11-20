@@ -117,13 +117,21 @@ function mouse(profile,action) {
     return profile?.[action] || (action==="mouseFire" ? Qt.LeftButton : Qt.RightButton)
 }
 
-function valid(payload) {
+function safeQuickBinding(id,chord) {
+    if (id==="quickMouse") return !!chord?.mods
+    if (id!=="quickStart") return true
+    return !!chord?.mods && !ownModifiers[chord.key] && chord.key!==Qt.Key_Escape
+        && chord.key!==Qt.Key_Home && !idleDirection(chord.key,chord.mods)
+}
+
+function valid(payload,legacyQuickBindings) {
     if (typeof payload!=="string" || payload.length>2800) return false
     try {
         const data=JSON.parse(payload)
         if (!data || typeof data!=="object" || Array.isArray(data)) return false
         for (const id of Object.keys(data)) {
             const item=data[id]
+            if (!legacyQuickBindings && !safeQuickBinding(id,item)) return false
             if (id==="mouseFire" || id==="mouseReload") {
                 if (!buttons.includes(item)) return false
             } else if (id==="quickMouse") {
@@ -139,4 +147,12 @@ function valid(payload) {
     }
 }
 
-function read(payload) {return valid(payload) ? JSON.parse(payload) : {}}
+function read(payload) {
+    if (!valid(payload,true)) return {}
+    const profile=JSON.parse(payload)
+    // Older profiles allowed a bare click or key. Preserve their other bindings.
+    for (const id of ["quickStart","quickMouse"])
+        if (Object.prototype.hasOwnProperty.call(profile,id) && !safeQuickBinding(id,profile[id]))
+            delete profile[id]
+    return profile
+}

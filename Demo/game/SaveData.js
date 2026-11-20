@@ -271,7 +271,8 @@ function decodeBundle(text) {
     if (d.showTimer===undefined) d.showTimer=false
     if (!Number.isInteger(d.frameLimit) || d.frameLimit<20 || d.frameLimit>240 || typeof d.showTimer!=="boolean") return null
     if (d.controlBindings===undefined) d.controlBindings="{}"
-    if (!Controls.valid(d.controlBindings)) return null
+    if (!Controls.valid(d.controlBindings,true)) return null
+    d.controlBindings=JSON.stringify(Controls.read(d.controlBindings))
     if (d.wheelSwitch===undefined) d.wheelSwitch=true
     if (d.showEnemyPreview===undefined) d.showEnemyPreview=true
     if (typeof d.wheelSwitch!=="boolean" || typeof d.showEnemyPreview!=="boolean") return null

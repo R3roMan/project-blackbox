@@ -188,10 +188,7 @@ ColumnLayout {
                 Layout.fillWidth:true
                 implicitHeight:unlocked ? 6 : 21
                 radius:2
-                Text {
-                    anchors.centerIn:parent;visible:!parent.unlocked
-                    text:"🔒";font.pixelSize:12;color:"#d4b5c7"
-                }
+                Ui.ChainedLock {visible:!parent.unlocked}
                 color:unlocked ? "#d9a36d" : index===openCount ? "#566d87" : "#352a36"
                 Accessible.name:(unlocked ? "Open listing " : "Locked listing ")+(index+1)
             }
@@ -335,7 +332,9 @@ ColumnLayout {
                     objectName:"lockedShopListing-"+(shop.run.shopCapacity+index+1)
                     Layout.fillWidth:true
                     implicitHeight:shop.compact ? 38 : 48
-                    text:"🔒  Listing "+(shop.run.shopCapacity+index+1)
+                    text:""
+                    Accessible.name:"Locked listing "+(shop.run.shopCapacity+index+1)
+                    Ui.ChainedLock {anchors.margins:3}
                     hintText:index===0 && shop.expansion ? shop.expansion.description : "Unlock the earlier listing first."
                     enabled:index===0 && !!shop.expansion && shop.balance>=shop.expansion.cost
                     onClicked:shop.purchaseRequested("expand-counter",-1,"")

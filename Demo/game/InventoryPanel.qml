@@ -96,7 +96,7 @@ ColumnLayout {
                 readonly property var entry: { inventory.revision; return inventory.run.inventory[index] }
                 readonly property var spec: entry ? Gear.catalogs[entry.group][entry.item.id] : null
                 objectName: "inventory-cell-" + index
-                text: spec ? spec.title : "Empty"
+                text:spec ? spec.title : ""
                 Layout.fillWidth: true
                 Layout.preferredWidth:90
                 Layout.minimumWidth:45
@@ -107,7 +107,7 @@ ColumnLayout {
                 bottomPadding: 10
                 primary: inventory.selectedCell === index
                 accent: spec ? Gear.rarities[spec.rarity].color : "#9d90ac"
-                Accessible.name: "Inventory " + (index + 1) + ", " + text
+                Accessible.name:"Inventory "+(index+1)+", "+(spec ? text : "empty")
                 Accessible.description: !inventory.editable && spec ? "Read only during combat." : dragGear.available ? "Drag to move." : ""
                 hintEnabled: hovered && !!spec
                 hintDelay: 420
@@ -135,22 +135,11 @@ ColumnLayout {
                 contentItem: ColumnLayout {
                     spacing: 2
                     Text {
-                        text: { inventory.revision; return storage.entry ? "Lv " + storage.entry.item.level : String(storage.index + 1) }
+                        visible:!!storage.entry
+                        text:{inventory.revision;return storage.entry ? "Lv "+storage.entry.item.level : ""}
                         color: storage.primary ? "#211827" : storage.accent
                         font.family: "IBM Plex Mono"
                         font.pixelSize: Ui.UiMetrics.text(10)
-                    }
-                    Text {
-                        Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        visible: !storage.spec
-                        text: storage.text
-                        verticalAlignment: Text.AlignVCenter
-                        color: storage.primary ? "#211827" : "#f3e4ef"
-                        wrapMode: Text.WordWrap
-                        elide: Text.ElideRight
-                        font.family: "Inter"
-                        font.pixelSize: Ui.UiMetrics.text(12)
                     }
                     Loader {
                         Layout.fillHeight: true

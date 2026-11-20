@@ -181,10 +181,10 @@ GridLayout {
                         rightPadding: 6
                         topPadding: 5
                         bottomPadding: 10
-                        text: (spec ? spec.title : slot ? "Empty" : "Locked")
+                        text:spec ? spec.title : ""
                         primary: grid.selectedGroup === track.group && grid.selectedIndex === index
                         accent: tierColor
-                        Accessible.name: Gear.groupLabels[track.group] + " " + number + ", " + text
+                        Accessible.name:Gear.groupLabels[track.group]+" "+number+", "+(spec ? text : slot ? "empty" : "locked")
                         Accessible.description: (sourceDrag.available ? "Drag to move. " : !grid.editable && item ? "Read only. " : "") + (grid.offerId.length && spec ? "Replace " + spec.title + ". " : "")
                             + (power.title ? power.title + ". " + power.description : "")
                         hintEnabled: hovered && (!!spec || !!power.title)
@@ -219,6 +219,7 @@ GridLayout {
                                 }
                             }
                             Text {
+                                visible:!!slotTile.item
                                 anchors.left:parent.left
                                 anchors.top:parent.top
                                 width:parent.width
@@ -265,6 +266,7 @@ GridLayout {
                                 : slotTile.transferTarget ? "#8bf1e0" : slotTile.tierColor
                             Behavior on color { ColorAnimation { duration: grid.animate ? 125 : 0 } }
                         }
+                        Ui.ChainedLock {visible:!slotTile.slot}
                         UpgradeRim {
                             anchors.fill: parent
                             tint: slotTile.upgradeColor

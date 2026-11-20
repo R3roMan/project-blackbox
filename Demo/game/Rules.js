@@ -771,7 +771,7 @@ function breakBarrier(run, enemy) {
 
 function barrierCooldown(run) {
     const sources = ["ward", "arcshield", "voidaegis", "threadstep"]
-    const timers = run.slots.active.filter(function(slot) { return slot.item && sources.includes(slot.item.id) })
+    const timers = run.slots.active.filter(function(slot) { return slot.item && sources.includes(activeAbilities[slot.item.id].effectId || slot.item.id) })
         .map(function(slot) { return activeCooldown(run, slot.item.id) })
     return timers.length ? Math.min(...timers) : -1
 }
@@ -2848,12 +2848,12 @@ function meleeStrike(run, gun, weapon, stats, aimed, view, power) {
     const charged = gun.primed
     gun.primed = false
     gun.chargedStrike = charged
-    if (weapon.id === "katana") {
+    if ((weapon.art || weapon.id)==="katana") {
         gun.combo = run.time <= gun.comboUntil ? gun.combo % 3 + 1 : 1
         gun.comboUntil = run.time + .64 + (Gear.hasKit(run,"quickSteel") ? .06 : 0)
     }
     const range = melee.reach + rank(run, "longguard") * 38
-    const finisher = weapon.id === "katana" && gun.combo === 3
+    const finisher = (weapon.art || weapon.id)==="katana" && gun.combo === 3
     const combo = finisher ? 1.58 : 1
     const honed = run.honedHit
     run.honedHit = 0
@@ -4021,7 +4021,8 @@ function useAbility(run, slot, view, aimId, aim) {
     const boltsBefore=run.bolts.length
     let feedback = ""
     let sound = "seal"
-    switch (id) {
+    const effectId=activeAbilities[id].effectId || id
+    switch (effectId) {
     case "boneShatter":
         run.boneRank = Math.min(4,1+strength)
         run.boneTime = 8+strength*.85
@@ -4228,14 +4229,14 @@ function useAbility(run, slot, view, aimId, aim) {
         const focus = target(run, aimId) || available[0]
         if (!focus && !aim)
             return false
-        const base = id === "frag" ? 5.4 + (Gear.hasKit(run, "minigun") ? 2 : 0)
-            : id === "cryogrenade" ? 3 : id === "nullgrenade" ? 2 : 7
+        const base = effectId === "frag" ? 5.4 + (Gear.hasKit(run, "minigun") ? 2 : 0)
+            : effectId === "cryogrenade" ? 3 : effectId === "nullgrenade" ? 2 : 7
         sound = "throwGrenade"
-        if (id === "nullgrenade" && view === "down")
+        if (effectId === "nullgrenade" && view === "down")
             advanceSeal(run,.19+strength*.04+(Gear.hasKit(run,"volt") ? .11 : 0))
-        const radius = (id === "gravitywell" ? 235 + (Gear.hasKit(run, "prism") ? 95 : 0) : 196)
+        const radius = (effectId === "gravitywell" ? 235 + (Gear.hasKit(run, "prism") ? 95 : 0) : 196)
             * (1 + Gear.perk(run, "blastRadius"))
-        throwGrenade(run, view, focus ? focus.id : 0, Object.assign({ x:.5, y:.5 }, aim, { kind:id }),
+        throwGrenade(run, view, focus ? focus.id : 0, Object.assign({ x:.5, y:.5 }, aim, { kind:effectId }),
             (base + strength * 1.25 + rank(run, "booster") * .78) * outgoing(run), radius, .46, strength, stats)
         break
     }
@@ -4292,7 +4293,7 @@ function useAbility(run, slot, view, aimId, aim) {
             run.health = Math.min(Gear.maxHealth(run), run.health + 14 + strength * 5 + (Gear.hasKit(run, "cyclone") ? 8 : 0))
         break
     default:
-        sound = expansionActive(run, id, stats, view, aimId, available)
+        sound = expansionActive(run, effectId, stats, view, aimId, available)
         if (!sound)
             return false
         break

@@ -61,17 +61,6 @@ for key, light, base, seed in [
         draw.polygon([(W-x if side else x, y) for x,y in p], fill=(2,8,12))
     save(key, image)
 
-vault = plate((6, 8, 14), (5, 6, 12), (24, 30, 44), (.5, .53))
-d = ImageDraw.Draw(vault)
-for i in range(6):
-    inset = i * 34
-    d.line([(420+inset,780),(420+inset,350+inset*.67),(600+inset,168+inset*.68),
-            (1000-inset,168+inset*.68),(1180-inset,350+inset*.67),(1180-inset,780)],
-           fill=(27-i*2,34-i*2,47-i*3),width=5)
-d.rounded_rectangle((700,383,900,703),radius=85,fill=(8,11,18),outline=(45,57,78),width=3)
-d.ellipse((795,521,805,531),fill=(112,145,166))
-save("birth", vault)
-
 media = plate((12,13,39),(26,14,39),(116,47,48),(.24,.51))
 d = ImageDraw.Draw(media)
 stars(d, 370, 94, 460)
@@ -104,12 +93,4 @@ for x in [129,316,1105,1294]:
         d.line((x+18,344+i*17,x+92+(i%3)*12,344+i*17),fill=(30,92,94),width=2)
 save("lab", lab)
 
-code = plate((5,8,14),(8,12,19),(16,26,33),(.66,.49),.4)
-d = ImageDraw.Draw(code)
-for x in range(20,W,36):
-    for y in range(20,H,36):
-        d.point((x,y),fill=(36,44,59))
-d.line([(1010,378),(959,430),(1010,482)], fill=(44,72,96),width=7)
-d.line([(1132,378),(1183,430),(1132,482)], fill=(44,72,96),width=7)
-d.line([(1098,362),(1044,498)], fill=(44,72,96),width=7)
-save("code", code)
+
