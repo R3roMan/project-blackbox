@@ -5,6 +5,7 @@ var rooms = {
     sky: { name: "Star Sky", subtitle: "Constellations and projects", image: "sky.jpg", accent: "#bcb6ff" },
     abyss: { name: "Abyss", subtitle: "Research, experiments and unfinished work", image: "abyss.jpg", accent: "#70decd" },
     media: { name: "Media", subtitle: "Films, references and artwork", image: "media.jpg", accent: "#f5a4ad" },
+    code: { name: "Pure Code", subtitle: "Blackbox terminal", image: "pure-code.svg", accent: "#91ceb7" },
     lab: { name: "Droid Lab", subtitle: "George Droid’s game workshop", image: "lab.jpg", accent: "#78e0d4" }
 }
 

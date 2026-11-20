@@ -7,19 +7,30 @@ Template.Scene {
     id:gallery
     durationMs:620
     showTransitionCaption:false
-    roomArtwork:({shrine:Scenery.asset("front"),media:Scenery.asset("left"),lab:Scenery.asset("right"),
+    property bool pureCode:false
+    extraRoutes:pureCode ? ({media:{left:"code"},lab:{right:"code"},sky:{up:"code"},abyss:{down:"code"},
+        code:{left:"lab",right:"media",up:"abyss",down:"sky"}}) : ({})
+    extraTransitions:pureCode ? ({
+        "media:code":{kind:"lookLeft"},"lab:code":{kind:"lookRight"},"sky:code":{kind:"lookUp"},"abyss:code":{kind:"lookDown"},
+        "code:lab":{kind:"lookLeft"},"code:media":{kind:"lookRight"},"code:abyss":{kind:"lookUp"},"code:sky":{kind:"lookDown"}
+    }) : ({})
+    readonly property var roomFaces:pureCode ? Object.assign({code:"back"},Scenery.rooms) : Scenery.rooms
+    roomArtwork:({code:gallery.pureCode ? Scenery.asset("back") : "",shrine:Scenery.asset("front"),media:Scenery.asset("left"),lab:Scenery.asset("right"),
         sky:Scenery.asset("up"),abyss:Scenery.asset("down")})
     property date localTime:new Date()
     property double cycleOrigin:Date.now()
     property int phaseMinutes:10
     property int sceneryDetail:1
+    property string wallpaperFraming:"fill"
+    property int wallpaperQuality:0
+    property real wallpaperZoom:1
     property var forecast:Scenery.idleWeather(localTime,(localTime.getTime()-cycleOrigin)/1000,phaseMinutes)
     property var labAppearance:({})
     property bool mouseLook:false
     property bool externalTurnKeys:false
     property Item pointerSurface:null
     property rect turnArea:Qt.rect(0,0,width,height)
-    readonly property string liveFront:Scenery.rooms[room] || "front"
+    readonly property string liveFront:gallery.roomFaces[room] || "front"
     property string controlBindings:"{}"
     readonly property var bindings:Controls.read(controlBindings)
     navigationKeyHandler:function(event) {
@@ -78,14 +89,15 @@ Template.Scene {
     artworkView:Component {
         WallpaperTurn {
             artDirectory:Qt.resolvedUrl("../../V0.1/kde/contents/images/")
-            frontId:Scenery.rooms[gallery.destination || gallery.room] || "front"
-            previousFront:Scenery.rooms[gallery.room] || "front"
+            frontId:gallery.roomFaces[gallery.destination || gallery.room] || "front"
+            previousFront:gallery.roomFaces[gallery.room] || "front"
             direction:gallery.lookDirection || (frontId==="down" ? "down" : "up")
             progress:gallery.moving ? gallery.progress : 1
             lab:false
+            includeCode:gallery.pureCode
             sources:{
                 const files={}
-                for (const key of Object.keys(Scenery.rooms)) files[Scenery.rooms[key]]=gallery.artFor(key)
+                for (const key of Object.keys(gallery.roomFaces)) files[gallery.roomFaces[key]]=gallery.artFor(key)
                 return files
             }
             phase:gallery.forecast.phase;weather:gallery.forecast.weather
@@ -93,6 +105,9 @@ Template.Scene {
             solarTime:gallery.forecast.solarTime; motion:gallery.ambient
             windy:gallery.forecast.windy;cloudy:gallery.forecast.cloudy;swarm:gallery.forecast.swarm
             detail:gallery.performance ? 0 : gallery.sceneryDetail
+            framing:gallery.wallpaperFraming
+            quality:gallery.wallpaperQuality
+            zoom:gallery.wallpaperZoom
             labAppearance:gallery.labAppearance
             weatherParticles:true;continuousWeather:true
         }
@@ -101,7 +116,7 @@ Template.Scene {
     roomLighting:Component {
         Item {
             id:litRoom
-            readonly property string front:Scenery.rooms[parent.sceneRoom] || ""
+            readonly property string front:gallery.roomFaces[parent.sceneRoom] || ""
             readonly property real clock:gallery.ambientSeconds
             RoomAtmosphere {
                 anchors.fill:parent

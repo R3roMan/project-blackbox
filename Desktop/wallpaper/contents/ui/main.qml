@@ -11,6 +11,12 @@ WallpaperItem {
             onTriggered:Qt.callLater(runtime.item.requestQuickStart)
         },
         PlasmaCore.Action {
+            text:"Room overview"
+            icon.name:"view-grid"
+            visible:runtime.item?.idleActionsAvailable || false
+            onTriggered:Qt.callLater(()=>runtime.item?.showOverview(false))
+        },
+        PlasmaCore.Action {
             text:"Idle settings"
             icon.name:"preferences-desktop-wallpaper"
             visible:runtime.item?.idleActionsAvailable || false

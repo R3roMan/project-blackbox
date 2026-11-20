@@ -168,6 +168,21 @@ Item {
                 const length=(1+wave*9)*(depth+.14)
                 c.beginPath();c.moveTo(x-length,y);c.quadraticCurveTo(x,y-.48,x+length,y);c.stroke()
             }
+            if (land.detail===3 && !land.night && (land.dusk || land.dawn || land.cloudy)
+                && !Conditions.isRain(land.weather)) {
+                const light=land.dusk ? [1,.67,.38] : land.dawn ? [1,.88,.63] : [.97,.96,.77]
+                for (let i=0;i<64;i++) {
+                    const depth=(i*.618034)%1
+                    const shimmer=.5+.5*Math.sin(i*8.73+t*(1.3+depth*2.2)*rough)
+                    const offset=(i*113%29-14)*(.4+depth*1.7)
+                    const x=sx+offset+Math.sin(t*.91+i)*2
+                    const y=283+depth*149
+                    const width=2+depth*(8+shimmer*18)
+                    c.strokeStyle=Qt.rgba(light[0],light[1],light[2],.27*shimmer*shimmer*(.3+depth*.7))
+                    c.lineWidth=.55+depth*.8
+                    c.beginPath();c.moveTo(x-width,y);c.quadraticCurveTo(x,y-.64,x+width,y);c.stroke()
+                }
+            }
             c.restore()
             if (land.cloudy || land.detail>=2) {
                 // Moving cloud shadows cross the treeline and its reflection together.

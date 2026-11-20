@@ -607,7 +607,10 @@ ApplicationWindow {
                     onClicked: window.goHome()
                 }
             }
-            Game.AmbientGallery {
+            Game.AmbientGallery { 
+                wallpaperFraming:display.framing
+                wallpaperQuality:display.quality
+                wallpaperZoom:display.zoom
                 id: gallery
                 sceneryDetail:display.detail
                 mouseLook:display.mouseTurns

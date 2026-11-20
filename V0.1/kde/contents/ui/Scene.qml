@@ -91,8 +91,13 @@ FocusScope {
         return Qt.point(star.x + Math.cos(angle) * amount, star.y + Math.sin(angle) * amount)
     }
 
+    property var extraRoutes:({})
+    property var extraTransitions:({})
+    function neighbor(direction) {
+        return extraRoutes[room]?.[direction] || Rooms.routes[room]?.[direction]
+    }
     function move(direction) {
-        var next = Rooms.routes[room][direction]
+        var next = neighbor(direction)
         if (next)
             go(next)
     }
@@ -126,9 +131,9 @@ FocusScope {
         if (id === "abyss" && !roomArtwork.abyss && !performance)
             abyssVariant = (abyssVariant + 1) % 2
         destination = id
-        var decision = Rooms.transitions[room + ":" + id]
+        var decision = extraTransitions[room + ":" + id] || Rooms.transitions[room + ":" + id]
         transitionKind = decision ? decision.kind : "cross"
-        transitionLabel = decision ? decision.label : "Travel to " + Rooms.rooms[id].name
+        transitionLabel = decision?.label || "Travel to " + Rooms.rooms[id].name
         if (instant || performance || !motionAllowed || durationMs === 0 || !exposed || coverDemo) {
             commit()
         } else {
@@ -594,11 +599,11 @@ FocusScope {
                     Layout.column: modelData.column
                     Layout.preferredWidth: 36
                     compact: true
-                    enabled: modelData.key === "home" || !!Rooms.routes[root.room][modelData.key]
+                    enabled: modelData.key === "home" || !!root.neighbor(modelData.key)
                     Accessible.name: modelData.key === "home" ? "Return to Home Shrine" : "Move " + modelData.key
                     ToolTip.visible: hovered && enabled
                     ToolTip.text: modelData.key === "home" ? "Return to Home Shrine"
-                        : enabled ? Rooms.title(Rooms.routes[root.room][modelData.key], root.edits) : ""
+                        : enabled ? Rooms.title(root.neighbor(modelData.key), root.edits) : ""
                     onClicked: modelData.key === "home" ? root.go("shrine", true) : root.move(modelData.key)
                 }
             }

@@ -88,4 +88,13 @@ Item {
         time:room.clock
         motion:room.motion
     }
+    Loader {
+        anchors.fill:parent
+        active:!room.custom && room.detail>0 && ["front","left"].includes(room.front)
+        sourceComponent:ShrineLight {
+            front:room.front;phase:room.phase;weather:room.localWeather
+            clock:room.clock;solarTime:room.solarTime;motion:room.motion
+            windy:room.windy;cloudy:room.cloudy;detail:room.detail
+        }
+    }
 }

@@ -44,8 +44,8 @@ GridLayout {
         font.pixelSize:Ui.UiMetrics.text(13)
         objectName: "wallpaperFit"
         Layout.fillWidth: true
-        model: ["Fill screen", "Fit entire image", "Stretch"]
-        readonly property var modes: ["fill", "fit", "stretch"]
+        model: ["Fill screen", "Fit entire image", "Stretch", "16:9 composition"]
+        readonly property var modes: ["fill", "fit", "stretch", "16:9"]
         currentIndex: Math.max(0, modes.indexOf(settings.fit))
         onActivated: settings.fitChangedByUser(modes[currentIndex])
     }

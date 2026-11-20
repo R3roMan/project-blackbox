@@ -262,7 +262,7 @@ function decodeBundle(text) {
         || typeof data.achievementsOverride !== "boolean" || typeof data.sound !== "boolean" || typeof data.motion !== "boolean")
         return null
     const d = data.display
-    if (!plain(d) || !["fill","fit","stretch"].includes(d.framing) || ![0,1080,1440,2160].includes(d.quality)
+    if (!plain(d) || !["fill","fit","stretch","16:9"].includes(d.framing) || ![0,1080,1440,2160].includes(d.quality)
         || typeof d.zoom !== "number" || d.zoom < 1 || d.zoom > 1.4 || typeof d.mouseTurns !== "boolean"
         || ![0,1,2,3].includes(d.detail) || !["cinematic","soft"].includes(d.transitionStyle)
         || typeof d.transitionStrength !== "number" || d.transitionStrength < .4 || d.transitionStrength > 1.4)

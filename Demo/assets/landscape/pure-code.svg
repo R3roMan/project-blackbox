@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <radialGradient id="ground" cx=".5" cy=".42" r=".71">
+      <stop stop-color="#172225"/><stop offset=".64" stop-color="#0e131b"/><stop offset="1" stop-color="#06070c"/>
+    </radialGradient>
+    <pattern id="rows" width="36" height="36" patternUnits="userSpaceOnUse"><path fill="none" stroke="#7a96a7" stroke-opacity=".12" d="M0 0h36m0 0v36"/></pattern>
+  </defs>
+  <path fill="url(#ground)" d="M0 0h1600v900H0z"/>
+  <path fill="url(#rows)" d="M0 0h1600v900H0z"/>
+  <g fill="none" stroke="#719fa0" stroke-linejoin="round">
+    <path stroke-opacity=".43" stroke-width="2" d="m800 241 190 113v215L800 681 610 569V354z M610 354l190 112 190-112M800 466v215"/>
+    <path stroke-opacity=".14" d="m800 241 0 215-190 113m190-113 190 113 M740 550l-56 28m176-28 56 28"/>
+  </g>
+</svg>

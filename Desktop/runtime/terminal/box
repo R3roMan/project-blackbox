@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Manage Blackbox from the Pure Code Konsole session."""
+import argparse
+import json
+import subprocess
+
+RPC = ("qdbus6", "org.projectblackbox.Desktop", "/Blackbox", "org.projectblackbox.Desktop.")
+ROOMS = ("front", "left", "right", "up", "down", "back")
+OPTIONS = {
+    "idlePhaseMinutes": (int, (1, 120)),
+    "idleFps": (int, (5, 30)),
+    "detail": (int, (0, 3)),
+    "frameLimit": (int, (20, 240)),
+    "audioMaster": (float, (0, 1)),
+    "audioMusic": (float, (0, 1)),
+    "audioEffects": (float, (0, 1)),
+    "audioAmbience": (float, (0, 1)),
+    "audioInterface": (float, (0, 1)),
+    "framing": (str, ("fill", "fit", "stretch", "16:9")),
+    "idlePet": (bool, ()),
+    "motion": (bool, ()),
+    "backgroundPlay": (bool, ()),
+    "peekOverview": (bool, ()),
+    "safeRendering": (bool, ()),
+}
+
+
+def service(method, *args):
+    return subprocess.check_output([*RPC[:3], RPC[3] + method, *args], text=True, timeout=6)
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="box")
+    commands = parser.add_subparsers(dest="command")
+    commands.add_parser("me", help="Draw Blackbox")
+    commands.add_parser("status", help="Show the wallpaper and game state")
+    commands.add_parser("options", help="Show configurable options and current values")
+    look = commands.add_parser("look", help="Turn the Idle wallpaper")
+    look.add_argument("direction", choices=("left", "right", "up", "down"))
+    room = commands.add_parser("room", help="Go directly to a room in Idle")
+    room.add_argument("face", choices=ROOMS)
+    setting = commands.add_parser("set", help="Adjust an option from box options")
+    setting.add_argument("option", choices=OPTIONS)
+    setting.add_argument("value")
+    args = parser.parse_args()
+    if args.command == "me":
+        print(r"""
+             +-----------+
+            /           /|
+           / BLACKBOX  / |
+          +-----------+  |
+          |    .-.    |  +
+          |   (o o)   | /
+          |    |=|    |/
+          +-----------+
+""")
+    elif args.command == "status":
+        print(json.dumps(json.loads(service("Status")), indent=2))
+    elif args.command == "options":
+        status = json.loads(service("Options"))
+        for key, (kind, valid) in OPTIONS.items():
+            description = "true or false" if kind is bool else " to ".join(map(str, valid)) if kind in (float, int) else ", ".join(valid)
+            print(f"{key:20} {str(status.get(key)):8} {description}")
+    elif args.command == "look":
+        service("Command", "idle-" + args.direction)
+    elif args.command == "room":
+        answer = service("IdleRoom", args.face).strip()
+        if answer != "true":
+            parser.error("room selection is available from an active Blackbox Idle session")
+    elif args.command == "set":
+        kind, valid = OPTIONS[args.option]
+        try:
+            if kind is bool:
+                value = {"true": True, "false": False}[args.value.lower()]
+            else:
+                value = kind(args.value)
+                if not (valid[0] <= value <= valid[1] if kind in (float, int) else value in valid):
+                    raise ValueError
+        except (ValueError, KeyError):
+            parser.error("invalid value. See box options for accepted values")
+        service("Configure", args.option, json.dumps(value))
+        current = json.loads(service("Options")).get(args.option)
+        print(f"{args.option} = {current}")
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, subprocess.SubprocessError, ValueError):
+        raise SystemExit("Blackbox is unavailable on this KDE session bus.")

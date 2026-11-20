@@ -162,6 +162,7 @@ PlasmoidItem {
                                     applet.expanded=false
                                 }
                             }
+                            Ui.ActionButton {Layout.fillWidth:true;text:"Room overview";onClicked:{Native.Desktop.command("overview");applet.expanded=false}}
                             Ui.ActionButton {Layout.fillWidth:true;text:"Grimoire";onClicked:{Native.Desktop.command("grimoire");applet.expanded=false}}
                             Ui.ActionButton {Layout.fillWidth:true;visible:popup.activePlay;text:"Loadout";onClicked:{Native.Desktop.command("loadout");applet.expanded=false}}
                             Ui.ActionButton {Layout.fillWidth:true;visible:popup.activePlay;text:Native.Desktop.state.saveStatus || "Save run";onClicked:Native.Desktop.command("save")}

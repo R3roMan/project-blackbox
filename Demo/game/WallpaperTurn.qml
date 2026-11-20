@@ -13,6 +13,7 @@ Item {
     required property real progress
     required property bool lab
     property var sources:({})
+    property bool includeCode:false
     property string phase:"daytime"
     property string weather:"clear"
     property string lightingWeather:weather
@@ -33,9 +34,9 @@ Item {
     property real transitionStrength:1
     readonly property string activeFront:lab ? "right" : frontId
     readonly property bool moving:progress<1 && !lab && previousFront!==frontId
-    readonly property bool abyssTransition:moving && (activeFront==="down" || previousFront==="down")
+    readonly property bool abyssTransition:moving && !([activeFront,previousFront].includes("back")) && (activeFront==="down" || previousFront==="down")
     readonly property bool descending:abyssTransition && transitionStyle==="cinematic"
-    readonly property bool skyTurn:moving && (activeFront==="up" || previousFront==="up")
+    readonly property bool skyTurn:moving && !([activeFront,previousFront].includes("back")) && (activeFront==="up" || previousFront==="up")
     readonly property bool rotating:moving && !abyssTransition && !skyTurn && transitionStyle==="cinematic"
     readonly property real sampleScale:Math.min(Math.max(1,Screen.devicePixelRatio),quality>0
         ? quality/Math.max(1,height) : 8192/Math.max(1,width))
@@ -47,16 +48,28 @@ Item {
         return old+(current-old)*progress
     }
     clip:true
+    Rectangle {
+        anchors.fill:parent
+        color:"#090810"
+        visible:backdrop.framing==="16:9"
+    }
+    Item {
+        id:picture
+        objectName:"wallpaperComposition"
+        anchors.centerIn:parent
+        width:backdrop.framing==="16:9" ? Math.min(backdrop.width,backdrop.height*16/9) : backdrop.width
+        height:backdrop.framing==="16:9" ? width*9/16 : backdrop.height
+        clip:backdrop.framing==="16:9"
     Repeater {
         id:panels
-        model:["front","left","right","up","down"]
+        model:backdrop.includeCode ? ["front","left","right","up","down","back"] : ["front","left","right","up","down"]
         delegate:Item {
             id:panel
             required property string modelData
             property alias surface:wall
             readonly property bool incoming:modelData===backdrop.activeFront
             readonly property bool inView:incoming || backdrop.moving && modelData===backdrop.previousFront
-            width:backdrop.width;height:backdrop.height
+            width:picture.width;height:picture.height
             clip:true
             // During a dissolve the departing view stays opaque beneath the arrival.
             z:incoming ? 1 : 0
@@ -95,7 +108,20 @@ Item {
                 Loader {
                     anchors.centerIn:parent
                     width:wall.paintedWidth;height:wall.paintedHeight
-                    active:wall.status===Image.Ready
+                    active:panel.inView && backdrop.motion && backdrop.detail>0 && wall.status===Image.Ready
+                        && String(wall.source)===String(wall.fallback) && ["front","left"].includes(panel.modelData)
+                        && GraphicsInfo.api!==GraphicsInfo.Software
+                    sourceComponent:ShaderEffect {
+                        property var field:wall
+                        property vector4d windAndScene:Qt.vector4d(backdrop.clock,Number(backdrop.windy || backdrop.weather==="windy"),
+                            Number(panel.modelData==="left"),Number(backdrop.detail===3))
+                        fragmentShader:"shaders/foliage-motion.frag.qsb"
+                    }
+                }
+                Loader {
+                    anchors.centerIn:parent
+                    width:wall.paintedWidth;height:wall.paintedHeight
+                    active:wall.status===Image.Ready && panel.modelData!=="back"
                     sourceComponent:RoomAtmosphere {
                         front:panel.modelData;phase:backdrop.phase;weather:backdrop.weather
                         lightingWeather:backdrop.lightingWeather
@@ -120,7 +146,7 @@ Item {
             particleResolution:backdrop.detail===3 ? 1320 : 920
             fogDensity:backdrop.weatherAcross(Scenery.fogDensity)
             nearVisibility:backdrop.weatherAcross(Scenery.fogNearVisibility)
-            opacity:condition==="fog" ? 1 : backdrop.weatherAcross(front=>Scenery.roomWeather(condition,front)==="clear" ? 0 : front==="right" ? .45 : 1)
+            opacity:condition==="fog" ? backdrop.weatherAcross(front=>front==="back" ? 0 : 1) : backdrop.weatherAcross(front=>front==="back" || Scenery.roomWeather(condition,front)==="clear" ? 0 : front==="right" ? .45 : 1)
         }
     }
     Gallery.TurnJoin {
@@ -135,5 +161,6 @@ Item {
         anchors.fill:parent;z:2
         progress:backdrop.descending ? backdrop.progress : 0
         strength:backdrop.transitionStrength
+    }
     }
 }

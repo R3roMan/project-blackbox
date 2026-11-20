@@ -2,8 +2,8 @@
     "KPlugin": {
         "Id": "org.projectblackbox.visibility",
         "Name": "Blackbox desktop visibility",
-        "Description": "Pause Blackbox whenever another application takes focus",
-        "Version": "0.4.12",
+        "Description": "Reports which desktop is exposed and enables background Idle shortcuts",
+        "Version": "0.4.13",
         "Authors": [
             {
                 "Name": "Project Blackbox"

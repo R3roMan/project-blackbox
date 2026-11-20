@@ -3,6 +3,7 @@ import QtQuick3D
 
 View3D {
     id: portrait
+    property real heading:-18
     required property var helper
     property bool detailed:false
     property bool animate:false
@@ -27,5 +28,5 @@ View3D {
     }
     DirectionalLight { eulerRotation:Qt.vector3d(-29,-34,0); brightness:2.1; color:"#ffe1bd"; ambientColor:"#69637c" }
     DirectionalLight { eulerRotation:Qt.vector3d(11,141,0); brightness:1.7; color:"#b4cfff" }
-    PetModel {helper:portrait.helper; phase:portrait.clock; strike:0; detailed:portrait.detailed; animate:portrait.animate;resting:portrait.resting; eulerRotation:Qt.vector3d(-7,-18,0)}
+    PetModel {helper:portrait.helper; phase:portrait.clock; strike:0; detailed:portrait.detailed; animate:portrait.animate;resting:portrait.resting; eulerRotation:Qt.vector3d(-7,portrait.heading,0)}
 }

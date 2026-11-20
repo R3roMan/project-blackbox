@@ -5,6 +5,7 @@ var artwork={front:"shrine-day",left:"approach",right:"lab",down:"abyss"}
 var rooms={shrine:"front",media:"left",lab:"right",sky:"up",abyss:"down"}
 
 function asset(front) {
+    if (front==="back") return Qt.resolvedUrl("../assets/landscape/pure-code.svg")
     if (front==="up") return Qt.resolvedUrl("../../V0.1/kde/contents/images/sky.jpg")
     return artwork[front] ? Qt.resolvedUrl("../assets/landscape/"+artwork[front]+".webp") : ""
 }
