@@ -104,6 +104,7 @@ Item {
     }
     function cancel(announce=true) {
         if (pending && announce) record("Cancelled.")
+        approvalTimeout.stop()
         pending=null
         pendingTitle=""
     }
@@ -119,6 +120,7 @@ Item {
         pendingTitle=label
         approvalLabel=button
         approveBy=Date.now()+45000
+        approvalTimeout.restart()
         desktopHost.showPetConsole()
         return result(true,"Waiting for approval in the pet terminal.")
     }
@@ -375,6 +377,11 @@ Item {
         audioOutput:AudioOutput {volume:assistant.muted ? 0 : Ui.SoundMix.master*Ui.SoundMix.ambience*.65}
         Component.onCompleted:if ("pitchCompensation" in player) player.pitchCompensation=false
         onErrorOccurred:assistant.record("Could not play that audio file.")
+    }
+    Timer {
+        id:approvalTimeout
+        interval:45000
+        onTriggered:{assistant.cancel(false);assistant.record("Approval expired.")}
     }
     Timer {
         running:assistant.singing && !!assistant.pet
