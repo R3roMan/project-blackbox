@@ -45,7 +45,7 @@ function freezable(run,phase,card) {
     case "inventory":return run.inventory.length===card.index
     case "pet":return !!run.pet && run.pet.level<3
     case "shield-upgrade":return run.shield.level<3
-    case "barrier-core":return run.barrierCell.level<3
+    case "barrier-core":return Gear.canBuyCore(run)
     case "repeat-upgrade":return run.repeatRank<3
     case "shop-stat":return run.shopStats[card.stat]<3
     case "shop-quality":return run.shopQuality+1===card.level

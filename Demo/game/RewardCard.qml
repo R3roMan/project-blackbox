@@ -118,6 +118,11 @@ Ui.ActionButton {
             font.pixelSize: Ui.UiMetrics.text(12)
             font.weight: Font.Bold
         }
+        Ui.KitStatus {
+            run:card.run
+            revision:card.revision
+            kit:card.run && Gear.groupOf(card.offer) ? Gear.kitFor(Gear.groupOf(card.offer),card.offer.id) : null
+        }
         Text {
             Layout.fillWidth: true
             text: card.offer.description
@@ -140,10 +145,10 @@ Ui.ActionButton {
     }
 
     background: Rectangle {
-        radius: card.flask ? 19 : 7
+        radius: card.flask ? 19 : Ui.InterfaceTheme.current.radius
         clip: true
         color: card.down ? Qt.tint("#221927", Qt.rgba(card.tint.r, card.tint.g, card.tint.b, .17))
-            : card.selected ? "#382a40" : card.hovered ? "#302435" : "#201a27"
+            : card.selected || card.hovered ? Ui.InterfaceTheme.current.hover : Ui.InterfaceTheme.current.slot
         border.color: card.visualFocus || card.selected ? "#fff4dd" : card.flask ? "#77a897" : card.tint
         border.width: card.visualFocus || card.selected || card.legendary ? 2 : 1
 

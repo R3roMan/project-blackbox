@@ -24,7 +24,7 @@ Item {
     }
     signal closeRequested()
 
-    Rectangle {anchors.fill:parent;color:"#15101a"}
+    ShrineFrame {anchors.fill:parent;decorated:true;blood:.48}
     Shortcut {sequence:"Escape";onActivated:records.goBack()}
     ColumnLayout {
         anchors.centerIn:parent

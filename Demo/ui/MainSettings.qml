@@ -32,7 +32,7 @@ Item {
         nameFilters:["Images (*.png *.jpg *.jpeg *.webp)"]
         onAccepted:page.setBackground(String(selectedFile))
     }
-    Rectangle { anchors.fill:parent; color:"#15101b" }
+    ShrineFrame { anchors.fill:parent; decorated:true; blood:.44 }
     Shortcut { sequence:"Escape"; onActivated:page.closeRequested() }
     ScrollView {
         id:scroller
@@ -63,6 +63,7 @@ Item {
                         Layout.fillWidth:true
                         Layout.alignment:Qt.AlignTop
                         SettingsTitle {text:"Display and accessibility"}
+                        ThemeChooser {Layout.fillWidth:true;onThemeRequested:key=>InterfaceTheme.selectionRequested(key)}
                         RowLayout {
                             Layout.fillWidth:true
                             ComboBox {
@@ -167,13 +168,11 @@ Item {
         palette.windowText:"#eadde8"
         palette.text:"#eadde8"
     }
-    component SettingsCard: Rectangle {
+    component SettingsCard: ShrineFrame {
         default property alias content:body.data
         implicitWidth:body.implicitWidth+32
         implicitHeight:body.implicitHeight+32
-        color:"#231b29"
-        border.color:"#715268"
-        radius:7
+        fill:InterfaceTheme.current.surface
         ColumnLayout {
             id:body
             anchors.left:parent.left

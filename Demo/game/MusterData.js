@@ -3,10 +3,10 @@
 .import "Elements.js" as Elements
 .import "Ship.js" as Ship
 
-function actor(type) {
+function actor(type,depth) {
     const spec = Mission.enemyTypes[type]
     const enemy = {
-        id:1,type:type,front:"front",lane:0,depth:0,hp:1,maxHp:1,age:0,attack:999,attackFlash:0,
+        id:1,type:type,front:"front",lane:0,depth:depth || 0,hp:1,maxHp:1,age:0,attack:999,attackFlash:0,
         warp:0,warpDuration:1,warpKind:"",waitingBoss:false,flash:0,roar:0,shatter:0,
         barrier:0,anger:false,diagonal:0,generation:0,eyeCount:8,eyesTime:0,
         driftHeight:0,dodgeOffset:0,dodgeLift:0,dodgeAge:0,dodgeLaneGoal:0,fuse:type === "seraphijus" ? 15 : 0,

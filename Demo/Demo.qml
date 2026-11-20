@@ -102,7 +102,10 @@ ApplicationWindow {
         property real audioAmbience:1
         property real audioInterface:1
         property bool animationEnabled:true
+        property string interfaceTheme:"bloodShrine"
     }
+    Binding {target:Ui.InterfaceTheme;property:"selection";value:display.interfaceTheme}
+    Connections {target:Ui.InterfaceTheme;function onSelectionRequested(key){display.interfaceTheme=key}}
     Binding {target:Ui.SoundMix;property:"master";value:display.audioMaster}
     Binding {target:Ui.SoundMix;property:"music";value:display.audioMusic}
     Binding {target:Ui.SoundMix;property:"effects";value:display.audioEffects}
@@ -312,8 +315,8 @@ ApplicationWindow {
                 anchors.fill:parent
                 gradient:Gradient {
                     orientation:Gradient.Horizontal
-                    GradientStop {position:0;color:"#f7110b16"}
-                    GradientStop {position:.40;color:"#d1110c17"}
+                    GradientStop {position:0;color:Qt.darker(Ui.InterfaceTheme.current.base,1.4)}
+                    GradientStop {position:.40;color:Qt.rgba(Ui.InterfaceTheme.current.base.r,Ui.InterfaceTheme.current.base.g,Ui.InterfaceTheme.current.base.b,.76)}
                     GradientStop {position:.79;color:"#3b100a15"}
                     GradientStop {position:1;color:"#0f160b19"}
                 }

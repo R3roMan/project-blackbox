@@ -13,7 +13,7 @@ Button {
     property bool hintEnabled:true
     property int hintDelay:400
     property bool primary: false
-    property color accent: "#ffb47c"
+    property color accent: InterfaceTheme.current.accent
 
     hoverEnabled: true
     implicitHeight: Math.max(38, UiMetrics.text(14)+19)
@@ -45,13 +45,13 @@ Button {
     }
 
     background: Rectangle {
-        radius: 6
+        radius: Math.min(10,InterfaceTheme.current.radius)
         color: !control.enabled ? "#27242d"
             : control.primary ? (control.down ? "#e69466" : control.hovered ? "#ffd2a5" : control.accent)
-            : control.down ? "#3d2e38" : control.hovered ? "#362b38" : "#e41c1a24"
+            : control.down ? Qt.darker(InterfaceTheme.current.hover,1.2) : control.hovered ? InterfaceTheme.current.hover : InterfaceTheme.current.slot
         border.color: control.visualFocus ? "#fff2de"
             : control.primary && control.enabled ? Qt.lighter(control.accent, 1.17)
-                : control.hovered && control.enabled ? "#b387a5" : "#6d5b73"
+                : control.hovered && control.enabled ? InterfaceTheme.current.line : Qt.darker(InterfaceTheme.current.line,1.32)
         border.width: control.visualFocus ? 2 : 1
         Rectangle {
             anchors.top: parent.top

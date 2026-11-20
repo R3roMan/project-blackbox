@@ -16,8 +16,8 @@ Item {
         anchors.fill: parent
         visible: drag.available && drag.showGrip
         radius: 3
-        color: "#524054"
-        border.color: "#7f6d89"
+        color: gripHover.hovered ? "#845769" : "#543747"
+        border.color: "#b38494"
         Text {
             anchors.centerIn: parent
             text: "⠿"
@@ -26,6 +26,11 @@ Item {
         }
     }
 
+    HoverHandler {
+        id:gripHover
+        enabled:drag.available
+        cursorShape:drag.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+    }
     DragHandler {
         id: gesture
         enabled: drag.available

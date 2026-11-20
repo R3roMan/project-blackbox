@@ -6,6 +6,7 @@ Item {
     required property bool loss
     property bool motion:true
     property string message:""
+    signal rightClicked()
     readonly property color ink:loss ? "#abed4d" : "#f52545"
     readonly property color shadow:loss ? "#294417" : "#630c22"
     Rectangle {anchors.fill:parent;color:"#b9070810"}
@@ -57,7 +58,12 @@ Item {
         rotation:-4
         Accessible.name:text
     }
-    MouseArea {anchors.fill:parent;acceptedButtons:Qt.AllButtons;preventStealing:true}
+    MouseArea {
+        anchors.fill:parent
+        acceptedButtons:Qt.AllButtons
+        preventStealing:true
+        onClicked:mouse=>{if (mouse.button===Qt.RightButton) splash.rightClicked()}
+    }
     SequentialAnimation on opacity {
         running:splash.visible && splash.motion
         NumberAnimation {from:.45;to:1;duration:210;easing.type:Easing.OutCubic}

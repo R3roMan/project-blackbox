@@ -85,7 +85,7 @@ FocusScope {
     }
     Keys.onEscapePressed: shop.backRequested()
 
-    Rectangle {
+    ShrineFrame {
         id: dialogue
         width: Math.max(140,Math.min(440,ledgerPanel.x-34))
         anchors.bottom: parent.bottom
@@ -95,9 +95,7 @@ FocusScope {
         scale:shop.panelScale
         transformOrigin:Item.BottomLeft
         implicitHeight:voice.implicitHeight+24
-        color:"#ef211525"
-        radius:12
-        border.color:"#87606f"
+        fill:InterfaceTheme.current.surface
         Column {
             id:voice
             anchors.left:parent.left
@@ -128,7 +126,7 @@ FocusScope {
         }
     }
 
-    Rectangle {
+    ShrineFrame {
         id: ledgerPanel
         width: shop.tight ? Math.min(parent.width-175,parent.width*.70) : Math.min(800,parent.width*.55/shop.panelScale)
         height: shop.tight ? parent.height-22 : Math.min(780,parent.height/shop.panelScale-46)
@@ -137,10 +135,8 @@ FocusScope {
         anchors.right:parent.right
         anchors.rightMargin:shop.tight ? 11 : 23*shop.panelScale
         anchors.verticalCenter:parent.verticalCenter
-        radius:12
-        color:"#f11c1224"
-        border.color:"#8e697a"
-        PanelPlating {anchors.fill:parent;tone:"#ae8197";blood:.29}
+        decorated:true
+        blood:.72
 
         ColumnLayout {
             anchors.fill:parent

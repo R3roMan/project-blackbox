@@ -4460,7 +4460,7 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
         return
     if (!burningTick) record(run,"unblockedHits")
     if (!burningTick && (run.barrier > 0 && run.barrierHp > 0 || run.barrierCell.hp > 0)) {
-        if (run.barrierHp > 0)
+        if (run.barrier > 0 && run.barrierHp > 0)
             run.barrierHp -= 1
         else
             run.barrierCell.hp -= 1
@@ -5836,9 +5836,13 @@ function finishWave(run) {
     announce(run, heal ? "Wave cleared · +" + Math.round(heal) + " HP" : "Wave cleared", "clear")
 }
 
+function canRetire(run) {
+    return !run.training && ["combat","between","reward","bossReward","shop"].includes(run.phase)
+        && !run.shopStock.some(card=>card.paid && !card.sold)
+}
+
 function retire(run) {
-    if (!run.metrics.waves || !["between","reward","bossReward","shop"].includes(run.phase)
-        || run.shopStock.some(function(card) {return card.paid && !card.sold})) return false
+    if (!canRetire(run)) return false
     run.phase="defeat"
     run.finishReason="retired"
     return true

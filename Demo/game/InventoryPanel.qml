@@ -44,6 +44,7 @@ ColumnLayout {
         Layout.fillWidth: true
         run: inventory.run
         revision: inventory.revision
+        shrineLayout:true
         compact: true
         dense: inventory.dense
         animate: inventory.animate
@@ -53,20 +54,40 @@ ColumnLayout {
         onInventoryPlaced: function(cell, group, slot) { inventory.move(cell, group, slot) }
         onSwapped: function(group, from, to) { inventory.swapped(group, from, to) }
     }
-    Text {
-        text: {
-            inventory.revision
-            return "Inventory · " + inventory.run.inventory.filter(Boolean).length + " / " + inventory.run.inventory.length
-        }
-        font.family: "Inter"
-        font.pixelSize: Ui.UiMetrics.text(15)
-        font.weight: Font.DemiBold
-        color: "#ffe9cf"
-    }
-    RowLayout {
-        Layout.fillWidth: true
-        uniformCellSizes: true
-        spacing: 4
+    Ui.ShrineFrame {
+        Layout.fillWidth:true
+        fill:Ui.InterfaceTheme.current.surface
+        tone:Ui.InterfaceTheme.inventory
+        implicitHeight:bagLayout.implicitHeight+16
+        ColumnLayout {
+            id:bagLayout
+            anchors.fill:parent
+            anchors.margins:8
+            spacing:6
+            RowLayout {
+                Layout.fillWidth:true
+                Text {
+                    Layout.fillWidth:true
+                    text:"Inventory"
+                    font.family:Ui.InterfaceTheme.heading
+                    font.pixelSize:Ui.UiMetrics.text(16)
+                    font.bold:true
+                    color:Ui.InterfaceTheme.inventory
+                }
+                Text {
+                    text:{inventory.revision;return inventory.run.inventory.filter(Boolean).length+" / "+inventory.run.inventory.length}
+                    font.family:"IBM Plex Mono"
+                    font.pixelSize:Ui.UiMetrics.text(11)
+                    color:Ui.InterfaceTheme.inventory
+                }
+            }
+    GridLayout {
+        Layout.fillWidth:true
+        columns:Math.min(inventory.run.inventory.length,Math.max(3,Math.floor((inventory.width-16)/(inventory.dense ? 66 : 82))))
+        uniformCellWidths:true
+        uniformCellHeights:true
+        columnSpacing:5
+        rowSpacing:5
         Repeater {
             model: { inventory.revision; return inventory.run.inventory.length }
             Ui.ActionButton {
@@ -77,10 +98,9 @@ ColumnLayout {
                 objectName: "inventory-cell-" + index
                 text: spec ? spec.title : "Empty"
                 Layout.fillWidth: true
-                Layout.preferredWidth: 69
-                Layout.maximumWidth: inventory.dense ? 61 : 88
-                Layout.minimumWidth: 51
-                Layout.preferredHeight: width
+                Layout.preferredWidth:90
+                Layout.minimumWidth:45
+                Layout.preferredHeight:inventory.dense ? 43 : 51
                 leftPadding: 6
                 rightPadding: 6
                 topPadding: 5
@@ -88,6 +108,7 @@ ColumnLayout {
                 primary: inventory.selectedCell === index
                 accent: spec ? Gear.rarities[spec.rarity].color : "#9d90ac"
                 Accessible.name: "Inventory " + (index + 1) + ", " + text
+                Accessible.description: !inventory.editable && spec ? "Read only during combat." : dragGear.available ? "Drag to move." : ""
                 hintEnabled: hovered && !!spec
                 hintDelay: 420
                 entryChapter:entry?.group==="weapon" ? "weapons" : "abilities"
@@ -145,9 +166,9 @@ ColumnLayout {
                     }
                 }
                 background: Rectangle {
-                    radius: 6
+                    radius: Ui.InterfaceTheme.current.radius*.7
                     color: storage.primary ? storage.accent : storageDrop.containsDrag ? "#354862"
-                        : storage.hovered ? "#302c3d" : "#201e2b"
+                        : storage.hovered ? Ui.InterfaceTheme.current.hover : Ui.InterfaceTheme.current.slot
                     border.color: storage.visualFocus || storageDrop.containsDrag ? "#fffaef" : storage.accent
                     Rectangle {
                         visible: !!storage.spec && !storage.primary
@@ -174,8 +195,8 @@ ColumnLayout {
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     anchors.margins: 3
-                    width: 17
-                    height: 16
+                    width:19
+                    height:19
                     showGrip: true
                     group: storage.entry ? storage.entry.group : ""
                     title: storage.text
@@ -197,7 +218,8 @@ ColumnLayout {
                 }
             }
         }
-        Item { Layout.fillWidth: true }
+    }
+        }
     }
     Text {
         Layout.fillWidth: true
@@ -213,7 +235,7 @@ ColumnLayout {
                 return "Choose equipped gear to store here."
             if (equipped.selectedIndex >= 0)
                 return "Choose a storage square to move this item."
-            return inventory.transferMessage || "Drag between storage and your loadout, or select both squares."
+            return inventory.transferMessage || "Use the dotted grip to drag gear, or select two slots."
         }
         color: inventory.selectedCell >= 0 || equipped.selectedIndex >= 0 ? "#9deee4" : "#d7c6d9"
         font.family: "Inter"

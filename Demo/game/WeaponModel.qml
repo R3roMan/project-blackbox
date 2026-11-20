@@ -37,6 +37,14 @@ View3D {
     readonly property var art: Art.design(weapon)
     readonly property real intensity: Math.min(1, shotLife / weapon.afterglow)
     readonly property var pose: Art.pose(art, motion ? intensity : 0, motion ? reloadRatio : 0, rotaryAngle)
+    property int barrelRevision:0
+    readonly property Node activeTip: {
+        if (handWeapon) return bladeTip
+        if (staff) return runeTip
+        if (!twins) return tip
+        barrelRevision
+        return twinBarrels.objectAt(sequence % 2 ? 0 : 1)?.barrelEnd ?? null
+    }
     readonly property point muzzle: {
         pose
         width
@@ -45,8 +53,7 @@ View3D {
         const fallback = Qt.point(width * .5, height * .32)
         if (!view.camera || width <= 0 || height <= 0)
             return fallback
-        sequence
-        const point = view.mapFrom3DScene((handWeapon ? bladeTip : staff ? runeTip : twins ? twinTip : tip).scenePosition)
+        const point = activeTip ? view.mapFrom3DScene(activeTip.scenePosition) : fallback
         return Number.isFinite(point.x) && Number.isFinite(point.y) && point.y > 0 && point.y < height
             ? Qt.point(point.x, point.y) : fallback
     }
@@ -101,7 +108,7 @@ View3D {
     DirectionalLight { eulerRotation: Qt.vector3d(13, 118, 12); color: "#a4b9ff"; brightness: 1.43 }
     PointLight {
         visible:view.detail===3 && view.shotLife>.001
-        position:(view.handWeapon ? bladeTip : view.staff ? runeTip : view.twins ? twinTip : tip).scenePosition
+        position:view.activeTip ? view.activeTip.scenePosition : Qt.vector3d(0,0,0)
         color:view.weapon.color
         brightness:Math.pow(view.intensity,2)*6
         quadraticFade:.44
@@ -167,15 +174,13 @@ View3D {
         visible: view.twins
         y: -13
         z: 39
-        Node {
-            id: twinTip
-            x: view.sequence % 2 ? -44 : 44
-            y: 18
-            z: -82
-        }
         Repeater3D {
+            id:twinBarrels
+            onObjectAdded:++view.barrelRevision
+            onObjectRemoved:++view.barrelRevision
             model: view.twins ? 2 : 0
             delegate: Node {
+                id:gunSide
                 required property int index
                 readonly property int side: index ? 1 : -1
                 readonly property real recoil: view.sequence % 2 === 1 - index ? view.intensity : 0
@@ -183,6 +188,14 @@ View3D {
                 y: 5 + recoil * 6 - view.pose.shellTravel * .47
                 z: recoil * 19 - view.stab * 74
                 eulerRotation: Qt.vector3d(-10 - recoil * 13-view.aimOffset.y*8.5,-side*2-view.aimOffset.x*12,view.pose.roll*side)
+                readonly property alias barrelEnd: barrelEnd
+                readonly property real barrelLength: view.art.barrel * .61
+                Node {
+                    id:barrelEnd
+                    objectName:index ? "rightGunMuzzle" : "leftGunMuzzle"
+                    y:7
+                    z:-51-gunSide.barrelLength*.5-1
+                }
                 Model {
                     source:view.detail===3 ? "" : "#Cube"
                     geometry:view.detail===3 ? receiver : null
@@ -194,7 +207,7 @@ View3D {
                     source:"#Cylinder"
                     z:-51; y:7
                     eulerRotation.x:90
-                    scale:Qt.vector3d(view.art.bore*.032,view.art.barrel*.0061,view.art.bore*.032)
+                    scale:Qt.vector3d(view.art.bore*.032,barrelLength*.01,view.art.bore*.032)
                     materials:[dark]
                 }
                 Model {
@@ -215,7 +228,7 @@ View3D {
                 Model {
                     source:"#Sphere"
                     visible: recoil > .03
-                    z:-82; y:12
+                    z:barrelEnd.z; y:barrelEnd.y
                     scale:Qt.vector3d(recoil*.19,recoil*.22,recoil*.44)
                     materials:[hot]
                 }

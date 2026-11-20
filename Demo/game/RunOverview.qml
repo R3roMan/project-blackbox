@@ -5,7 +5,6 @@ import "../ui" as Ui
 import "Rules.js" as Rules
 import "Loadout.js" as Gear
 import "Pets.js" as Pets
-import "Encounters.js" as Encounters
 import "Tarot.js" as Tarot
 
 ColumnLayout {
@@ -54,11 +53,6 @@ ColumnLayout {
     signal transitionStrengthRequested(real value)
 
     readonly property bool loadoutTab:tab === "build" || tab === "inventory"
-    readonly property int remaining: Rules.remainingEnemies(run)
-    readonly property int summons: run.enemies.filter(function(enemy) { return enemy.summoned }).length
-    readonly property int nextBoss: (Math.floor(run.wave / 10) + 1) * 10
-    readonly property var bossThisWave: run.pending.concat(run.enemies).map(function(enemy) { return Rules.enemyTypes[enemy.type] })
-        .find(function(creature) { return creature.role === "boss" })
     readonly property var equipped: { revision; return Gear.current(run) }
     readonly property var crit: { revision; return Rules.criticalProfile(run,Gear.weapons[equipped.id]) }
     readonly property var relevantKits: {
@@ -77,42 +71,6 @@ ColumnLayout {
         wrapMode: Text.WordWrap
         Layout.fillWidth: true
     }
-    component Summary: Rectangle {
-        id: tile
-        required property string label
-        required property string value
-        property color tint: "#f0be99"
-        property real blood: 0
-        Layout.fillWidth: true
-        implicitHeight: 67
-        radius: 5
-        color: "#251d2e"
-        border.color: "#594560"
-        Ui.PanelPlating { anchors.fill: parent; tone: "#857692"; blood: tile.blood }
-        Column {
-            anchors.left: parent.left
-            anchors.leftMargin: 13
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 3
-            Text {
-                text: tile.label
-                color: "#c7abc9"
-                font.family: "IBM Plex Mono"
-                font.pixelSize: Ui.UiMetrics.text(10)
-            }
-            Text {
-                text: tile.value
-                color: tile.tint
-                font.family: "Inter"
-                font.pixelSize: Ui.UiMetrics.text(21)
-                maximumLineCount: 1
-                width: tile.width - 22
-                elide: Text.ElideRight
-                font.weight: Font.Bold
-            }
-        }
-    }
-
     RowLayout {
         spacing: 7
         Ui.ActionButton {
@@ -122,14 +80,8 @@ ColumnLayout {
             onClicked: overview.tabRequested("build")
         }
         Ui.ActionButton {
-            objectName: "wavesTab"
-            text: "Waves"
-            primary: overview.tab === "waves"
-            onClicked: overview.tabRequested("waves")
-        }
-        Ui.ActionButton {
             objectName: "debugGearTab"
-            visible: overview.run.debugUnlockAll
+            visible: overview.run.debugUnlockAll && overview.editable
             text: "Debug gear"
             primary: overview.tab === "debugGear"
             onClicked: overview.tabRequested("debugGear")
@@ -155,6 +107,9 @@ ColumnLayout {
 
     RowLayout {
         visible: overview.tab === "settings"
+        Layout.fillWidth:true
+        Detail {text:"Blackbox theme"}
+        Ui.ThemeChooser {onThemeRequested:key=>Ui.InterfaceTheme.selectionRequested(key)}
         Ui.ActionButton {
             objectName: "pauseMotion"
             text: overview.motion ? "Motion on" : "Motion off"
@@ -205,43 +160,6 @@ ColumnLayout {
         onDetailChangedByUser:function(value) {overview.detailRequested(value)}
         onTransitionStyleChangedByUser:function(value) {overview.transitionStyleRequested(value)}
         onTransitionStrengthChangedByUser:function(value) {overview.transitionStrengthRequested(value)}
-    }
-
-    ColumnLayout {
-        visible: overview.tab === "waves"
-        spacing: 10
-        RowLayout {
-            Layout.fillWidth: true
-            uniformCellSizes: true
-
-            Summary { label: "CURRENT WAVE"; value: String(overview.run.wave) }
-            Summary {
-                label: "WAVE ENEMIES LEFT"
-                value: overview.remaining + " / " + overview.run.waveSize
-            }
-            Summary {
-                label: overview.bossThisWave ? "BOSS THIS WAVE" : "NEXT BOSS"
-                value: overview.bossThisWave ? overview.bossThisWave.title : "Wave " + overview.nextBoss
-                tint: "#ffe47b"
-            }
-        }
-        Detail {
-            text: (overview.run.enemies.length + " / " + Encounters.maxConcurrent(overview.run.wave, overview.run.difficulty) + " active. ")
-                + (overview.run.reinforcements.length ? overview.run.reinforcements.length + " summons waiting. " : "")
-                + (overview.summons ? overview.summons + " summons active. " : "")
-                + "Summons are tracked separately from the wave count."
-        }
-        Repeater {
-            model: 3
-            delegate: Detail {
-                required property int index
-                readonly property int wave: overview.run.wave + index + 1
-                text: "Wave " + wave + "  ·  " + Rules.waveSize(wave, overview.run.difficulty) + " enemies"
-                    + (Rules.isBossWave(wave) ? "  ·  " + Rules.enemyTypes[Rules.bossType(wave)].title : "")
-                    + (Rules.weather(wave) !== "clear" ? "  ·  " + Rules.weather(wave) : "")
-                color: Rules.isBossWave(wave) ? "#ffe47b" : "#d7c6d9"
-            }
-        }
     }
 
     ColumnLayout {
@@ -300,11 +218,15 @@ ColumnLayout {
                         spacing:3
                         readonly property bool complete:{overview.revision;return Gear.completeKit(overview.run,modelData)}
                         readonly property var members:{overview.revision;return Gear.kitMembers(overview.run,modelData)}
-                        Detail {
-                            text:kitRow.modelData.title+(kitRow.complete ? " · Active" : "")
-                            color:kitRow.complete ? "#ffe47b" : "#e6cfdc"
-                            font.bold:true
-                            font.pixelSize:Ui.UiMetrics.text(12)
+                        RowLayout {
+                            Layout.fillWidth:true
+                            Detail {
+                                text:kitRow.modelData.title
+                                color:Ui.InterfaceTheme.text
+                                font.bold:true
+                                font.pixelSize:Ui.UiMetrics.text(12)
+                            }
+                            Ui.KitStatus {run:overview.run;kit:kitRow.modelData;revision:overview.revision}
                         }
                         Flow {
                             Layout.fillWidth:true
@@ -316,7 +238,7 @@ ColumnLayout {
                                     objectName:"kitPart-"+modelData.id
                                     width:Math.min(implicitWidth,parent.width)
                                     text:modelData.title
-                                    color:modelData.owned ? "#9de8ae" : "#bdafc6"
+                                    color:modelData.owned ? Ui.InterfaceTheme.equipped : Ui.InterfaceTheme.secondary
                                     font.family:"Inter"
                                     font.pixelSize:Ui.UiMetrics.text(12)
                                     wrapMode:Text.Wrap

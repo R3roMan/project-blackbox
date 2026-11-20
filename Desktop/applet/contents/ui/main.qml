@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import "../../../../../project-blackbox/native" as Native
+import "../../../../../project-blackbox/Demo/ui" as Ui
 PlasmoidItem {
     id:applet
     Plasmoid.title:"Project Blackbox"
@@ -13,6 +14,7 @@ PlasmoidItem {
     property string layoutNotice:""
     onShowingChanged:if (!showing) expanded=false
     onExpandedChanged:if (expanded) Native.Desktop.refreshPanelStyle()
+    Binding {target:Ui.InterfaceTheme;property:"selection";value:Native.Desktop.config.interfaceTheme}
     preferredRepresentation:compactRepresentation
     component PanelButton: Button {
         id:panelButton
@@ -50,69 +52,153 @@ PlasmoidItem {
             }
         }
     }
-    fullRepresentation:ColumnLayout {
-        Layout.minimumWidth:350;Layout.preferredWidth:440;Layout.minimumHeight:385
-        Rectangle {
-            Layout.fillWidth:true;implicitHeight:42;radius:5;color:"#09090a";border.color:"#51464c"
+    fullRepresentation: Item {
+        id:popup
+        objectName:"blackboxPanelMenu"
+        Layout.minimumWidth:356
+        Layout.preferredWidth:400
+        Layout.minimumHeight:410
+        Layout.preferredHeight:410
+        property bool appearance:false
+        readonly property var style:Ui.InterfaceTheme.style(Native.Desktop.config.interfaceTheme)
+        readonly property bool activePlay:Native.Desktop.config.mode==="play"
+        // Native KDE controls inherit these popup colours.
+        palette.window:style.base
+        palette.base:style.slot
+        palette.button:style.surface
+        palette.text:Ui.InterfaceTheme.text
+        palette.windowText:Ui.InterfaceTheme.text
+        palette.buttonText:Ui.InterfaceTheme.text
+        palette.highlight:style.accent
+        palette.highlightedText:"#22141c"
+
+        Ui.ShrineFrame {anchors.fill:parent;style:popup.style;decorated:true;blood:.61}
+        ColumnLayout {
+            anchors.fill:parent
+            anchors.margins:13
+            spacing:9
             RowLayout {
-                anchors.fill:parent;anchors.margins:7;spacing:8
-                Image {source:applet.blackboxIcon;Layout.preferredWidth:29;Layout.preferredHeight:29;fillMode:Image.PreserveAspectFit}
-                Text {Layout.fillWidth:true;text:"PROJECT BLACKBOX";color:"#f2eaed";font.pixelSize:20;font.bold:true}
+                Layout.fillWidth:true
+                spacing:8
+                Image {source:applet.blackboxIcon;Layout.preferredWidth:28;Layout.preferredHeight:28;fillMode:Image.PreserveAspectFit}
+                Text {
+                    text:"Blackbox"
+                    Layout.fillWidth:true
+                    color:Ui.InterfaceTheme.text
+                    font.family:popup.style.serif ? "Noto Serif" : "Inter"
+                    font.pixelSize:21
+                    font.bold:true
+                }
+                Text {
+                    visible:applet.activeWallpaper
+                    text:popup.activePlay ? (Native.Desktop.state.wave ? "Wave "+Native.Desktop.state.wave : "Play") : "Idle"
+                    color:popup.style.accent
+                    font.pixelSize:12
+                    font.bold:true
+                }
+            }
+            RowLayout {
+                Layout.fillWidth:true
+                Ui.ActionButton {Layout.fillWidth:true;text:"Desktop";primary:!popup.appearance;accent:popup.style.accent;onClicked:popup.appearance=false}
+                Ui.ActionButton {Layout.fillWidth:true;text:"Appearance";primary:popup.appearance;accent:popup.style.accent;onClicked:popup.appearance=true}
+            }
+            Rectangle {Layout.fillWidth:true;implicitHeight:1;color:popup.style.line}
+            ScrollView {
+                id:appScroll
+                Layout.fillWidth:true
+                Layout.fillHeight:true
+                clip:true
+                contentWidth:availableWidth
+                ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
+                StackLayout {
+                    width:appScroll.availableWidth
+                    currentIndex:popup.appearance ? 1 : 0
+                    ColumnLayout {
+                        spacing:8
+                        Text {
+                            Layout.fillWidth:true
+                            visible:applet.activeWallpaper
+                            text:Native.Desktop.sessionLocked ? "Session locked" : !Native.Desktop.visibilityReady
+                                ? "Enable Blackbox visibility in KWin Scripts" : popup.activePlay
+                                ? (Native.Desktop.state.paused ? "Expedition paused" : "Expedition running") : "Ctrl + arrow or mouse edge to turn"
+                            color:Ui.InterfaceTheme.secondary
+                            wrapMode:Text.WordWrap
+                        }
+                        Ui.ActionButton {
+                            objectName:"useKdeLayout"
+                            Layout.fillWidth:true
+                            visible:!applet.activeWallpaper
+                            text:"Use my KDE layout"
+                            onClicked:{
+                                const opened=Native.Desktop.useKdeLayout(Qt.resolvedUrl("../../../../../project-blackbox/runtime/desktop-session.py"))
+                                applet.layoutNotice=opened ? "Opening Blackbox on this Activity…" : "Select Blackbox in KDE’s Desktop and Wallpaper settings."
+                            }
+                        }
+                        Label {Layout.fillWidth:true;visible:!applet.activeWallpaper && text.length>0;text:applet.layoutNotice;wrapMode:Text.WordWrap}
+                        Ui.ActionButton {
+                            Layout.fillWidth:true
+                            visible:applet.activeWallpaper
+                            primary:true
+                            accent:popup.style.accent
+                            text:!popup.activePlay ? "Back to Play" : ["ready","between"].includes(Native.Desktop.state.phase) && !Native.Desktop.state.paused ? "Begin wave" : "Resume"
+                            onClicked:{
+                                Native.Desktop.command(!popup.activePlay ? "play" : text==="Begin wave" ? "begin" : "resume")
+                                applet.expanded=false
+                            }
+                        }
+                        GridLayout {
+                            Layout.fillWidth:true
+                            visible:applet.activeWallpaper
+                            columns:2
+                            uniformCellWidths:true
+                            Ui.ActionButton {Layout.fillWidth:true;text:"New run";onClicked:{Native.Desktop.command("new");applet.expanded=false}}
+                            Ui.ActionButton {Layout.fillWidth:true;text:"Continue";enabled:Native.Desktop.hasSave;onClicked:{Native.Desktop.command("continue");applet.expanded=false}}
+                            Ui.ActionButton {
+                                Layout.fillWidth:true
+                                text:popup.activePlay ? "Return to Idle" : "Settings"
+                                onClicked:{
+                                    if (popup.activePlay) Native.Desktop.setOption("mode","idle")
+                                    else Native.Desktop.command("settings")
+                                    applet.expanded=false
+                                }
+                            }
+                            Ui.ActionButton {Layout.fillWidth:true;text:"Grimoire";onClicked:{Native.Desktop.command("grimoire");applet.expanded=false}}
+                            Ui.ActionButton {Layout.fillWidth:true;visible:popup.activePlay;text:"Loadout";onClicked:{Native.Desktop.command("loadout");applet.expanded=false}}
+                            Ui.ActionButton {Layout.fillWidth:true;visible:popup.activePlay;text:Native.Desktop.state.saveStatus || "Save run";onClicked:Native.Desktop.command("save")}
+                        }
+                    }
+                    ColumnLayout {
+                        spacing:8
+                        Label {text:"Blackbox theme";font.bold:true;color:Ui.InterfaceTheme.text}
+                        Ui.ThemeChooser {
+                            Layout.fillWidth:true
+                            selection:Native.Desktop.config.interfaceTheme
+                            onThemeRequested:key=>Native.Desktop.setOption("interfaceTheme",key)
+                        }
+                        Label {text:"KDE appearance";font.bold:true;color:Ui.InterfaceTheme.text}
+                        Ui.ActionButton {
+                            objectName:"darkPanelStyle"
+                            Layout.fillWidth:true
+                            enabled:!Native.Desktop.panelStyleBusy
+                            text:Native.Desktop.darkPanel ? "Restore Plasma style" : "Use dark Plasma style"
+                            onClicked:Native.Desktop.setDarkPanel(!Native.Desktop.darkPanel)
+                        }
+                        Ui.ActionButton {
+                            objectName:"darkAppColors"
+                            Layout.fillWidth:true
+                            enabled:!Native.Desktop.panelStyleBusy
+                            text:Native.Desktop.darkApps ? "Restore KDE app colours" : "Use dark KDE app colours"
+                            onClicked:Native.Desktop.setDarkApps(!Native.Desktop.darkApps)
+                        }
+                        Label {Layout.fillWidth:true;text:Native.Desktop.panelStyleNotice;visible:text.length>0;wrapMode:Text.WordWrap}
+                        RowLayout {
+                            Layout.fillWidth:true
+                            Ui.ActionButton {Layout.fillWidth:true;text:"Night Light";onClicked:Native.Desktop.openDisplaySettings(false)}
+                            Ui.ActionButton {Layout.fillWidth:true;text:"Displays and HDR";onClicked:Native.Desktop.openDisplaySettings(true)}
+                        }
+                    }
+                }
             }
         }
-        Label {Layout.fillWidth:true;visible:!applet.activeWallpaper;text:"Blackbox uses this KDE desktop, its apps and panel widgets.";wrapMode:Text.WordWrap}
-        Button {
-            objectName:"useKdeLayout"
-            Layout.fillWidth:true
-            visible:!applet.activeWallpaper
-            text:"Use my KDE layout"
-            onClicked:{
-                const opened=Native.Desktop.useKdeLayout(Qt.resolvedUrl("../../../../../project-blackbox/runtime/desktop-session.py"))
-                applet.layoutNotice=opened ? "Opening Blackbox on this Activity…" : "Could not open Blackbox. Select its wallpaper in KDE’s Desktop and Wallpaper settings."
-            }
-        }
-        Label {Layout.fillWidth:true;visible:!applet.activeWallpaper && text.length>0;text:applet.layoutNotice;wrapMode:Text.WordWrap}
-        Label {Layout.fillWidth:true;text:Native.Desktop.sessionLocked ? "Session locked" : Native.Desktop.visibilityReady
-            ? (Native.Desktop.atHome ? "Desktop active" : Native.Desktop.config.backgroundPlay ? "Background play enabled" : "Paused while using another app")
-            : "Enable Blackbox visibility in KWin Scripts";visible:applet.activeWallpaper;wrapMode:Text.WordWrap}
-        Label {visible:applet.activeWallpaper;text:"Wave "+(Native.Desktop.state.wave || 0)+" · "+(Native.Desktop.state.hp || 200)+" / "+(Native.Desktop.state.maxHp || 200)+" HP"}
-        Label {text:Native.Desktop.state.renderer || "";visible:applet.activeWallpaper && text.length>0}
-        ComboBox {Layout.fillWidth:true;visible:applet.activeWallpaper;model:["Idle","Play"];currentIndex:Native.Desktop.config.mode==="play" ? 1 : 0;onActivated:Native.Desktop.setOption("mode",currentIndex ? "play" : "idle")}
-        RowLayout {
-            visible:applet.activeWallpaper
-            Button {text:"New run";onClicked:Native.Desktop.command("new")}
-            Button {text:Native.Desktop.config.mode!=="play" ? "Back to Play" : Native.Desktop.state.phase==="ready" || Native.Desktop.state.phase==="between" ? "Begin wave" : "Resume"
-                onClicked:{Native.Desktop.command(Native.Desktop.config.mode!=="play" ? "play" : Native.Desktop.state.phase==="ready" || Native.Desktop.state.phase==="between" ? "begin" : "resume");applet.expanded=false}}
-            Button {text:"Loadout";onClicked:Native.Desktop.command("loadout")}
-        }
-        RowLayout {
-            visible:applet.activeWallpaper
-            Button {text:Native.Desktop.state.saveStatus || "Save";onClicked:Native.Desktop.command("save")}
-            Button {text:"Continue";enabled:Native.Desktop.hasSave;onClicked:Native.Desktop.command("continue")}
-            Button {text:"Settings";onClicked:{Native.Desktop.command("settings");applet.expanded=false}}
-            Button {text:"Grimoire";onClicked:{Native.Desktop.command("grimoire");applet.expanded=false}}
-        }
-        Button {
-            objectName:"darkPanelStyle"
-            Layout.fillWidth:true
-            enabled:!Native.Desktop.panelStyleBusy
-            text:Native.Desktop.panelStyleBusy ? "Changing Plasma style…" : Native.Desktop.darkPanel ? "Restore previous Plasma style" : "Use Blackbox dark panel style"
-            onClicked:Native.Desktop.setDarkPanel(!Native.Desktop.darkPanel)
-        }
-        Button {
-            objectName:"darkAppColors"
-            Layout.fillWidth:true
-            enabled:!Native.Desktop.panelStyleBusy
-            text:Native.Desktop.darkApps ? "Restore previous KDE app colours" : "Use dark KDE app colours"
-            onClicked:Native.Desktop.setDarkApps(!Native.Desktop.darkApps)
-        }
-        Label {Layout.fillWidth:true;wrapMode:Text.WordWrap;text:Native.Desktop.panelStyleNotice || "Choose custom colours and Plasma styles in KDE System Settings."}
-        RowLayout {
-            Button {text:"Night Light";onClicked:Native.Desktop.openDisplaySettings(false)}
-            Button {text:"Displays and HDR";onClicked:Native.Desktop.openDisplaySettings(true)}
-        }
-        Label {visible:applet.activeWallpaper;text:"CPU "+Math.round(Native.Desktop.cpu*100)+"% · GPU "+(Native.Desktop.gpu<0 ? "unavailable" : Math.round(Native.Desktop.gpu*100)+"%")}
-        Label {visible:applet.activeWallpaper;text:Native.Desktop.audioStatus;wrapMode:Text.WordWrap;Layout.fillWidth:true}
-        Item {Layout.fillHeight:true}
     }
 }

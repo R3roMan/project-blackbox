@@ -16,9 +16,9 @@ ColumnLayout {
     spacing:6
     Text {
         text:"LOADOUT"
-        color:"#eac2aa"
-        font.family:"IBM Plex Mono"
-        font.pixelSize:12
+        color:Ui.InterfaceTheme.text
+        font.family:Ui.InterfaceTheme.heading
+        font.pixelSize:Ui.UiMetrics.text(17)
     }
     InventoryPanel {
         id:gear

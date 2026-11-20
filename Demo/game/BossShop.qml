@@ -15,7 +15,7 @@ ColumnLayout {
     property bool nativeScene: false
     property int detail:1
     property bool motion: true
-    readonly property bool stacked: width < 590
+    readonly property bool stacked: width < 660
     signal entryRequested(string chapter, string id)
     signal purchaseRequested(string offerId, int slot, string confirmed)
     signal freezeRequested(string offerId)
@@ -118,10 +118,10 @@ ColumnLayout {
         Text {
             Layout.fillWidth:true
             text:{ shop.revision;return shop.run.shopCapacity+" / 8 listings open  ·  Stock quality "+(shop.run.shopQuality || 0)+"/3" }
-            font.family:"Inter"
+            font.family:Ui.InterfaceTheme.heading
             font.bold:true
             font.pixelSize:Ui.UiMetrics.text(14)
-            color:"#f9dec0"
+            color:Ui.InterfaceTheme.text
             wrapMode:Text.WordWrap
         }
         Ui.ActionButton {
@@ -279,9 +279,9 @@ ColumnLayout {
                     }
 
                     background:Rectangle {
-                        radius:7
-                        color:listing.primary ? "#dfaa79" : listing.hovered ? "#392633" : "#e9271e2b"
-                        border.color:listing.visualFocus ? "#ffe5d3" : listing.primary ? "#f4c38e" : "#785466"
+                        radius:Ui.InterfaceTheme.current.radius
+                        color:listing.primary ? Ui.InterfaceTheme.current.accent : listing.hovered ? Ui.InterfaceTheme.current.hover : Ui.InterfaceTheme.current.slot
+                        border.color:listing.visualFocus ? "#ffe5d3" : listing.primary ? Ui.InterfaceTheme.current.accent : Ui.InterfaceTheme.current.line
                         Rectangle {
                             width:3;height:parent.height-10;x:4;y:5;radius:1
                             color:listing.primary ? "#6e3b48" : listing.modelData.color || "#b09490"
@@ -343,19 +343,14 @@ ColumnLayout {
             }
         }
 
-        Rectangle {
+        Ui.ShrineFrame {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.preferredWidth: 380
             Layout.minimumHeight: info.implicitHeight + 22
-            radius: 6
-            color:"#201823"
-            gradient:Gradient {
-                GradientStop {position:0;color:"#352632"}
-                GradientStop {position:1;color:"#211924"}
-            }
-            border.color:"#946879"
-            Ui.PanelPlating {anchors.fill:parent;tone:"#b49078";blood:.35}
+            fill:Ui.InterfaceTheme.current.surface
+            decorated:true
+            blood:.48
 
             ColumnLayout {
                 id: info
@@ -369,6 +364,20 @@ ColumnLayout {
                     font.family: "IBM Plex Mono"
                     font.weight: Font.Bold
                     font.pixelSize: Ui.UiMetrics.text(14)
+                }
+                Text {
+                    Layout.fillWidth:true
+                    visible:shop.selected?.action==="barrier-core"
+                    text:{shop.revision;const cap=Gear.coreCapacity(shop.run);return cap
+                        ? "Equipped barrier · "+shop.run.barrierCell.hp+" / "+cap+" charges" : "No permanent barrier equipped"}
+                    wrapMode:Text.WordWrap
+                    color:"#8bedf4"
+                    font.pixelSize:Ui.UiMetrics.text(13)
+                }
+                Ui.KitStatus {
+                    run:shop.run
+                    revision:shop.revision
+                    kit:shop.premium ? Gear.kitFor(shop.selected.group,shop.premium.id) : null
                 }
                 RowLayout {
                     Layout.fillWidth:true
@@ -397,7 +406,11 @@ ColumnLayout {
                     font.weight: Font.Bold
                     wrapMode: Text.WordWrap
                     GearDrag {
-                        anchors.fill: parent
+                        anchors.right:parent.right
+                        anchors.verticalCenter:parent.verticalCenter
+                        width:22
+                        height:22
+                        showGrip:true
                         group: shop.premium ? shop.selected.group : ""
                         offerId:shop.selected?.id || ""
                         title: shop.premium ? shop.premium.title : ""

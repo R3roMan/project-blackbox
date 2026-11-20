@@ -13,12 +13,12 @@ Canvas {
     property bool bayonet:false
     property real stab:0
     function position(side,t) {
-        const recoil=(twins ? (sequence%2===Number(side>0) ? intensity : 0) : intensity)
+        const recoil=(twins ? (sequence%2===Number(side<0) ? intensity : 0) : intensity)
         const jump=pose.pitch*.003+pose.shellTravel*.004+recoil*.032
         return Qt.point(width*(.5+side*(.25-t*.075)+aim.x*(.026+t*.061)),
             height*(.99-(.65+(design.length-60)*.001)*t+jump-aim.y*t*.075-stab*t*.16))
     }
-    readonly property point muzzle:position(twins ? (sequence%2 ? 1 : -1) : 0,1)
+    readonly property point muzzle:position(twins ? (sequence%2 ? -1 : 1) : 0,1)
 
     onWidthChanged:requestPaint()
     onHeightChanged:requestPaint()
@@ -72,7 +72,7 @@ Canvas {
                 c.lineTo(mount.x+bore*1.5,mount.y)
                 c.closePath();c.fill()
             }
-            if (intensity>0 && (!twins || (side>0)===Boolean(sequence%2))) {
+            if (intensity>0 && (!twins || (side<0)===Boolean(sequence%2))) {
                 const light=c.createRadialGradient(tip.x,tip.y,1,tip.x,tip.y,Math.max(2,scale*.14))
                 light.addColorStop(0,"#ffffdb");light.addColorStop(.43,accent);light.addColorStop(1,"transparent")
                 c.fillStyle=light;c.globalAlpha=intensity;c.fillRect(tip.x-scale*.16,tip.y-scale*.16,scale*.32,scale*.32);c.globalAlpha=1

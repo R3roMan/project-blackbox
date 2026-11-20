@@ -456,15 +456,22 @@ function kitBonus(run, stat, id) {
 function kitMembers(run,kit) {
     return ["weapon","passive","active"].map(function(group) {
         const item=catalogs[group][kit[group]]
-        return {id:item.id,group:group,title:item.title,owned:!!ownedItem(run,group,item.id)}
+        return {id:item.id,group:group,title:item.title,owned:!!ownedItem(run,group,item.id),equipped:findSlot(run,group,item.id)>=0}
     })
+}
+
+function kitStatus(run,kit) {
+    const members=kitMembers(run,kit)
+    if (!members.every(part=>part.owned)) return ""
+    return members.every(part=>part.equipped) ? "Active" : "Inactive"
 }
 
 function kitOwnership(run,group,id) {
     if (!run) return ""
     return kits.filter(kit=>kit[group]===id).map(function(kit) {
         const other=kitMembers(run,kit).filter(part=>part.group!==group && part.owned)
-        return other.length ? kit.title+" · You own "+other.map(part=>part.title).join(" + ") : ""
+        const status=kitStatus(run,kit)
+        return other.length ? kit.title+(status ? " · "+status : "")+" · You own "+other.map(part=>part.title).join(" + ") : ""
     }).filter(Boolean).join("\n")
 }
 
@@ -990,7 +997,7 @@ function shopEntries() {
         {id:"expand-inventory",title:"Expand inventory",action:"inventory",description:"One extra bag space for this run, up to ten.",price:"310 gold"},
         {id:"pet-token",title:"Pet upgrade token",action:"pet",description:"Train your current companion up to three times. Each rank increases its damage and duty time and shortens rest.",price:"360 / 500 / 640 gold"},
         {id:"shield-upgrade",title:"Shield upgrade",action:"shield-upgrade",description:"Each rank cuts 0.65 seconds from the time to fully recharge. Rank II also reduces the charge spent per block.",price:"390 / 575 / 760 gold"},
-        {id:"barrier-core",title:"Barrier core",action:"barrier-core",description:"Install a fresh Barrier with two, three or four charges. A broken Barrier needs another purchase.",price:"375 / 560 / 745 gold"},
+        {id:"barrier-core",title:"Barrier core",action:"barrier-core",description:"Install a fresh Barrier with two, three or four charges. The highest rank can be recharged at a later shop.",price:"375 / 560 / 745 gold"},
         {id:"equipment-rank",title:"Equipment rank",action:"upgrade",description:"Improve one equipped item. Its item-specific upgrade is shown on the listing.",price:"170 / 270 / 370 gold"},
         {id:"slot-work",title:"Slot effects",action:"power",description:"Buy a slot effect to engrave that slot. It stays there when you replace the equipped item. Some effects require a particular item type or a complete kit. Replace a previous effect only after confirming.",
             price:"395 gold to install · 220 / 330 / 440 gold for ranks"}
@@ -1105,10 +1112,11 @@ function makeShop(run, random, excluded, maximum) {
             description:run.shield.level === 1 ? "Add one block per raise and reduce shield recovery by 0.65 seconds."
                 : "Reduce shield recovery by 0.65 seconds for this run." })
     }
-    if (stock.length < limit && !blocked.includes("barrier-core") && run.barrierCell.level < 3 && random() < .52) {
-        stock.push({id:"barrier-core",action:"barrier-core",title:"Barrier core · Lv "+(run.barrierCell.level+1),
-            rarity:"rare",cost:375+run.barrierCell.level*185,description:"Install a fresh Barrier with "+(run.barrierCell.level+2)
-                +" charges. It lasts until broken. The next rank needs another purchase."})
+    if (stock.length < limit && !blocked.includes("barrier-core") && canBuyCore(run) && random() < .52) {
+        const level=Math.min(3,run.barrierCell.level+1)
+        stock.push({id:"barrier-core",action:"barrier-core",title:run.barrierCell.level===3 ? "Barrier core · Recharge" : "Barrier core · Lv "+level,
+            rarity:"rare",cost:375+(level-1)*185,description:"Equip immediately with "+Math.max(level+1,Meta.benefits(run).barrier)
+                +" charges. Each charge absorbs one hit and stays until spent."})
     }
     if (!blocked.includes("loaded-dice") && random() < .23) {
         const dice = {id:"loaded-dice",title:"Loaded dice",action:"scramble",rarity:"rare",cost:560,
@@ -1221,6 +1229,14 @@ function refundAbility(run,group,id) {
     return amount
 }
 
+function coreCapacity(run) {
+    return Math.max(run.barrierCell.level ? run.barrierCell.level+1 : 0,Meta.benefits(run).barrier)
+}
+
+function canBuyCore(run) {
+    return run.barrierCell.level<3 || run.barrierCell.hp<coreCapacity(run)
+}
+
 function buy(run, id, preferred, random, confirmed) {
     if (run.phase !== "shop")
         return false
@@ -1268,10 +1284,11 @@ function buy(run, id, preferred, random, confirmed) {
             run.health += card.amount
         break
     case "barrier-core":
-        if (run.barrierCell.level >= 3)
+        if (!canBuyCore(run))
             return false
-        run.barrierCell.level += 1
-        run.barrierCell.hp = run.barrierCell.level+1
+        run.barrierCell.level = Math.min(3,run.barrierCell.level+1)
+        run.barrierCell.hp = coreCapacity(run)
+        run.barrierBreak = 0
         run.barrierRefill = .47
         break
     case "mystery": {

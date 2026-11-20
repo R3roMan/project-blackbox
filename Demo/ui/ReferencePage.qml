@@ -479,6 +479,13 @@ FocusScope {
                                 elide:Text.ElideRight
                                 wrapMode:Text.WordWrap
                             }
+                            KitStatus {
+                                visible:page.tab==="kits" && status.length>0
+                                kit:page.tab==="kits" ? page.entry : null
+                                run:page.liveRun
+                                revision:page.liveRevision
+                                color:status==="Active" ? "#21653f" : "#a5263e"
+                            }
                             Rectangle { Layout.fillWidth:true; height:1; color:"#a46a58" }
                             ScrollView {
                                 id: descriptionScroll

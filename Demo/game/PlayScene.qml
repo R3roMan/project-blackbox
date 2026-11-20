@@ -38,7 +38,6 @@ FocusScope {
     property bool showTimer:false
     property real gameSpeed:1
     readonly property var speedSteps:[1,2,3,5,.5]
-    property bool escapeBack:false
     property rect wallpaperInsets:Qt.rect(0,0,0,0)
     property int queuedAbility:-1
     property real queuedAbilityUntil:0
@@ -227,7 +226,7 @@ FocusScope {
     readonly property real shieldRefill: { revision; return run.barrierRefill }
     readonly property real shieldTime: { revision; return run.barrier }
     readonly property real shieldCooldown: { revision; return Rules.barrierCooldown(run) }
-    readonly property int shieldCapacity: { revision; return run.barrierMax+(run.barrierCell.level ? run.barrierCell.level+1 : Meta.benefits(run).barrier) }
+    readonly property int shieldCapacity: { revision; return (run.barrier > 0 ? run.barrierMax : 0)+Gear.coreCapacity(run) }
     readonly property int barrierLevel: { revision; return run.barrierCell.level }
     readonly property var desktopTelemetry:{revision;return run.desktop ? Object.assign({},run.desktop) : ({})}
     readonly property var fieldGuard: {
@@ -1023,9 +1022,7 @@ FocusScope {
 
     function handleEscape() {
         if (outcomeKind) return
-        if (!paused && fighting && escapeBack && frontId!=="front" && !turning)
-            turnTo("front",Rules.directionToward(frontId,"front"))
-        else if (paused)
+        if (paused)
             mainAction()
         else if (phase === "combat" || phase === "between" || phase === "ready" || lab)
             pauseRun("build")
@@ -1072,7 +1069,7 @@ FocusScope {
         const finished=previousPhase==="combat"
         previousPhase=phase
         if (phase==="defeat") {stopAuto();finishAttempt()}
-        if (finished && ["between","reward","bossReward","defeat"].includes(phase) && !run.training) {
+        if (finished && ["between","reward","bossReward","defeat"].includes(phase) && !run.training && run.finishReason!=="retired") {
             if (phase==="defeat") {
                 deathProgress=0
                 outcomeKind="dying"
@@ -1088,6 +1085,7 @@ FocusScope {
             Qt.callLater(giveMenuFocus)
         }
     }
+    onPauseTabChanged:if (paused && sheetScroll.contentItem) sheetScroll.contentItem.contentY=0
     onPausedChanged: {
         if (!paused) retireArmed=false
         if (!fighting) Qt.callLater(giveMenuFocus)
@@ -1661,10 +1659,19 @@ FocusScope {
         scale: !play.gunSights ? 1 + Math.min(.065,play.magnification-1)*.90 : 1
         rotation: play.projectedMode && !play.handWeapon ? play.weaponAim.x*4 - play.weaponAim.y*2 : 0
         readonly property point muzzle: {
-            x; y; rotation
+            x; y; scale; rotation
             return item ? item.mapToItem(play,item.muzzle) : Qt.point(play.width*.5,play.height*.73)
         }
         sourceComponent: play.projectedMode ? drawnGun : modeledGun
+    }
+    WeaponCooling {
+        anchors.fill:parent
+        visible:play.fighting && play.cooling>0
+        tip:heldWeapon.muzzle
+        clock:play.elapsed
+        remaining:play.cooling
+        motion:play.motion
+        ultra:play.graphicsDetail===3
     }
     Rectangle {
         objectName:"centreReloadMeter"
@@ -2070,12 +2077,12 @@ FocusScope {
         visible:!play.outcomeKind && !play.fighting
         height: play.fighting ? Math.max(88,fieldControls.y+fieldControls.height+8,
             waveReadout.y+waveReadout.height*play.hudZoom+6,fieldTitle.y+fieldTitle.height+8) : Math.max(76,fieldControls.y+fieldControls.height+8)
-        color: "#d0161b28"
-        border.color: "#5c5065"
+        color: Ui.InterfaceTheme.current.base
+        border.color:Qt.darker(Ui.InterfaceTheme.current.line,1.35)
         Ui.PanelPlating {
             anchors.fill: parent
             tone: play.location.color
-            blood: .29 + (1-play.healthRatio)*.47
+            blood: (play.paused ? .69 : .46)*Ui.InterfaceTheme.current.blood
         }
     }
 
@@ -2083,8 +2090,7 @@ FocusScope {
         id:fieldTitle
         z:play.fighting ? 19 : 0
         objectName:"fieldTitle"
-        visible:!play.outcomeKind && (!play.fighting || play.fieldHudVisible)
-        opacity:play.fighting ? play.hudFade : 1
+        visible:!play.outcomeKind && !play.fighting
         x: play.compactLayout ? 14 : 24
         y: 16
         width:play.fighting ? Math.max(60,(play.width-waveReadout.width*play.hudZoom)/2-x-12) : play.width*.53
@@ -2103,8 +2109,8 @@ FocusScope {
             width:parent.width
             elide:Text.ElideRight
             text: play.phase === "shop" ? "Supply room" : play.lab ? "Droid Lab" : play.location.title
-            color: "#fff2e9"
-            font.family: "Inter"
+            color: Ui.InterfaceTheme.text
+            font.family: Ui.InterfaceTheme.heading
             font.pixelSize: Ui.UiMetrics.text(25)
             font.weight: Font.Bold
             style:Text.Outline;styleColor:"#211927"
@@ -2126,21 +2132,20 @@ FocusScope {
         enabled:!play.hudHidden
         opacity:play.hudFade
 
-        Ui.ActionButton {
+        Rectangle {
             objectName: "waveMenuButton"
-            width: parent.width
-            implicitHeight: 42
-            text: "Wave " + play.wave
-            contentItem:RowLayout {
-                spacing:7
-                Text {text:"Wave "+play.wave;color:"#f0dfd3";font.pixelSize:14}
+            width:parent.width
+            height:42
+            radius:7
+            color:"#3e170d18"
+            border.color:"#487b415a"
+            RowLayout {
+                anchors.centerIn:parent
+                spacing:8
+                Text {text:"Wave "+play.wave;color:"#f0dfd3";font.pixelSize:Ui.UiMetrics.text(14)}
                 Ui.BloodNumber {value:play.remaining}
-                Text {Layout.fillWidth:true;visible:play.summons>0 && waveReadout.width>=186;text:"+"+play.summons+" summoned";elide:Text.ElideRight;color:"#bfa9c9";font.pixelSize:10}
+                Text {visible:play.summons>0 && waveReadout.width>=186;text:"+"+play.summons;color:"#e0b5cc";font.pixelSize:10}
             }
-            Accessible.name: text + ". Open Waves"
-            font.pixelSize: Ui.UiMetrics.text(14)
-            hintText:"Open Waves"
-            onClicked: play.pauseRun("waves")
         }
         Row {
             anchors.horizontalCenter:parent.horizontalCenter
@@ -2508,7 +2513,7 @@ FocusScope {
             label: "HEALTH"
             value: { play.revision; return play.run.health }
             maximum: { play.revision; return Gear.maxHealth(play.run) }
-            tint: "#f49199"
+            tint: "#ee2845"
         }
         BarrierTile {
             width: parent.width
@@ -2518,6 +2523,7 @@ FocusScope {
             cooldown: play.shieldCooldown
             refilling: play.shieldRefill > 0
             installed: play.barrierLevel
+            persistent: {play.revision;return Gear.coreCapacity(play.run)>0}
         }
         Column {
             objectName: "fieldShieldStatus"
@@ -2563,7 +2569,7 @@ FocusScope {
                     height: parent.height
                     radius: parent.radius
                     width:parent.width*parent.charge
-                    color:play.fieldGuard.rejected>0 ? "#ff596b" : play.fieldGuard.tint
+                    color:play.fieldGuard.rejected>0 ? "#ff596b" : "#328fff"
                 }
                 Rectangle {
                     anchors.fill:parent
@@ -2770,43 +2776,27 @@ FocusScope {
             cursorShape: Qt.ArrowCursor
         }
     }
-    Rectangle {
+    Ui.ShrineFrame {
         id: selectionPanel
         objectName:"fieldPanel"
         anchors.horizontalCenter:parent.horizontalCenter
-        // Switching a bottom anchor and a centre anchor in the same update
-        // can leave Qt holding a stretched height when reopening preparation.
         y:play.previewing
-            ? parent.height - height - (play.compactLayout ? 14 : 26)
-            : (parent.height - height) / 2
-        width: Math.min(parent.width - (play.compactLayout ? 24 : 56),play.preparing ? 1120 : play.phase==="shop" ? 1110 : play.lab ? 960 : 900)
-        opacity: play.fighting ? 0 : 1
-        Behavior on opacity { enabled:!play.paused; NumberAnimation { duration: play.motion ? 145 : 0 } }
-        readonly property int inset: play.compactLayout ? 13 : 22
-        implicitHeight: screen.implicitHeight + menuFooter.implicitHeight + inset * 2 + 9
-        // Always reserve a separate forecast area on preparation screens.
-        height: Math.min(implicitHeight, parent.height * (play.previewing ? .63 : .91))
-        radius: 7
-        color: play.phase === "shop" ? "#211823" : "#f71b1622"
-        border.color: play.phase === "shop" ? "#a67b77" : "#94616f"
-        border.width: 1
-        visible: opacity > 0 && !play.outcomeKind && play.phase!=="defeat"
-        enabled: visible && !play.fighting
-
-        Rectangle {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.margins: 1
-            height: 6
-            radius: 3
-            color: play.phase === "shop" ? "#b98866" : "#7f3d51"
-        }
-        Ui.PanelPlating {
-            anchors.fill: parent
-            tone: play.phase === "shop" ? "#dcb98d" : play.paused ? "#c78a9a" : "#aa8194"
-            blood: play.phase === "defeat" ? 1 : play.paused ? .88 : play.phase === "ready" ? .20 : .43
-        }
+            ? parent.height-height-(play.compactLayout ? 12 : 18)
+            : play.paused ? Math.max(fieldHeader.height+4,(parent.height-height)*.5)
+                : (parent.height-height)*.5
+        width:Math.min(parent.width-(play.compactLayout ? 24 : 52),
+            play.paused || play.preparing ? 1050 : play.phase==="shop" ? 1090 : play.lab ? 960 : 900)
+        opacity:play.fighting ? 0 : 1
+        Behavior on opacity {enabled:!play.paused;NumberAnimation {duration:play.motion ? 145 : 0}}
+        readonly property int inset:play.compactLayout ? 12 : 17
+        implicitHeight:screen.implicitHeight+menuFooter.implicitHeight+inset*2+9
+        // The frame stays put when the selected tab changes. Only its contents scroll.
+        height:play.paused ? Math.max(1,Math.min(parent.height-fieldHeader.height-16,610*Math.sqrt(Ui.UiMetrics.textScale)))
+            : Math.min(implicitHeight,parent.height*(play.previewing ? .61 : .91))
+        decorated:true
+        blood:play.paused ? 1 : play.preparing ? .61 : .76
+        visible:opacity>0 && !play.outcomeKind && play.phase!=="defeat"
+        enabled:visible && !play.fighting
 
         ScrollView {
             id: sheetScroll
@@ -2834,8 +2824,8 @@ FocusScope {
                     : play.phase === "reward" ? (play.selectedOffer ? "Choose a " + play.selectedGroup + " slot" : "Droid Lab rewards")
                     : play.phase === "between" ? "Wave " + (play.wave + 1) + " incoming"
                     : play.phase === "defeat" ? "The Shrine fell" : ""
-                font.family: "Inter"
-                font.pixelSize: Ui.UiMetrics.text(play.compactLayout ? 24 : 30)
+                font.family: Ui.InterfaceTheme.heading
+                font.pixelSize: Ui.UiMetrics.text(play.compactLayout ? 22 : 28)
                 font.weight: Font.Bold
                 color: "#fff1e8"
                 wrapMode: Text.WordWrap
@@ -3246,9 +3236,10 @@ FocusScope {
             }
             Ui.ActionButton {
                 objectName:"retireRun"
-                visible:play.paused && !play.run.training && play.phase!=="combat" && play.phase!=="ready" && play.run.metrics.waves>0
-                text:play.retireArmed ? "Confirm return" : "Retire"
-                hintText:"End the run and receive a grade. A hitless run can qualify for SSS here."
+                visible:play.paused && play.phase!=="ready" && !play.run.training
+                enabled:{play.revision;return Rules.canRetire(play.run)}
+                text:play.retireArmed ? "Confirm retirement" : "Retire"
+                hintText:enabled ? "End the expedition and receive a grade for the waves you cleared." : "Claim your purchase before retiring."
                 onClicked: {
                     if (!play.retireArmed) {play.retireArmed=true;return}
                     if (Rules.retire(play.run)) {

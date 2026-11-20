@@ -16,12 +16,12 @@ Item {
     property int initialDetail:options.detail
     readonly property color foreground:"#f6e9e5"
     readonly property color secondary:"#c9b9c5"
-    readonly property color accent:"#ffc398"
+    readonly property color accent:Ui.InterfaceTheme.current.accent
     readonly property int inset:width<400 ? 14 : 22
 
     function set(key,value) {Native.Desktop.setOption(key,value)}
 
-    Rectangle {anchors.fill:parent;color:"#16121c"}
+    Ui.ShrineFrame {anchors.fill:parent;decorated:true;blood:.43}
     ColumnLayout {
         anchors.fill:parent
         spacing:0
@@ -266,6 +266,12 @@ Item {
     Component {
         id:displayPage
         Stack {
+            Title {text:"Appearance"}
+            Ui.ThemeChooser {
+                Layout.fillWidth:true
+                selection:settings.options.interfaceTheme
+                onThemeRequested:key=>settings.set("interfaceTheme",key)
+            }
             Title {text:"Graphics"}
             Copy {text:"3D quality"}
             Select {model:["Low","Standard","High","Ultra"];currentIndex:settings.options.detail;onActivated:settings.set("detail",currentIndex)}

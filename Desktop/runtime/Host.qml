@@ -79,6 +79,8 @@ FocusScope {
         bookEntry=id || ""
         bookOpen=true
     }
+    Binding {target:Ui.InterfaceTheme;property:"selection";value:host.options.interfaceTheme;when:host.claimed}
+    Connections {target:Ui.InterfaceTheme;enabled:host.claimed;function onSelectionRequested(key){Native.Desktop.setOption("interfaceTheme",key)}}
     Binding {target:Ui.SoundMix;property:"master";value:host.options.audioMaster;when:host.claimed}
     Binding {target:Ui.SoundMix;property:"music";value:host.options.audioMusic;when:host.claimed}
     Binding {target:Ui.SoundMix;property:"effects";value:host.options.audioEffects;when:host.claimed}
@@ -160,10 +162,7 @@ FocusScope {
             return
         }
         if (quickCount>0 && (event.key===Qt.Key_Escape || Controls.matches(bindings,"pause",event))) {
-            quickStart.stop()
-            quickCount=0
-            event.accepted=true
-            report()
+            event.accepted=cancelQuickStart()
             return
         }
         if (!idleWatch) trackIdleToggle(event.key,event.modifiers,true)
@@ -239,6 +238,16 @@ FocusScope {
         z:2
         visible:host.ambientMode && host.home && host.claimed
         MouseArea {
+            objectName:"cancelCountdownPointer"
+            anchors.fill:parent
+            anchors.leftMargin:host.areaLeft;anchors.rightMargin:host.areaRight
+            anchors.topMargin:host.areaTop;anchors.bottomMargin:host.areaBottom
+            enabled:host.quickCount>0
+            z:2
+            acceptedButtons:Qt.AllButtons
+            onClicked:mouse=>{ if (mouse.button===Qt.RightButton) host.cancelQuickStart() }
+        }
+        MouseArea {
             objectName:"idleQuickPointer"
             x:host.areaLeft;y:host.areaTop
             width:parent.width-host.areaLeft-host.areaRight
@@ -287,6 +296,15 @@ FocusScope {
             Native.Desktop.setOption("mode","play")
             Qt.callLater(host.beginQuickBattle)
         }
+    }
+    function cancelQuickStart() {
+        if (!quickCount) return false
+        quickStart.stop()
+        quickCount=0
+        idleToggleAlone=false
+        report()
+        Qt.callLater(restoreIdleFocus)
+        return true
     }
     function beginQuickBattle() {
         if (!quickQueued || mode!=="play" || !home || !battle.item?.allowed)
@@ -415,7 +433,6 @@ FocusScope {
             wheelSwitch:host.options.wheelSwitch
             showEnemyPreview:host.options.showEnemyPreview
             onMouseTurnsRequested:function(value){Native.Desktop.setOption("mouseTurns",value)}
-            escapeBack:true
             wallpaperInsets:Qt.rect(host.areaLeft,host.areaTop,host.areaRight,host.areaBottom)
             interactive:host.home && host.mode==="play"
             onFrontIdChanged:if (host.options.linkDesktops && host.mode==="play" && host.here && host.claimed && frontId!==host.linkedFront) {
@@ -545,7 +562,7 @@ FocusScope {
             artDirectory:Qt.resolvedUrl("../V0.1/kde/contents/images/")
             firstTab:host.bookTab;firstEntry:host.bookEntry;overlay:host.mode==="play";motion:host.options.motion;known:host.discovered;unlocks:Progress.unlocked(host.availableRecords,host.options.achievementOverride);career:host.availableRecords
             achievementsUnlocked:host.options.achievementOverride
-            liveRun:battle.item?.run || null
+            liveRun:host.mode==="play" ? battle.item?.run || null : null
             liveRevision:battle.item?.revision || 0
             nextTerms:Meta.contract(careerVault.state)
             onUnlockToggleRequested:Native.Desktop.setOption("achievementOverride",!host.options.achievementOverride)
@@ -624,6 +641,7 @@ FocusScope {
             loss:false
             motion:host.options.motion
             message:String(host.quickCount)
+            onRightClicked:host.cancelQuickStart()
         }
     }
     Drawer {id:settingsDrawer

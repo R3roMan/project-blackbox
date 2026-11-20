@@ -27,41 +27,54 @@ Item {
     readonly property var placements:Muster.placements(company,stage.wave*7919,overlord.length>0)
     readonly property real cameraRadius:Muster.radius(company,parade.width/Math.max(1,parade.height))
     implicitHeight:paradeHeight+38
-    Rectangle {
-        anchors.left:parent.left
-        anchors.right:parent.right
+    Ui.ShrineFrame {
+        objectName:"musterStrip"
+        z:7
+        anchors.horizontalCenter:parent.horizontalCenter
         anchors.bottom:parent.bottom
+        width:Math.min(parent.width, waveBand.implicitWidth+24)
         height:Math.max(30,Ui.UiMetrics.text(23))
-        color:"#ed211823"
-        border.color:"#91637a"
-        radius:4
+        fill:Ui.InterfaceTheme.current.base
         RowLayout {
+            id:waveBand
             anchors.fill:parent
             anchors.leftMargin:12
             anchors.rightMargin:12
-            spacing:12
+            spacing:8
             Text {
                 objectName:"musterTotal"
-                Layout.fillWidth:true
-                text:"Wave "+muster.stage.wave+"  ·  Scaling ×"+(1+Math.floor(muster.stage.wave/10)*Mission.difficulty(muster.stage.difficulty).scale).toFixed(2)
-                color:"#ffe0bc"
-                font.family:"IBM Plex Mono"
+                text:"Wave "+muster.stage.wave
+                color:Ui.InterfaceTheme.text
+                font.family:Ui.InterfaceTheme.heading
+                font.bold:true
                 font.pixelSize:Ui.UiMetrics.text(muster.compact ? 12 : 15)
-                elide:Text.ElideRight
+            }
+            Rectangle {implicitWidth:1;implicitHeight:13;color:Ui.InterfaceTheme.current.line}
+            Text {
+                objectName:"musterScale"
+                text:"×"+(1+Math.floor(muster.stage.wave/10)*Mission.difficulty(muster.stage.difficulty).scale).toFixed(2)
+                color:Ui.InterfaceTheme.weapon
+                font.family:"IBM Plex Mono"
+                font.pixelSize:Ui.UiMetrics.text(muster.compact ? 12 : 14)
+                Accessible.name:"Difficulty scaling "+text
             }
             Text {
                 readonly property var weather:Weather.entries[muster.stage.weather] || Weather.entries.clear
                 readonly property bool blood:muster.stage.sky==="bloodMoon"
                 visible:weather.id !== "clear" || blood
+                Layout.fillWidth:true
+                Layout.minimumWidth:0
                 text:(weather.id!=="clear" ? weather.glyph+" "+Weather.weatherLabel(weather.id,muster.stage) : "")+(blood ? (weather.id!=="clear" ? "  ·  " : "")+"Blood Moon" : "")
                 color:blood ? "#f09c9a" : weather.tint
                 font.family:"Inter"
-                font.pixelSize:Ui.UiMetrics.text(muster.compact ? 12 : 15)
+                font.pixelSize:Ui.UiMetrics.text(muster.compact ? 12 : 14)
+                elide:Text.ElideRight
             }
         }
     }
     Item {
         id: parade
+        clip:true
         anchors.fill:parent
         anchors.bottomMargin:38
         Loader {
@@ -86,14 +99,10 @@ Item {
                 Component {
                     id: shadowPainting
                     ProjectedWorld {
-                        actors:[Muster.actor(muster.overlord)]
+                        actors:[Muster.actor(muster.overlord,Mission.enemyTypes[muster.overlord].size*405)]
                         portraitMode:true
                         silhouette:true
                         motion:false
-                        Component.onCompleted: {
-                            actors[0].depth = Mission.enemyTypes[muster.overlord].size*340
-                            actors = actors.slice()
-                        }
                     }
                 }
             }
@@ -228,11 +237,7 @@ Item {
                         ProjectedWorld {
                             portraitMode:true
                             motion:muster.motion
-                            actors:[Muster.actor(member.modelData.type)]
-                            Component.onCompleted: {
-                                actors[0].depth = member.spec.size*340
-                                actors = actors.slice()
-                            }
+                            actors:[Muster.actor(member.modelData.type,member.spec.size*340)]
                             NumberAnimation on elapsed {
                                 from:0; to:60; duration:60000; loops:Animation.Infinite
                                 running:visible && muster.motion

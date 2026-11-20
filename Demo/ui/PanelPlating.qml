@@ -4,6 +4,7 @@ Item {
     id: panel
     property color tone: "#9a8ba6"
     property real blood: 0
+    property string shape: InterfaceTheme.current.shape
     property bool compact: height < 110
 
     Rectangle {
@@ -11,15 +12,17 @@ Item {
         anchors.margins: panel.compact ? 3 : 5
         color: "transparent"
         border.color: Qt.darker(panel.tone,2.8)
-        radius: 5
+        radius: panel.shape==="arch" ? 11 : panel.shape==="scope" ? 8 : 2
     }
     Canvas {
         id: corners
         anchors.fill: parent
+        visible:panel.shape!=="plain"
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()
         Connections {
             target: panel
+            function onShapeChanged() { corners.requestPaint() }
             function onToneChanged() { corners.requestPaint() }
             function onCompactChanged() { corners.requestPaint() }
         }
@@ -27,6 +30,24 @@ Item {
             const ctx = getContext("2d")
             ctx.reset()
             ctx.clearRect(0,0,width,height)
+            if (panel.shape==="rules" || panel.shape==="arch") {
+                ctx.strokeStyle=panel.tone
+                ctx.lineWidth=1
+                for (const y of [7,height-7]) {
+                    ctx.beginPath()
+                    ctx.moveTo(width*.19,y)
+                    ctx.lineTo(width*.81,y)
+                    ctx.stroke()
+                    ctx.beginPath()
+                    ctx.moveTo(width*.5-4,y)
+                    ctx.lineTo(width*.5,y-3)
+                    ctx.lineTo(width*.5+4,y)
+                    ctx.lineTo(width*.5,y+3)
+                    ctx.closePath()
+                    ctx.stroke()
+                }
+                return
+            }
             const arm = panel.compact ? 17 : 31
             const inset = panel.compact ? 4 : 7
             for (let i = 0; i < 4; ++i) {
@@ -46,7 +67,7 @@ Item {
                 ctx.stroke()
                 ctx.fillStyle = "#301722"
                 ctx.beginPath()
-                ctx.arc(9, 9, 3, 0, Math.PI * 2)
+                ctx.arc(9, 9, panel.shape==="scope" ? 5 : 3, 0, Math.PI * 2)
                 ctx.fill()
                 ctx.strokeStyle = Qt.darker(panel.tone,1.4)
                 ctx.lineWidth = .8

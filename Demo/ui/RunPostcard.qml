@@ -22,7 +22,7 @@ Rectangle {
         GradientStop {position:1;color:"#1d1822"}
     }
     border.color:"#978278"
-    PanelPlating {anchors.fill:parent;tone:"#a88871";blood:.55}
+    PanelPlating {anchors.fill:parent;tone:InterfaceTheme.current.line;blood:InterfaceTheme.current.blood}
 
     ColumnLayout {
         anchors.fill:parent
