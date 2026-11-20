@@ -180,7 +180,9 @@ def print_help(topics):
     command = parts[0] if parts else ""
     detail = parts[1] if len(parts) > 1 else ""
     if command == "pet":
-        pet_help(detail, parts[2] if len(parts) > 2 else "")
+        branches = parts[2:] if len(parts) > 2 else [""]
+        for branch in branches:
+            pet_help(detail, branch)
         return
     if command == "options" and detail in OPTIONS and len(parts) > 2:
         branch = OPTIONS[detail]

@@ -41,6 +41,7 @@ Item {
     property int giftCount:0
     property var routePoints:[]
     property real routeSpeed:1
+    property string routeAnimation:""
     property real actionUntil:0
     signal attention(string type)
     signal carriedRequested()
@@ -52,6 +53,7 @@ Item {
     readonly property real floorY:Math.max(0,height-floorInset-creature.height-6)
     readonly property real petWidth:Math.min(width*.36,Math.max(190,(height-floorInset)*.31))
     readonly property real maxX:Math.max(0,width-creature.width)
+    readonly property string actionArt:routeAnimation || pose
     readonly property bool airborne:["flight","landing","curious","spin"].includes(pose)
     readonly property real bob:!motion || !airborne || dragging ? 0
         : creature.height*.056*(Math.sin(clock*8)+.38*Math.sin(clock*16-1))
@@ -69,6 +71,7 @@ Item {
     }
     function perform(next,seconds) {
         routePoints=[]
+        routeAnimation=""
         perch=null
         landedOn=""
         pose=next
@@ -78,13 +81,15 @@ Item {
     }
     function flyTo(x,y,seconds=1.8) {
         routePoints=[]
+        routeAnimation=""
         actionUntil=0
         perch=null
         landedOn=""
         beginFlight(x-petWidth*.5,y-petWidth*.35,"flight",seconds)
     }
-    function route(points,seconds) {
+    function route(points,seconds,animation="") {
         routePoints=points
+        routeAnimation=animation
         routeSpeed=seconds
         perch=null
         landedOn=""
@@ -92,7 +97,7 @@ Item {
         advanceRoute()
     }
     function advanceRoute() {
-        if (!routePoints.length) return false
+        if (!routePoints.length) {routeAnimation="";return false}
         const next=routePoints[0]
         routePoints=routePoints.slice(1)
         beginFlight(width*next[0]-petWidth*.5,height*next[1]-petWidth*.34,"flight",routeSpeed)
@@ -125,6 +130,7 @@ Item {
         if (dragging) return
         actionUntil=0
         routePoints=[]
+        routeAnimation=""
         perch=null
         landedOn=""
         beginFlight(Math.max(0,width-petWidth)*(.08+Math.random()*.84),floorY*(.13+Math.random()*.67),"flight",3.2+Math.random()*2.4)
@@ -269,6 +275,15 @@ Item {
                 y:idle.bob+(["hop","dance","surprise","cheer"].includes(idle.pose) ? -Math.abs(Math.sin(idle.clock*7))*creature.height*.18 : 0)
             }
             Rectangle {
+                visible:!!idle.carriedTitle
+                anchors.horizontalCenter:parent.horizontalCenter
+                y:parent.height*.67
+                width:parent.width*.14;height:width*.82
+                rotation:Math.sin(idle.clock*7)*9
+                radius:4;color:"#e1d3ac";border.color:"#513e38"
+                Text {anchors.centerIn:parent;text:"▤";font.pixelSize:parent.height*.7;color:"#57464a"}
+            }
+            Rectangle {
                 anchors.horizontalCenter:parent.horizontalCenter;anchors.bottom:parent.bottom
                 anchors.bottomMargin:parent.height*.34
                 width:parent.width*.40;height:width*.125;radius:height/2
@@ -325,7 +340,7 @@ Item {
             id:solid
             PetPortrait3D {
                 helper:idle.helper;clock:idle.clock;animate:idle.motion
-                idlePose:idle.pose
+                idlePose:idle.actionArt
                 heading:idle.airborne ? idle.heading*35 : 15
                 textureWidthLimit:900
                 resting:!idle.dragging && !idle.airborne
@@ -334,7 +349,7 @@ Item {
         Component {
             id:flat
             ProjectedPet {
-                helper:idle.helper;idlePose:idle.pose;flap:idle.motion ? Math.sin(idle.clock*(idle.dragging ? 21 : 9)) : 0
+                helper:idle.helper;idlePose:idle.actionArt;flap:idle.motion ? Math.sin(idle.clock*(idle.dragging ? 21 : 9)) : 0
                 resting:!idle.dragging && !idle.airborne
                 glowTint:Ui.FieldStyle.petGlow
                 transform:Scale {origin.x:width/2;xScale:idle.heading<0 ? -1 : 1}

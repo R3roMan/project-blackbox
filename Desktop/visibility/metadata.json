@@ -3,7 +3,7 @@
         "Id": "org.projectblackbox.visibility",
         "Name": "Blackbox desktop visibility",
         "Description": "Reports which desktop is exposed and enables background Idle shortcuts",
-        "Version": "0.4.15",
+        "Version": "0.4.16",
         "Authors": [
             {
                 "Name": "Project Blackbox"

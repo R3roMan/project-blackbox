@@ -14,9 +14,10 @@ pet terminal left
 pet code printf 'Hello from the Shrine'
 pet report 'The pet flew under a window.'
 box help -options =graphics .framing
+box help -pet =commands .care +show
 ```
 
-In this reference, **[ ]** mark optional arguments, **+** joins related steps, and **:** introduces a named value or label. Example: `pet terminal left` + `pet code COMMAND` places a draft on West Approach. Quote paths with spaces, for example `pet folder "~/My Notes"`. Relative paths use the quick-access folder. `me` means the most recently observed pointer position on the desktop.
+In this reference, **[ ]** mark optional arguments, **+** adds a second help branch or joins related steps, and **:** introduces a named value or label. Example: `pet terminal left` + `pet code COMMAND` places a draft on West Approach. Quote paths with spaces, for example `pet folder "~/My Notes"`. Relative paths use the quick-access folder. `me` means the most recently observed pointer position on the desktop.
 
 The mini console shows the mood and pending actions. Approve file copies, text appends, folder creation, app closes, volume changes, battle or load requests, and terminal drafts there. The pet can open a local file or show its location. A fetch to `me` produces a clickable file card. The pet types into a Blackbox shell while its prompt has focus. Press Enter yourself to run the draft. Idle antics use the pet’s own log and animation.
 

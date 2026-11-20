@@ -33,9 +33,10 @@ Item {
     property string draftRoom:""
     property real draftTimeout:0
     property real draftArrival:0
+    readonly property bool singing:player.playbackState===MediaPlayer.PlayingState
     readonly property var specs:Object.values(Catalog.groups).reduce((all,group)=>all.concat(group),[])
     readonly property var index: {
-        const out={}
+        const out=Object.create(null)
         for (const spec of specs) out[spec.name]=spec
         return out
     }
@@ -180,10 +181,14 @@ Item {
         const argv=Array.from(parts)
         const name=(argv.shift() || "").toLowerCase()
         if (name==="help") {
-            const category=argv[0]
-            return result(true,category && Catalog.groups[category]
-                ? Catalog.groups[category].map(x=>x.name+(x.args ? " "+x.args : "")+" · "+x.description).join("\n")
-                : "Groups: flight · care · show · tasks\nTry pet help tasks or box help -pet =commands.")
+            const topic=String(argv[0] || "").toLowerCase()
+            if (Object.prototype.hasOwnProperty.call(Catalog.groups,topic))
+                return result(true,Catalog.groups[topic].map(x=>x.name+(x.args ? " "+x.args : "")+" · "+x.description).join("\n"))
+            const command=index[topic]
+            if (command?.name)
+                return result(true,"pet "+command.name+(command.args ? " "+command.args : "")+" · "+command.description)
+            return topic ? result(false,"Unknown help topic. Try pet help.")
+                : result(true,"Groups: flight · care · show · tasks\nTry pet help tasks or box help -pet =commands.")
         }
         if (name==="status") return result(true,pendingTitle || "No approval pending.")
         const spec=index[name]
@@ -252,7 +257,14 @@ Item {
             pet.perform("cheer",2)
             return result(true,"A little lucky star for your desktop. "+gift+" left.")
         }
-        if (type==="pose") {pet.perform(name,4.2);return result(true,"Playing "+name+".")}
+        if (type==="pose") {
+            if (name==="vine" && mischievous)
+                pet.route([[.18,.27],[.34,.64],[.53,.75],[.71,.61],[.86,.25]],.9,"vine")
+            else if (name==="strut" && wendy)
+                pet.route([[.18,.81],[.45,.81],[.72,.81],[.84,.81]],1.04,"strut")
+            else pet.perform(name,4.2)
+            return result(true,"Playing "+name+".")
+        }
         if (type==="anchor" || type==="path") return pathFlight(name,argv)
         if (type==="perch") {pet.chooseLanding("stop",true);return result(true,"Looking for a perch.")}
         if (type==="land") {pet.beginFlight(pet.maxX*.5,pet.floorY,"stop",1.8);return result(true,"Landing.")}

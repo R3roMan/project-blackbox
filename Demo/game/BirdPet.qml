@@ -102,6 +102,7 @@ Node {
         y:bird.wendy ? 24 : bird.owl ? 23 : bird.finch ? 16 : 22
         z:bird.wendy ? 20 : 16
         eulerRotation.x:bird.strike*(bird.wendy ? 34 : 15)+bird.tuck*24
+            +(bird.idlePose==="peck" ? 35+Math.sin(bird.phase*12)*28 : bird.idlePose==="strut" ? Math.sin(bird.phase*14)*8 : 0)
         Model {
             source:"#Sphere"
             scale:bird.owl ? Qt.vector3d(.50,.42,.40) : bird.wendy ? Qt.vector3d(.28,.36,.32)
@@ -181,6 +182,7 @@ Node {
             required property int modelData
             x:modelData*(bird.finch ? 10 : 15); y:3; z:-7
             eulerRotation.z:modelData*(3-bird.tuck*37+bird.flap*(bird.owl ? 25 : bird.wendy ? 19 : 32))
+                +(bird.idlePose==="feathers" ? Math.sin(bird.phase*28)*18 : bird.idlePose==="wave" && modelData>0 ? 25+Math.sin(bird.phase*8)*21 : 0)
             eulerRotation.y:modelData*(bird.strike*18-8+bird.tuck*63)
             scale:Qt.vector3d(modelData,1,1)
             Model {
