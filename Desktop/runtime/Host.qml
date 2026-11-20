@@ -96,7 +96,7 @@ FocusScope {
     readonly property var options:Native.Desktop.config
     readonly property string mode:options.mode
     readonly property string linkedFront:Native.Desktop.desktopFront
-    readonly property bool here:!options.linkDesktops || !!linkedFront
+    readonly property bool here:!options.linkDesktops || !!linkedFront && (linkedFront!=="back" || mode!=="play")
     readonly property bool home:(standaloneWindow ? activeFocus || Window.active : Native.Desktop.atHome)
         && !Native.Desktop.sessionLocked && visible && here && !editingDesktop
     property bool idleControls:false
@@ -446,7 +446,7 @@ FocusScope {
             mode:host.mode==="performance" ? "performance" : "wallpaper"
             preview:false
             pureCode:true
-            exposed:host.idleExposure
+            exposed:host.idleExposure || host.directRoomChange
             coverDemo:host.bookOpen || host.vaultOpen || settingsDrawer.visible
             enabled:host.home
             focus:host.mode!=="play"
@@ -578,13 +578,14 @@ FocusScope {
         target:Native.Desktop
         function onCommandRequested(name) {
             if(!host.claimed || host.vaultOpen)return
-            if (name.startsWith("idle-room-") && host.ambientMode && !Native.Desktop.sessionLocked && !host.quickCount) {
-                const room=host.frontRooms[name.slice(10)]
-                if (room) {
-                    host.directRoomChange=true
-                    galleryLoader.item?.go(room,true)
-                    host.directRoomChange=false
-                }
+            if ((name.startsWith("idle-room-") || name.startsWith("idle-terminal-")) && host.ambientMode
+                && !Native.Desktop.sessionLocked && !host.quickCount) {
+                host.directRoomChange=true
+                if (name.startsWith("idle-room-")) {
+                    const room=host.frontRooms[name.slice(10)]
+                    if (room) galleryLoader.item?.go(room,true)
+                } else galleryLoader.item?.move(name.slice(14),!host.idleExposure)
+                host.directRoomChange=false
                 return
             }
             if (["idle-left","idle-right","idle-up","idle-down"].includes(name)) {

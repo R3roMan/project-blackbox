@@ -96,10 +96,10 @@ FocusScope {
     function neighbor(direction) {
         return extraRoutes[room]?.[direction] || Rooms.routes[room]?.[direction]
     }
-    function move(direction) {
+    function move(direction, instant) {
         var next = neighbor(direction)
         if (next)
-            go(next)
+            go(next,instant)
     }
 
     function stopTransition() {

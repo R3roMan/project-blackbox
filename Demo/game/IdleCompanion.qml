@@ -163,9 +163,21 @@ Item {
             transform:Translate {y:idle.bob}
             Rectangle {
                 anchors.horizontalCenter:parent.horizontalCenter;anchors.bottom:parent.bottom
-                width:parent.width*.48;height:width*.16;radius:height/2
-                color:Qt.rgba(Ui.FieldStyle.petGlow.r,Ui.FieldStyle.petGlow.g,Ui.FieldStyle.petGlow.b,.23)
-                opacity:idle.airborne ? .62 : 1
+                anchors.bottomMargin:parent.height*.15
+                width:parent.width*.40;height:width*.125;radius:height/2
+                color:"transparent"
+                opacity:idle.airborne ? 0 : .82
+                Behavior on opacity {NumberAnimation {duration:250}}
+                Repeater {
+                    model:3
+                    Rectangle {
+                        required property int index
+                        anchors.centerIn:parent
+                        width:parent.width*(1-index*.17);height:parent.height*(1-index*.22)
+                        radius:height*.5
+                        color:Qt.rgba(Ui.FieldStyle.petGlow.r,Ui.FieldStyle.petGlow.g,Ui.FieldStyle.petGlow.b,.065+index*.024)
+                    }
+                }
             }
             Loader {
                 anchors.fill:parent

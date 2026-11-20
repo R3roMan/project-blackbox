@@ -2,6 +2,7 @@
 """Manage Blackbox from the Pure Code Konsole session."""
 import argparse
 import json
+from pathlib import Path
 import subprocess
 
 RPC = ("qdbus6", "org.projectblackbox.Desktop", "/Blackbox", "org.projectblackbox.Desktop.")
@@ -17,6 +18,11 @@ OPTIONS = {
     "audioAmbience": (float, (0, 1)),
     "audioInterface": (float, (0, 1)),
     "framing": (str, ("fill", "fit", "stretch", "16:9")),
+    "interfaceTheme": (str, ("bloodShrine", "armory", "terminal", "dossier", "lockdown", "dark")),
+    "transitionStyle": (str, ("cinematic", "soft")),
+    "transitionStrength": (float, (0.4, 1.4)),
+    "zoom": (float, (1, 1.4)),
+    "mouseTurns": (bool, ()),
     "idlePet": (bool, ()),
     "motion": (bool, ()),
     "backgroundPlay": (bool, ()),
@@ -39,6 +45,9 @@ def main():
     look.add_argument("direction", choices=("left", "right", "up", "down"))
     room = commands.add_parser("room", help="Go directly to a room in Idle")
     room.add_argument("face", choices=ROOMS)
+    wallpaper = commands.add_parser("wallpaper", help="Set custom artwork or restore stock")
+    wallpaper.add_argument("face", choices=(*ROOMS, "cube"))
+    wallpaper.add_argument("image", help="Path to a local image, or default")
     setting = commands.add_parser("set", help="Adjust an option from box options")
     setting.add_argument("option", choices=OPTIONS)
     setting.add_argument("value")
@@ -62,11 +71,25 @@ def main():
             description = "true or false" if kind is bool else " to ".join(map(str, valid)) if kind in (float, int) else ", ".join(valid)
             print(f"{key:20} {str(status.get(key)):8} {description}")
     elif args.command == "look":
-        service("Command", "idle-" + args.direction)
+        if service("IdleTurn", args.direction).strip() != "true":
+            parser.error("wallpaper turns are available from an active Blackbox Idle session")
     elif args.command == "room":
         answer = service("IdleRoom", args.face).strip()
         if answer != "true":
             parser.error("room selection is available from an active Blackbox Idle session")
+    elif args.command == "wallpaper":
+        if args.image == "default":
+            image = ""
+        else:
+            path = Path(args.image).expanduser().resolve()
+            if not path.is_file() or path.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+                parser.error("choose a local PNG, JPEG or WebP image")
+            image = path.as_uri()
+        key = "wallpaper_" + args.face
+        service("Configure", key, json.dumps(image))
+        if json.loads(service("Options")).get(key) != image:
+            parser.error("Blackbox could not apply that wallpaper")
+        print(args.face + " wallpaper updated")
     elif args.command == "set":
         kind, valid = OPTIONS[args.option]
         try:
