@@ -17,7 +17,7 @@ KWin.SceneEffect {
         const reply=DBus.SessionBus.asyncCall({service:effect.service,path:effect.path,
             iface:effect.service,member:member,arguments:args})
         if (!finished) return
-        const handle=()=>finished(reply.isError ? undefined : reply.value)
+        const handle=()=>{console.log("BLACKBOX DEBUG",member,reply.isError,reply.value,typeof reply.value,reply.error?.message);finished(reply.isError ? undefined : reply.value)}
         if (reply.isFinished) handle()
         else reply.finished.connect(handle)
     }
@@ -26,6 +26,7 @@ KWin.SceneEffect {
             dismiss()
             return
         }
+        console.log("BLACKBOX DEBUG toggle")
         opening=true
         const request=++activation
         call("CubeContext",[],function(raw) {
