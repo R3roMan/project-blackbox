@@ -624,6 +624,31 @@ FocusScope {
         }
         function onCommandRequested(name) {
             if(!host.claimed || host.vaultOpen)return
+            if (name.startsWith("box-pet/")) {
+                const parts=name.split("/"), pet=companionLoader.item
+                if (host.ambientMode && pet?.roaming) pet.beginFlight(Number(parts[1])-pet.petWidth*.5,Number(parts[2])-pet.petWidth*.29,"flight",2.8)
+                return
+            }
+            if (name.startsWith("box-debug/")) {
+                const parts=name.split("/"), game=battle.item
+                if (!game || game.run.phase!=="ready") return
+                const action=parts[1], value=parts[2]
+                if (action==="practice") {
+                    const terms=value.split(",")
+                    if (Rules.configure(game.run,terms[0],Number(terms[1]),terms[2])) {
+                        Native.Desktop.setOption("mode","play")
+                        if (host.options.linkDesktops) Native.Desktop.switchWorkspace(game.frontId)
+                        game.publish()
+                    }
+                } else if (game.run.debug) {
+                    if (action==="money") game.run.debugMoney=value==="true"
+                    else if (action==="weapon") Rules.setDebugWeapon(game.run,value)
+                    else if (action==="weather") Rules.setPracticeLayer(game.run,value)
+                    else if (action==="unlocks") Rules.applyDebugUnlocks(game.run,value==="true")
+                    game.publish()
+                }
+                return
+            }
             if (name.startsWith("cube-room-")) {
                 Qt.callLater(()=>host.chooseOverviewRoom(name.slice(10)))
                 return
@@ -748,6 +773,8 @@ FocusScope {
         visible:active && host.terminalInput
         sourceComponent:PureCode {
             dark:Native.Desktop.darkPanel || Native.Desktop.darkApps || host.options.interfaceTheme==="dark"
+            preferredFont:host.options.terminalFontSize
+            paletteJson:host.options.terminalPalette
             exposed:pureCode.visible
             onReturnRequested:galleryLoader.item?.go(galleryLoader.item.previousRoom==="code" ? "shrine" : galleryLoader.item.previousRoom)
         }

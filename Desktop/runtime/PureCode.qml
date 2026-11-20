@@ -13,8 +13,14 @@ FocusScope {
     readonly property color chrome:dark ? "#19252a" : "#dbe8e2"
     readonly property color lineColor:dark ? "#37524c" : "#9bb4a8"
     readonly property color ink:dark ? "#e8f6ed" : "#18352b"
-    readonly property color accent:dark ? "#9adbbe" : "#225b47"
-    property int baseFont:16
+    readonly property color accent:palette.accent || (dark ? "#9adbbe" : "#225b47")
+    property int preferredFont:16
+    property string paletteJson:"{}"
+    readonly property var palette: {
+        try {return JSON.parse(paletteJson)} catch (_) {return {}}
+    }
+    readonly property int baseFont:Math.max(10,Math.min(26,preferredFont+localFontChange))
+    property int localFontChange:0
     property int nextId:0
     property int activePane:0
     property var sessions:({})
@@ -195,6 +201,9 @@ FocusScope {
                     session:pane.terminal
                     readOnly:pane.outputOnly
                     dark:workbench.dark
+                    backgroundColor:workbench.palette.background || "transparent"
+                    foregroundColor:workbench.palette.foreground || "transparent"
+                    cursorColor:workbench.accent
                     fontSize:Math.max(9,Math.min(workbench.baseFont,Math.floor(width/24),Math.floor(height/4.1)))
                     onActiveFocusChanged:if (activeFocus) workbench.activePane=pane.paneId
                     TapHandler {
@@ -235,8 +244,8 @@ FocusScope {
                 MenuItem {text:"Copy";enabled:screen.hasSelection;onTriggered:{screen.copy();screen.forceActiveFocus()}}
                 MenuItem {text:"Paste";enabled:!pane.outputOnly;onTriggered:{screen.paste();screen.forceActiveFocus()}}
                 MenuItem {text:"Find…";onTriggered:pane.showFind()}
-                MenuItem {text:"Larger text";enabled:workbench.baseFont<26;onTriggered:workbench.baseFont++}
-                MenuItem {text:"Smaller text";enabled:workbench.baseFont>11;onTriggered:workbench.baseFont--}
+                MenuItem {text:"Larger text";enabled:workbench.baseFont<26;onTriggered:workbench.localFontChange++}
+                MenuItem {text:"Smaller text";enabled:workbench.baseFont>11;onTriggered:workbench.localFontChange--}
                 MenuSeparator {}
                 MenuItem {text:"Close pane";enabled:panes.count>1;onTriggered:workbench.closePane(pane.paneId,pane.shellId,pane.outputOnly)}
                 MenuItem {text:"Leave Pure Code";onTriggered:workbench.returnRequested()}

@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Manage Blackbox from the Pure Code Konsole session."""
+"""Manage Project Blackbox from an ordinary Linux shell."""
 import argparse
+import getpass
 import json
 import math
+import os
+import re
 import shutil
 import sys
 import time
@@ -11,29 +14,154 @@ import subprocess
 
 RPC = ("qdbus6", "org.projectblackbox.Desktop", "/Blackbox", "org.projectblackbox.Desktop.")
 ROOMS = ("front", "left", "right", "up", "down", "back")
+THEMES = ("bloodShrine", "armory", "terminal", "dossier", "lockdown", "dark")
 OPTIONS = {
-    "idlePhaseMinutes": (int, (1, 120)),
-    "idleFps": (int, (5, 30)),
-    "detail": (int, (0, 3)),
-    "frameLimit": (int, (20, 240)),
-    "audioMaster": (float, (0, 1)),
-    "audioMusic": (float, (0, 1)),
-    "audioEffects": (float, (0, 1)),
-    "audioAmbience": (float, (0, 1)),
-    "audioInterface": (float, (0, 1)),
-    "framing": (str, ("fill", "fit", "stretch", "16:9")),
-    "interfaceTheme": (str, ("bloodShrine", "armory", "terminal", "dossier", "lockdown", "dark")),
-    "transitionStyle": (str, ("cinematic", "soft")),
-    "transitionStrength": (float, (0.4, 1.4)),
-    "zoom": (float, (1, 1.4)),
-    "mouseTurns": (bool, ()),
-    "idlePet": (bool, ()),
-    "motion": (bool, ()),
-    "backgroundPlay": (bool, ()),
-    "backgroundIdle": (bool, ()),
-    "peekOverview": (bool, ()),
-    "safeRendering": (bool, ()),
+    "idle": {
+        "backgroundIdle": "bool", "idlePet": "bool", "idleFps": (int, 5, 30), "idlePhaseMinutes": (int, 1, 120),
+        "mouseTurns": "bool", "peekOverview": "bool", "linkDesktops": "bool", "singleWorkspaceTurn": "bool",
+        "idleFront": ROOMS,
+    },
+    "graphics": {
+        "interfaceTheme": THEMES, "framing": ("fill", "fit", "stretch", "16:9"), "quality": (0, 1080, 1440, 2160),
+        "detail": (int, 0, 3), "frameLimit": (int, 20, 240), "safeRendering": "bool", "motion": "bool",
+        "zoom": (float, 1, 1.4), "transitionStyle": ("cinematic", "soft"), "transitionStrength": (float, .4, 1.4),
+        "hudScale": (.8, 1, 1.15, 1.3), "textScale": (1, 1.15, 1.3, 1.45), "screenName": "text",
+        **{"wallpaper_" + room: "image" for room in (*ROOMS, "cube")},
+    },
+    "audio": {
+        **{key: (float, 0, 1) for key in ("audioMaster", "audioMusic", "audioEffects", "audioAmbience", "audioInterface")},
+        "musicReactive": "bool", "audioTarget": "text",
+    },
+    "play": {
+        "mode": ("idle", "performance", "play"), "backgroundPlay": "bool", "autoSave": "bool",
+        "showEnemyPreview": "bool", "showTimer": "bool", "wheelSwitch": "bool",
+        "cpuAmmo": "bool", "gpuEffects": "bool", "achievementOverride": "bool", "controlBindings": "bindings",
+    },
+    "terminal": {"terminalFontSize": (int, 10, 26), "terminalPalette": "palette"},
 }
+VERBS = {
+    "help": ("[COMMAND [TOPIC]]", "Browse subcommands, option types, and examples.",
+             ["box help -options", "box help -options =graphics", "box help -options =terminalFontSize"]),
+    "manual": ("[--open]", "Print the full reference or open it with the desktop file association.", ["box manual"]),
+    "me": ("", "Play a large ASCII animation and leave its artwork in the transcript.", ["box me"]),
+    "status": ("[--json]", "Inspect game, wallpaper, terminal, and pet state.", ["box status --json"]),
+    "options": ("[SECTION]", "List setting keys and their current values.", ["box options idle"]),
+    "set": ("KEY VALUE", "Change a setting using the type listed under help options.", ["box set detail 3", "box set backgroundIdle on"]),
+    "get": ("KEY", "Print one setting value.", ["box get terminalFontSize"]),
+    "theme": ("[NAME|custom|reset] [--background HEX] [--foreground HEX] [--accent HEX]",
+              "Select an interface theme or mix a Pure Code palette.", ["box theme dark", "box theme custom --accent '#b585ee'", "box theme reset"]),
+    "wallpaper": ("ROOM IMAGE|default", "Choose a local image for a room or the cube backdrop.", ["box wallpaper cube ~/Pictures/sky.webp"]),
+    "room": ("ROOM", "Go straight to an Idle wallpaper.", ["box room back"]),
+    "look": ("left|right|up|down", "Move one turn from the current Idle room.", ["box look left"]),
+    "files": ("[FOLDER]", "List a local directory, including hidden files.", ["box files ~/Projects"]),
+    "location": ("[FOLDER]", "Resolve a folder for shell commands such as cd.", ['cd "$(box location ~/Projects)" && pwd']),
+    "pet": ("fly X,Y", "Send the roaming Idle pet to screen coordinates in logical pixels.", ["box room front && box pet fly 600,240"]),
+    "reset": ("settings|images --yes", "Restore Blackbox preferences or bundled artwork.", ["box reset images --yes"]),
+    "admin": ("[-password =PHRASE] [--lock]", "Unlock or lock this shell’s game-practice commands.", ["box admin", "box admin --lock"]),
+    "debug": ("practice|money|weapon|weather|unlocks ...", "Configure an unstarted practice run.", ["box help debug"]),
+}
+DEBUG = {
+    "practice": "WAVE [--difficulty normal|hard|insane] [--build standard|star|random]",
+    "money": "true|false",
+    "weapon": "WEAPON_ID",
+    "weather": "WEATHER_ID",
+    "unlocks": "true|false",
+}
+KEYS = {key: spec for options in OPTIONS.values() for key, spec in options.items()}
+MANUAL = Path(__file__).with_name("COMMANDS.md")
+
+
+def format_type(spec):
+    if isinstance(spec, str):
+        return {"bool": "on or off", "text": "text", "bindings": "JSON object",
+                "palette": "JSON object of #RRGGBB colours", "image": "local image or default"}[spec]
+    if isinstance(spec[0], type):
+        return f"{'integer' if spec[0] is int else 'number'} {spec[1]}–{spec[2]}"
+    return " | ".join(map(str, spec))
+
+
+def as_bool(value):
+    values = {"true": True, "yes": True, "on": True, "1": True,
+              "false": False, "no": False, "off": False, "0": False}
+    if value.lower() not in values:
+        raise ValueError("Expected on or off.")
+    return values[value.lower()]
+
+
+def image_url(value):
+    if value == "default":
+        return ""
+    path = Path(value).expanduser().resolve()
+    if not path.is_file():
+        raise ValueError("Choose a local image file.")
+    return path.as_uri()
+
+
+def parse_setting(key, value):
+    spec = KEYS[key]
+    if spec == "bool":
+        return as_bool(value)
+    if spec == "text":
+        return "" if value == "default" else value
+    if spec == "image":
+        return image_url(value)
+    if spec in ("bindings", "palette"):
+        parsed = json.loads(value)
+        if not isinstance(parsed, dict):
+            raise ValueError("Expected a JSON object.")
+        if spec == "palette":
+            for name, color in parsed.items():
+                if name not in ("foreground", "background", "accent") or not isinstance(color, str) or not re.fullmatch(r"#[a-fA-F0-9]{6}", color):
+                    raise ValueError("Palette keys are foreground, background, and accent. Use #RRGGBB.")
+        return json.dumps(parsed, separators=(",", ":"))
+    if isinstance(spec[0], type):
+        number = spec[0](value)
+        if spec[1] <= number <= spec[2]:
+            return number
+    for choice in spec:
+        if isinstance(choice, (int, float)) and value.replace(".", "", 1).isdigit() and float(value) == choice:
+            return choice
+        if isinstance(choice, str) and value == choice:
+            return choice
+    raise ValueError("Expected " + format_type(spec))
+
+
+def print_help(topics):
+    parts = [part.lstrip("-=") for part in topics if part.lstrip("-=")]
+    command = parts[0] if parts else ""
+    detail = parts[1] if len(parts) > 1 else ""
+    if command == "options" and detail in OPTIONS and len(parts) > 2:
+        branch = OPTIONS[detail]
+        detail = parts[2]
+        if detail not in branch:
+            raise ValueError("That setting is not in this section.")
+    if not command:
+        print("PURE CODE / BLACKBOX COMMANDS")
+        for index, (name, (_, description, _)) in enumerate(VERBS.items()):
+            print(f"{'└─' if index + 1 == len(VERBS) else '├─'} {name:9} {description}")
+        print("\nExpand a branch with box help -options, box help -options =graphics, or box help debug.")
+    elif command == "options" and not detail:
+        for section, options in OPTIONS.items():
+            print(f"├─ {section:9} {len(options)} settings   box help -options ={section}")
+    elif command == "options" and detail in OPTIONS:
+        for name, spec in OPTIONS[detail].items():
+            print(f"├─ {name:22} {format_type(spec)}")
+    elif command == "options" and detail in KEYS:
+        print(f"{detail}  ·  {format_type(KEYS[detail])}\n  box get {detail}\n  box set {detail} VALUE")
+    elif command == "debug" and detail in DEBUG:
+        print(f"box debug {detail} {DEBUG[detail]}")
+        print("Requires box admin in this shell and an unstarted practice run.")
+    elif command in VERBS:
+        syntax, description, examples = VERBS[command]
+        print(f"box {command} {syntax}\n{description}".rstrip())
+        if command == "debug":
+            for action, syntax in DEBUG.items():
+                print(f"├─ {action:9} {syntax}")
+        for example in examples:
+            print("  " + example)
+    else:
+        raise ValueError("Unknown help topic. Run box help.")
+    print("\nFull reference  " + MANUAL.as_uri())
 
 
 def service(method, *args):
@@ -111,72 +239,160 @@ def show_blackbox():
     print(art)
 
 
+def terminal_session():
+    session = os.environ.get("BLACKBOX_TERMINAL_SESSION")
+    if not session:
+        raise ValueError("Open a shell in the Pure Code wallpaper to use game-practice commands.")
+    return session
+
+
+def set_option(key, value):
+    key, value = key.lstrip("-"), value.removeprefix("=")
+    parsed = parse_setting(key, value)
+    if key == "idleFront":
+        if service("IdleRoom", parsed).strip() != "true":
+            raise ValueError("Room changes require Idle mode.")
+    else:
+        service("Configure", key, json.dumps(parsed))
+    current = json.loads(service("Options")).get(key)
+    if isinstance(parsed, (bool, int, float)):
+        accepted = str(current).lower() == str(parsed).lower() or isinstance(parsed, (int, float)) and current == parsed
+    else:
+        accepted = current == parsed
+    if not accepted:
+        raise ValueError(f"Blackbox did not apply {key}. Current value is {current!r}.")
+    print(f"{key} = {current}")
+
+
 def main():
-    parser = argparse.ArgumentParser(prog="box")
+    if len(sys.argv) > 1 and sys.argv[1] == "help":
+        print_help(sys.argv[2:])
+        return
+    parser = argparse.ArgumentParser(prog="box", epilog="Run box help for the command tree and full reference.")
     commands = parser.add_subparsers(dest="command")
-    commands.add_parser("me", help="Draw Blackbox")
-    commands.add_parser("status", help="Show the wallpaper and game state")
-    commands.add_parser("options", help="Show configurable options and current values")
-    look = commands.add_parser("look", help="Turn the Idle wallpaper")
-    look.add_argument("direction", choices=("left", "right", "up", "down"))
-    room = commands.add_parser("room", help="Go directly to a room in Idle")
-    room.add_argument("face", choices=ROOMS)
-    wallpaper = commands.add_parser("wallpaper", help="Set custom artwork or restore stock")
-    wallpaper.add_argument("face", choices=(*ROOMS, "cube"))
-    wallpaper.add_argument("image", help="Path to a local image, or default")
-    setting = commands.add_parser("set", help="Adjust an option from box options")
-    setting.add_argument("option", choices=OPTIONS)
-    setting.add_argument("value")
+    for name, (_, description, _) in VERBS.items():
+        commands.add_parser(name, help=description)
+    child = commands.choices
+    child["manual"].add_argument("--open", action="store_true")
+    child["status"].add_argument("--json", action="store_true")
+    child["options"].add_argument("section", nargs="?", choices=OPTIONS)
+    child["get"].add_argument("key", choices=KEYS)
+    child["set"].add_argument("key", choices=KEYS)
+    child["set"].add_argument("value")
+    child["theme"].add_argument("name", nargs="?", choices=(*THEMES, "custom", "reset"))
+    for name in ("foreground", "background", "accent"):
+        child["theme"].add_argument("--"+name)
+    child["wallpaper"].add_argument("face", choices=(*ROOMS, "cube"))
+    child["wallpaper"].add_argument("image")
+    child["look"].add_argument("direction", choices=("left", "right", "up", "down"))
+    child["room"].add_argument("face", choices=ROOMS)
+    for name in ("files", "location"):
+        child[name].add_argument("folder", default=".", nargs="?")
+    child["pet"].add_argument("action", choices=("fly",))
+    child["pet"].add_argument("point")
+    child["reset"].add_argument("selection", choices=("settings", "images"))
+    child["reset"].add_argument("--yes", action="store_true")
+    child["admin"].add_argument("-password", "--password")
+    child["admin"].add_argument("--lock", action="store_true")
+    debug = child["debug"].add_subparsers(dest="action", required=True)
+    practice = debug.add_parser("practice")
+    practice.add_argument("wave", choices=range(10, 151, 10), type=int, metavar="WAVE")
+    practice.add_argument("--difficulty", choices=("normal", "hard", "insane"), default="normal")
+    practice.add_argument("--build", choices=("standard", "star", "random"), default="standard")
+    for action in DEBUG:
+        if action != "practice":
+            debug.add_parser(action).add_argument("value")
+
     args = parser.parse_args()
     if args.command == "me":
         show_blackbox()
+    elif args.command == "manual":
+        if args.open:
+            subprocess.run(["xdg-open", str(MANUAL)], check=True)
+        else:
+            print(MANUAL.read_text(), end="")
     elif args.command == "status":
-        print(json.dumps(json.loads(service("Status")), indent=2))
+        state = json.loads(service("Status"))
+        if args.json:
+            print(json.dumps(state, indent=2))
+        else:
+            for key, value in state.items():
+                print(f"{key:21} {value}")
     elif args.command == "options":
-        status = json.loads(service("Options"))
-        for key, (kind, valid) in OPTIONS.items():
-            description = "true or false" if kind is bool else " to ".join(map(str, valid)) if kind in (float, int) else ", ".join(valid)
-            print(f"{key:20} {str(status.get(key)):8} {description}")
+        state = json.loads(service("Options"))
+        for name in (OPTIONS[args.section] if args.section else KEYS):
+            print(f"{name:22} {state.get(name)}")
+    elif args.command == "get":
+        print(json.dumps(json.loads(service("Options")).get(args.key)))
+    elif args.command == "set":
+        set_option(args.key, args.value)
+    elif args.command == "theme":
+        if args.name == "reset":
+            set_option("terminalPalette", "{}")
+        elif args.name == "custom":
+            current = json.loads(json.loads(service("Options")).get("terminalPalette", "{}"))
+            current.update({name: getattr(args, name) for name in ("foreground", "background", "accent") if getattr(args, name)})
+            set_option("terminalPalette", json.dumps(current))
+        elif args.name:
+            set_option("interfaceTheme", args.name)
+        else:
+            print("Interface themes  " + " · ".join(THEMES))
+            print("Use box help theme for palette examples.")
     elif args.command == "look":
         if service("IdleTurn", args.direction).strip() != "true":
-            parser.error("wallpaper turns are available from an active Blackbox Idle session")
+            raise ValueError("Wallpaper turns require an active Blackbox Idle session.")
     elif args.command == "room":
-        answer = service("IdleRoom", args.face).strip()
-        if answer != "true":
-            parser.error("room selection is available from an active Blackbox Idle session")
+        if service("IdleRoom", args.face).strip() != "true":
+            raise ValueError("Room selection requires an active Blackbox Idle session.")
     elif args.command == "wallpaper":
-        if args.image == "default":
-            image = ""
+        set_option("wallpaper_" + args.face, args.image)
+    elif args.command in ("files", "location"):
+        folder = Path(args.folder).expanduser().resolve()
+        if not folder.is_dir():
+            raise ValueError("Folder not found.")
+        if args.command == "location":
+            print(folder)
         else:
-            path = Path(args.image).expanduser().resolve()
-            if not path.is_file() or path.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
-                parser.error("choose a local PNG, JPEG or WebP image")
-            image = path.as_uri()
-        key = "wallpaper_" + args.face
-        service("Configure", key, json.dumps(image))
-        if json.loads(service("Options")).get(key) != image:
-            parser.error("Blackbox could not apply that wallpaper")
-        print(args.face + " wallpaper updated")
-    elif args.command == "set":
-        kind, valid = OPTIONS[args.option]
-        try:
-            if kind is bool:
-                value = {"true": True, "false": False}[args.value.lower()]
-            else:
-                value = kind(args.value)
-                if not (valid[0] <= value <= valid[1] if kind in (float, int) else value in valid):
-                    raise ValueError
-        except (ValueError, KeyError):
-            parser.error("invalid value. See box options for accepted values")
-        service("Configure", args.option, json.dumps(value))
-        current = json.loads(service("Options")).get(args.option)
-        print(f"{args.option} = {current}")
+            for entry in sorted(folder.iterdir(), key=lambda item: (not item.is_dir(), item.name.casefold())):
+                name = "".join(letter if letter.isprintable() else repr(letter)[1:-1] for letter in entry.name)
+                print(name + ("/" if entry.is_dir() else ""))
+    elif args.command == "pet":
+        if not re.fullmatch(r"[0-9]{1,5},[0-9]{1,5}", args.point):
+            raise ValueError("Give screen coordinates as X,Y. Example: box pet fly 600,240")
+        if service("BoxPetFly", *args.point.split(",")).strip() != "true":
+            raise ValueError("Enable the roaming Idle pet and use coordinates from 0 to 16384.")
+    elif args.command == "reset":
+        if not args.yes:
+            raise ValueError("Add --yes to restore those defaults.")
+        if service("BoxReset", args.selection).strip() != "true":
+            raise ValueError("Blackbox settings are unavailable.")
+    elif args.command == "admin":
+        session = terminal_session()
+        if args.lock:
+            service("BoxLock", session)
+            print("Game-practice commands locked.")
+            return
+        phrase = args.password.removeprefix("=") if args.password is not None else getpass.getpass("Game-practice phrase: ")
+        if service("BoxAdmin", session, phrase).strip() != "true":
+            raise ValueError("Game-practice phrase rejected.")
+        print("Game-practice commands unlocked for this shell for 15 minutes. Run box help debug.")
+    elif args.command == "debug":
+        value = f"{args.difficulty},{args.wave},{args.build}" if args.action == "practice" else args.value
+        if args.action in ("money", "unlocks"):
+            value = str(as_bool(value)).lower()
+        if service("BoxDebug", terminal_session(), args.action, value).strip() != "true":
+            raise ValueError("Unlock this shell with box admin and use an unstarted practice run.")
+        print("Practice setting applied.")
     else:
-        parser.print_help()
+        print_help([])
 
 
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, subprocess.SubprocessError, ValueError):
-        raise SystemExit("Blackbox is unavailable on this KDE session bus.")
+    except (KeyError, ValueError) as error:
+        print(f"box: {error}", file=sys.stderr)
+        raise SystemExit(2)
+    except (OSError, subprocess.SubprocessError):
+        print("box: Blackbox is unavailable on this KDE session bus.", file=sys.stderr)
+        raise SystemExit(1)
