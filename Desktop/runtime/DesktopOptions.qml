@@ -166,8 +166,9 @@ Item {
 
     component NumberField:SpinBox {
         id:number
-        Layout.fillWidth:true
-        implicitHeight:42
+        Layout.preferredWidth:126
+        Layout.maximumWidth:126
+        implicitHeight:36
         editable:true
         palette.base:"#2b2130"
         palette.text:settings.foreground
@@ -195,21 +196,24 @@ Item {
                 currentIndex:settings.options.mode==="play" ? 1 : 0
                 onActivated:settings.set("mode",currentIndex ? "play" : "idle")
             }
-            Copy {text:"Minutes per Idle lighting phase"}
-            NumberField {
-                objectName:"idlePhaseMinutes"
+            RowLayout {
                 Layout.fillWidth:true
-                from:1;to:120
-                value:settings.options.idlePhaseMinutes
-                onValueModified:settings.set("idlePhaseMinutes",value)
+                Copy {id:phaseLabel;text:"Minutes per Idle lighting phase";color:settings.foreground}
+                NumberField {
+                    objectName:"idlePhaseMinutes";Accessible.name:phaseLabel.text
+                    from:1;to:120;value:settings.options.idlePhaseMinutes
+                    onValueModified:settings.set("idlePhaseMinutes",value)
+                }
             }
             Copy {text:"Day → Sunset → Night → Sunrise. Each phase has about a 70% chance of weather and a 30% chance of clear skies."}
-            Copy {text:"Idle effects updates per second"}
-            NumberField {
-                objectName:"idleFps"
-                from:5;to:30
-                value:settings.options.idleFps
-                onValueModified:settings.set("idleFps",value)
+            RowLayout {
+                Layout.fillWidth:true
+                Copy {id:idleRateLabel;text:"Idle effects updates per second";color:settings.foreground}
+                NumberField {
+                    objectName:"idleFps";Accessible.name:idleRateLabel.text
+                    from:5;to:30;value:settings.options.idleFps
+                    onValueModified:settings.set("idleFps",value)
+                }
             }
             Toggle {text:"Safe rendering · use 2D combat and static Idle";checked:settings.options.safeRendering;onToggled:value=>settings.set("safeRendering",value)}
             Toggle {text:"Roaming Idle pet";checked:settings.options.idlePet;onToggled:value=>settings.set("idlePet",value)}
@@ -246,7 +250,8 @@ Item {
     Component {
         id:controlsPage
         Stack {
-            Toggle {text:"Turn at mouse edges";checked:settings.options.mouseTurns;onToggled:value=>settings.set("mouseTurns",value)}
+            Toggle {text:"Mouse edge turning";checked:settings.options.mouseTurns;onToggled:value=>settings.set("mouseTurns",value)}
+            Copy {text:"In Idle and Performance, hold Ctrl while pressing an arrow or moving to an edge."}
             Ui.FieldStyleOptions {}
             Ui.ControlBindings {
                 Layout.fillWidth:true
@@ -268,8 +273,11 @@ Item {
                 visible:settings.options.detail!==settings.initialDetail
                 text:"Save the run and restart the preview or reload the wallpaper to fully apply the graphics preset."
             }
-            Copy {text:"Frame limit"}
-            NumberField {from:20;to:240;value:settings.options.frameLimit;onValueModified:settings.set("frameLimit",value)}
+            RowLayout {
+                Layout.fillWidth:true
+                Copy {id:frameLabel;text:"Frame limit";color:settings.foreground}
+                NumberField {Accessible.name:frameLabel.text;from:20;to:240;value:settings.options.frameLimit;onValueModified:settings.set("frameLimit",value)}
+            }
             Toggle {text:"Animation";checked:settings.options.motion;onToggled:value=>settings.set("motion",value)}
             Toggle {text:"Adapt graphics to GPU load";checked:settings.options.gpuEffects;onToggled:value=>settings.set("gpuEffects",value)}
             Title {text:"Accessibility"}

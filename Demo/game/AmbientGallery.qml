@@ -16,30 +16,34 @@ Template.Scene {
     property var forecast:Scenery.idleWeather(localTime,(localTime.getTime()-cycleOrigin)/1000,phaseMinutes)
     property var labAppearance:({})
     property bool mouseLook:false
+    property bool externalTurnKeys:false
     property Item pointerSurface:null
     property rect turnArea:Qt.rect(0,0,width,height)
     readonly property string liveFront:Scenery.rooms[room] || "front"
     property string controlBindings:"{}"
     readonly property var bindings:Controls.read(controlBindings)
     navigationKeyHandler:function(event) {
-        return Controls.action(gallery.bindings,Controls.navigation,event) || ""
+        return gallery.externalTurnKeys ? "" : Controls.idleDirection(event.key,event.modifiers)
     }
     property bool escapeBack:false
     property string previousRoom:"shrine"
     property string committedRoom:"shrine"
     property int mouseEdge:-1
-    function trackEdge(position) {
-        if (!mouseLook || moving) return
+    function trackEdge(position,modifiers) {
+        if (!mouseLook || moving) return false
         const area=turnArea
         const gaps=[position.x-area.x,area.x+area.width-position.x,
             position.y-area.y,area.y+area.height-position.y]
         const distance=Math.min(...gaps)
         if (distance>28 || distance<0) mouseEdge=-1
+        if ((modifiers & Controls.modifierMask)!==Qt.ControlModifier) return false
         const edge=distance>=0 && distance<17 ? gaps.indexOf(distance) : -1
         if (edge>=0 && edge!==mouseEdge) {
             mouseEdge=edge
             move(["left","right","up","down"][edge])
+            return true
         }
+        return false
     }
     function leaveEdge() {mouseEdge=-1}
     onMouseLookChanged:if (!mouseLook) leaveEdge()
@@ -58,7 +62,7 @@ Template.Scene {
         enabled:!gallery.pointerSurface && gallery.mouseLook && gallery.exposed && !gallery.drawerOpen && !gallery.clean
         acceptedDevices:PointerDevice.Mouse | PointerDevice.TouchPad
         blocking:false
-        onPointChanged:gallery.trackEdge(point.position)
+        onPointChanged:gallery.trackEdge(point.position,point.modifiers)
         onHoveredChanged:if (!hovered) gallery.leaveEdge()
     }
     readonly property string viewedRoom:destination || room

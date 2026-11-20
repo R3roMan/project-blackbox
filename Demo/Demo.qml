@@ -603,6 +603,7 @@ ApplicationWindow {
             Game.AmbientGallery {
                 id: gallery
                 sceneryDetail:display.detail
+                mouseLook:display.mouseTurns
                 anchors.top: galleryBar.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right

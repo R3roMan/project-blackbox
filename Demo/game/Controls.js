@@ -27,6 +27,7 @@ var desktop = [
     {id:"quickStart",title:"Quick start keyboard shortcut (hold)",keys:[Qt.Key_Space],mods:Qt.ControlModifier}
 ]
 var navigation = ["left","right","up","down"]
+var idleArrows = [Qt.Key_Left,Qt.Key_Right,Qt.Key_Up,Qt.Key_Down]
 var buttons = [Qt.LeftButton,Qt.RightButton,Qt.MiddleButton,Qt.BackButton,Qt.ForwardButton]
 var buttonNames = ["Left button","Right button","Middle button","Back button","Forward button"]
 var modifierMask = Qt.ControlModifier | Qt.AltModifier | Qt.ShiftModifier | Qt.MetaModifier
@@ -64,6 +65,10 @@ function releases(profile,id,key) {
 
 function action(profile,actions,event) {
     return actions.find(entry=>matches(profile,typeof entry==="string" ? entry : entry.id,event))
+}
+
+function idleDirection(key,modifiers) {
+    return (modifiers & modifierMask)===Qt.ControlModifier ? navigation[idleArrows.indexOf(key)] || "" : ""
 }
 
 function keyName(key) {

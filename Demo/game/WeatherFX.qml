@@ -92,53 +92,65 @@ Item {
             }
         }
 
-        function layeredRain(ctx, time, storm) {
-            const scale = Math.max(.65,Math.min(1.7,height/800))
-            const wind = storm ? .31 : .20
-            const wrapX = width+180, wrapY = height+130
+        function fraction(index, salt) {
+            let hash = Math.imul(index + 1, 0x45d9f3b) ^ salt
+            hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b)
+            return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296
+        }
+
+        readonly property var rainSeeds: Array.from({length: 4}, (_, layer) =>
+            Array.from({length: 78}, (_, index) => {
+                const id = layer * 78 + index
+                return {
+                    x: fraction(id, 0x64d271ac),
+                    y: fraction(id, 0x781af404),
+                    speed: .72 + fraction(id, 0xfa54236d) * .60,
+                    length: .42 + fraction(id, 0x33e6fe21) * .85,
+                    angle: -.07 + fraction(id, 0x86acff05) * .14
+                }
+            }))
+
+        function drawRain(ctx, time, storm) {
+            const scale = Math.max(.68, Math.min(2, height / 1030))
+            const wind = (storm ? .19 : .095) + .035 * Math.sin(time * .68)
+            const wrapX = width + 56 * scale
+            const wrapY = height + 42 * scale
+            const layers = weatherFx.ultra ? 4 : 2
             ctx.lineCap = "round"
-            for (let layer=0; layer<3; ++layer) {
-                const count = (storm ? 69 : 52)-layer*15
-                const speed = (240+layer*395)*scale
+            for (let layer = 0; layer < layers; ++layer) {
+                const depth = layer / (layers - 1)
+                const count = Math.round((storm ? 68 : 52) - depth * 19 + 6 * Math.sin(time * .48 + layer * 1.3))
+                const speed = (425 + depth * 670) * scale * (storm ? 1.18 : 1)
                 ctx.beginPath()
-                for (let i=0; i<count; ++i) {
-                    const index = i+layer*59
-                    const fall = time*speed*(.81+i%9*.044)
-                    const x = ((index*173.31-fall*wind)%wrapX+wrapX)%wrapX-80
-                    const y = (index*103.23+fall)%wrapY-75
-                    const tail = (11+layer*14+i%7*(2+layer))*scale*(storm ? 1.30 : 1)
-                    ctx.moveTo(x,y)
-                    ctx.lineTo(x-tail*wind,y+tail)
+                for (let index = 0; index < count; ++index) {
+                    const drop = rainSeeds[layer][index]
+                    const fall = time * speed * drop.speed
+                    const slope = wind + drop.angle
+                    const x = ((drop.x * wrapX + fall * slope) % wrapX + wrapX) % wrapX - 28 * scale
+                    const y = (drop.y * wrapY + fall) % wrapY - 21 * scale
+                    const length = (4 + depth * 8) * drop.length * scale * (storm ? 1.16 : 1)
+                    ctx.moveTo(x, y)
+                    ctx.lineTo(x - length * slope, y - length)
                 }
-                ctx.strokeStyle = ["#3883a8d3", "#679bbde2", "#84c0ddef"][layer]
-                ctx.lineWidth = scale*(.78+layer*.63)
-                ctx.stroke()
-                if (layer === 2) {
-                    ctx.strokeStyle = "#425b83b1"
-                    ctx.lineWidth *= 2.8
-                    ctx.stroke()
-                }
-            }
-            for (let i=0; i<(storm ? 19 : 12); ++i) {
-                const age = (time*(.98+i%3*.48)+i*.713)%1
-                if (age >= .44)
-                    continue
-                const depth = .61+(i*.873%1)*.39
-                const x = width*((i*.618+Math.floor(time*(.98+i%3*.48)+i*.713)*.127)%1)
-                const size = (.9+age*13)*(depth-.45)*scale
-                const y = height*depth
-                ctx.globalAlpha = (1-age/.44)*.80
-                ctx.strokeStyle = "#b9dcec"
-                ctx.lineWidth = Math.max(.7,scale*.80)
-                ctx.beginPath()
-                ctx.ellipse(x-size,y-size*.24,size*2,size*.48)
-                ctx.moveTo(x,y)
-                ctx.lineTo(x-size*.58,y-size*.98)
-                ctx.moveTo(x+size*.31,y)
-                ctx.lineTo(x+size*.78,y-size*.65)
+                ctx.lineWidth = (.44 + depth * .51) * scale
+                ctx.strokeStyle = Qt.rgba(.63 + depth * .16, .73 + depth * .12, .88 + depth * .08, .15 + depth * .23)
                 ctx.stroke()
             }
-            ctx.globalAlpha = 1
+            if (!weatherFx.ultra) return
+            for (let index = 0; index < (storm ? 14 : 8); ++index) {
+                const period = time * (.75 + fraction(index, 0xa32f76e1)) + fraction(index, 0x8b9356ef)
+                const age = period % 1
+                if (age > .24) continue
+                const cycle = index + Math.floor(period) * 17
+                const x = width * fraction(cycle, 0x7be2365f)
+                const y = height * (.78 + fraction(cycle, 0x9e21684a) * .22)
+                const radius = (.5 + age * 13) * scale
+                ctx.beginPath()
+                ctx.ellipse(x - radius, y - radius * .25, radius * 2, radius * .5)
+                ctx.lineWidth = .6 * scale
+                ctx.strokeStyle = Qt.rgba(.68, .79, .86, .30 * (1 - age / .24))
+                ctx.stroke()
+            }
         }
 
         onPaint: {
@@ -282,23 +294,7 @@ Item {
                 return
             }
             if (weatherFx.condition!=="rain" && weatherFx.condition!=="thunder") return
-            const storm=weatherFx.condition==="thunder"
-            if (weatherFx.ultra) {
-                layeredRain(ctx,time,storm)
-                return
-            }
-            for (let i = 0; i < (storm ? 158 : 101); i += 1) {
-                const speed = 385 + (i % 5) * 125
-                const x = ((i * 123.31 - time * speed * .19) % width + width) % width
-                const y = (i * 97.51 + time * speed) % height
-                const length = (storm ? 24 : 14) + i % 7 * 4
-                ctx.beginPath()
-                ctx.strokeStyle = Qt.rgba(.65, .80, .98, .12 + (i % 7) * .035)
-                ctx.lineWidth = i % 3 ? 1 : 1.8
-                ctx.moveTo(x, y)
-                ctx.lineTo(x - length * .21, y + length)
-                ctx.stroke()
-            }
+            drawRain(ctx,time,weatherFx.condition==="thunder")
         }
     }
 }

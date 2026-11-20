@@ -14,6 +14,7 @@ Item {
     property bool affectionate:false
     ListModel {id:marks}
     readonly property real floorY:Math.max(0,height-floorInset-creature.height-6)
+    readonly property real petWidth:Math.min(width*.36,Math.max(190,(height-floorInset)*.31))
 
     function reload() {
         const available=Pets.pets.filter(pet=>pet.id!==helper.id && !pet.tarot)
@@ -35,18 +36,22 @@ Item {
         wander.interval=pose==="sleep" ? 6800 : (pose==="flight" ? 3600 : 4500)
     }
     onFrontChanged:if (roaming && !pointer.drag.active) {pose="flight";choosePose()}
-    Component.onCompleted:{reload();creature.x=width*.68;creature.y=height*.29}
+    Component.onCompleted:{reload();creature.x=Math.max(0,width*.74-creature.width/2);creature.y=Math.min(floorY,height*.29)}
     Timer {id:wander;interval:3300;repeat:true;running:idle.roaming;onTriggered:idle.choosePose()}
     Timer {interval:83;repeat:true;running:idle.roaming;onTriggered:idle.clock=(idle.clock+.083)%120}
     Timer {id:hearts;interval:1250;onTriggered:idle.affectionate=false}
     Item {
         id:creature
-        width:134;height:99
+        objectName:"idlePetBody"
+        width:idle.petWidth;height:width*99/134
+        onWidthChanged:if (x+width>idle.width) x=Math.max(0,idle.width-width)
+        onHeightChanged:if (y>idle.floorY) y=idle.floorY
         Behavior on x {enabled:!pointer.pressed;NumberAnimation {duration:1850;easing.type:Easing.InOutSine}}
         Behavior on y {enabled:!pointer.pressed;NumberAnimation {duration:1850;easing.type:Easing.InOutSine}}
         Rectangle {
             anchors.horizontalCenter:parent.horizontalCenter;anchors.bottom:parent.bottom
-            width:80;height:13;radius:9;color:Qt.rgba(Ui.FieldStyle.petGlow.r,Ui.FieldStyle.petGlow.g,Ui.FieldStyle.petGlow.b,.23)
+            width:parent.width*.48;height:width*.16;radius:height/2
+            color:Qt.rgba(Ui.FieldStyle.petGlow.r,Ui.FieldStyle.petGlow.g,Ui.FieldStyle.petGlow.b,.23)
         }
         Loader {
             anchors.fill:parent
@@ -58,6 +63,7 @@ Item {
             id:solid
             PetPortrait3D {
                 helper:idle.helper;clock:idle.clock;animate:true
+                textureWidthLimit:900
                 resting:!pointer.drag.active && ["feed","sleep","scratch"].includes(idle.pose)
             }
         }
@@ -73,12 +79,12 @@ Item {
             anchors.horizontalCenter:parent.horizontalCenter;anchors.top:parent.top
             text:idle.affectionate ? "♥  ♥" : idle.pose==="sleep" && !pointer.pressed ? "z z z" : ""
             color:idle.affectionate ? "#ffa5bf" : "#d3eff7";style:Text.Outline;styleColor:"#30243a"
-            font.pixelSize:19;font.bold:true
-            y:Math.sin(idle.clock*3)*6
+            font.pixelSize:Math.max(1,Math.round(parent.width*.12));font.bold:true
+            anchors.topMargin:Math.sin(idle.clock*3)*parent.height*.05
         }
         MouseArea {
             id:pointer
-            anchors.fill:parent;anchors.margins:15
+            anchors.fill:parent;anchors.margins:parent.width*.11
             drag.target:creature
             drag.minimumX:0;drag.maximumX:Math.max(0,idle.width-creature.width)
             drag.minimumY:0;drag.maximumY:idle.floorY

@@ -9,7 +9,8 @@ View3D {
     property bool resting:false
     property real clock:0
     property real zoom:1
-    explicitTextureWidth:Math.max(1,Math.min(520,Math.round(width*Screen.devicePixelRatio)))
+    property int textureWidthLimit:520
+    explicitTextureWidth:Math.max(1,Math.min(textureWidthLimit,Math.round(width*Screen.devicePixelRatio)))
     explicitTextureHeight:Math.max(1,Math.round(explicitTextureWidth*height/Math.max(1,width)))
     camera:eye
     environment:SceneEnvironment {

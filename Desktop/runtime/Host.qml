@@ -106,19 +106,22 @@ FocusScope {
     readonly property var bindings:Controls.read(options.controlBindings)
     readonly property var quickPointer:Controls.quickPointer(bindings)
     readonly property bool idleOverlay:bookOpen || vaultOpen || settingsDrawer.visible || !!galleryLoader.item?.drawerOpen
-    readonly property bool idleActionsAvailable:home && claimed && mode==="idle" && !idleOverlay && !quickCount
+    readonly property bool ambientMode:mode==="idle" || mode==="performance"
+    readonly property bool idleActionsAvailable:idleKeys && !quickCount
     readonly property double idleClockOrigin:Date.now()
     property int quickCount:0
     property bool quickQueued:false
-    readonly property bool idleKeys:home && claimed && mode==="idle"
-        && !idleOverlay
+    readonly property bool idleKeys:home && claimed && ambientMode && !idleOverlay
     readonly property bool idleWatch:useWorkArea && !!desktopInputParent
     Binding {target:Native.Desktop;property:"idleInputWindow";value:host.Window.window;when:host.idleWatch && host.claimed}
     Connections {
         target:Native.Desktop
         enabled:host.idleKeys && host.idleWatch
         function onIdleKey(key,modifiers,pressed,repeated) {
-            if(!repeated) host.trackIdleToggle(key,modifiers,pressed)
+            if (repeated) return
+            host.trackIdleToggle(key,modifiers,pressed)
+            const direction=pressed && host.idleActionsAvailable ? Controls.idleDirection(key,modifiers) : ""
+            if (direction) galleryLoader.item?.move(direction)
         }
         function onIdlePointerChanged(held) {
             host.idlePointerHeld=held
@@ -128,9 +131,9 @@ FocusScope {
                 galleryLoader.item?.leaveEdge()
             }
         }
-        function onIdlePointerMoved(x,y) {
+        function onIdlePointerMoved(x,y,modifiers) {
             const point=host.mapFromItem(null,x,y)
-            host.trackIdleEdge(point.x,point.y)
+            host.trackIdleEdge(point.x,point.y,modifiers)
         }
     }
     Behavior on idleOpacity {NumberAnimation {duration:220;easing.type:Easing.InOutQuad}}
@@ -195,10 +198,14 @@ FocusScope {
     function restoreIdleFocus() {
         if (idleKeys) galleryLoader.item?.forceActiveFocus(Qt.MouseFocusReason)
     }
-    function trackIdleEdge(x,y) {
+    function trackIdleEdge(x,y,modifiers) {
         if (idlePointerHeld || !idleActionsAvailable || !options.mouseTurns) return
         if (Math.min(x-areaLeft,y-areaTop,width-areaRight-x,height-areaBottom-y)>28) idleEdgeArmed=true
-        if (idleEdgeArmed) galleryLoader.item?.trackEdge(Qt.point(x,y))
+        if ((modifiers & Controls.modifierMask)!==Qt.ControlModifier) {
+            galleryLoader.item?.leaveEdge()
+            return
+        }
+        if (idleEdgeArmed && galleryLoader.item?.trackEdge(Qt.point(x,y),modifiers)) idleToggleAlone=false
     }
     function openIdleSettings() {
         if (idleActionsAvailable) settingsDrawer.open()
@@ -230,7 +237,7 @@ FocusScope {
         readonly property point origin:parent.mapFromItem(host,0,0)
         x:origin.x;y:origin.y;width:host.width;height:host.height
         z:2
-        visible:host.mode==="idle" && host.home && host.claimed
+        visible:host.ambientMode && host.home && host.claimed
         MouseArea {
             objectName:"idleQuickPointer"
             x:host.areaLeft;y:host.areaTop
@@ -246,7 +253,7 @@ FocusScope {
             }
             onClicked:host.requestQuickStart()
             onPositionChanged:function(mouse) {
-                if (!host.idleWatch && mouse.buttons===Qt.NoButton) host.trackIdleEdge(x+mouse.x,y+mouse.y)
+                if (!host.idleWatch && mouse.buttons===Qt.NoButton) host.trackIdleEdge(x+mouse.x,y+mouse.y,mouse.modifiers)
             }
             onExited:galleryLoader.item?.leaveEdge()
         }
@@ -363,6 +370,7 @@ FocusScope {
             enabled:host.home
             focus:host.mode!=="play"
             mouseLook:host.options.mouseTurns && host.idleActionsAvailable
+            externalTurnKeys:host.idleWatch
             pointerSurface:idleInput
             turnArea:Qt.rect(host.areaLeft,host.areaTop,width-host.areaLeft-host.areaRight,height-host.areaTop-host.areaBottom)
             escapeBack:!host.quickCount
@@ -583,7 +591,7 @@ FocusScope {
         parent:idleInput
         anchors.fill:parent;z:6
         active:host.claimed && host.options.idlePet && !host.options.safeRendering
-        visible:active && host.idleActionsAvailable
+        visible:active && host.mode==="idle" && host.idleActionsAvailable && !galleryLoader.item?.performance
         sourceComponent:Game.IdleCompanion {
             front:galleryLoader.item?.liveFront || "front"
             floorInset:host.areaBottom
