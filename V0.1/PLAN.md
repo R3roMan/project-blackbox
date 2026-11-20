@@ -33,7 +33,7 @@ The Shrine connects to the Droid Lab on the right, Media on the left, Star Sky a
 
 For the first production camera pass, create a continuous pano or compact 3D courtyard with four authored viewpoints. Give the forward and sky plates matching horizon, exposure and colour. Give left and right views consistent occlusion and foreground anchors. Start the downward move with a shared shot of the path and a foreground hole rim. Hand off at the dark crossing to a short descent shot, then reveal the current Abyss variant. The prototype uses rotation and translation of image layers, scale and fades to establish timing. A single perspective panorama or small 3D scene is required for a continuous camera rotation with correct perspective.
 
-Wrap transitions use a star emitter or short authored clip. Keep stars as actual selectable QML items, positioned independently of the decorative texture. Use stable identifiers and optional seeded variation. Reserve the Media plate for personal images, including the Stone Ocean artwork once chosen in the editor.
+Keep stars as actual selectable QML items, positioned independently of the decorative texture. Use stable identifiers and optional seeded variation. Reserve the Media plate for personal images, including the Stone Ocean artwork once chosen in the editor.
 
 ## Modes and rendering policy
 

@@ -420,6 +420,8 @@ function assignKitEquipment() {
     const byKey=kitIndex()
     const install=function(group,key,id,title,changes) {
         const kit=byKey[key]
+        if (!kit || !catalogs[group][kit[group]] || catalogs[group][id])
+            throw new Error("Invalid equipment assignment: "+key+" "+id)
         const base=catalogs[group][kit[group]]
         catalogs[group][id]=Object.assign({},base,{id,title,locked:false},changes)
         kit[group]=id
@@ -445,7 +447,7 @@ function assignKitEquipment() {
     for (const [key,id,title,rankScale] of KitEquipment.passiveVariants) {
         const base=passives[byKey[key].passive]
         install("passive",key,id,title,{rankFamily:base.id,rankScale,
-            description:base.title+" variant. Its base effect uses "+Math.round(rankScale*100)+"% of the original rank. Rank 2 adds the same secondary perk."})
+            description:base.title+" variant. Its base effect uses "+Math.round(rankScale*100)+"% of the original rank. Lv 2 adds the same secondary perk."})
     }
     for (const [id,title,rarity,description,stat,value,extra,extraValue,upgrade] of KitEquipment.newPassives) {
         passives[id]={id,title,rarity,category:"Passive",description,basePerk:{[stat]:value},
