@@ -17,7 +17,7 @@ KWin.SceneEffect {
         const reply=DBus.SessionBus.asyncCall({service:effect.service,path:effect.path,
             iface:effect.service,member:member,arguments:args})
         if (!finished) return
-        const handle=()=>finished(reply.isError ? undefined : reply.value?.value ?? reply.value)
+        const handle=()=>finished(reply.isError ? undefined : (reply.value?.value ?? reply.value))
         if (reply.isFinished) handle()
         else reply.finished.connect(handle)
     }
@@ -58,12 +58,6 @@ KWin.SceneEffect {
     DBus.DBusServiceWatcher {
         watchedService:effect.service
         onRegisteredChanged:if (!registered) effect.dismiss()
-    }
-    DBus.SignalWatcher {
-        service:effect.service
-        path:effect.path
-        iface:effect.service
-        function onCubeRequested() {effect.toggle()}
     }
     Timer {
         running:effect.visible
