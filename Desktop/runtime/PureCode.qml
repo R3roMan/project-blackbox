@@ -10,13 +10,23 @@ FocusScope {
     required property bool dark
     property bool exposed:false
     signal returnRequested()
-    readonly property color chrome:dark ? "#19252a" : "#dbe8e2"
-    readonly property color lineColor:dark ? "#37524c" : "#9bb4a8"
-    readonly property color ink:dark ? "#e8f6ed" : "#18352b"
-    readonly property color accent:palette.accent || (dark ? "#9adbbe" : "#225b47")
+    readonly property color base:terminalColors.background || (dark ? "#10151a" : "#eff4f1")
+    readonly property bool darkChrome:base.r*.213+base.g*.715+base.b*.072<.46
+    readonly property color chrome:terminalColors.background ? (darkChrome ? Qt.lighter(base,1.28) : Qt.darker(base,1.09))
+        : darkChrome ? "#19252a" : "#dbe8e2"
+    readonly property color lineColor:darkChrome ? "#37524c" : "#9bb4a8"
+    readonly property color ink:terminalColors.foreground || (darkChrome ? "#e8f6ed" : "#18352b")
+    readonly property color accent:terminalColors.accent || (darkChrome ? "#9adbbe" : "#225b47")
+    palette.window:chrome
+    palette.windowText:ink
+    palette.button:chrome
+    palette.buttonText:ink
+    palette.base:base
+    palette.text:ink
+    palette.highlight:accent
     property int preferredFont:16
     property string paletteJson:"{}"
-    readonly property var palette: {
+    readonly property var terminalColors: {
         try {return JSON.parse(paletteJson)} catch (_) {return {}}
     }
     readonly property int baseFont:Math.max(10,Math.min(26,preferredFont+localFontChange))
@@ -202,9 +212,9 @@ FocusScope {
                     Layout.fillWidth:true;Layout.fillHeight:true
                     session:pane.terminal
                     readOnly:pane.outputOnly
-                    dark:workbench.dark
-                    backgroundColor:workbench.palette.background || "transparent"
-                    foregroundColor:workbench.palette.foreground || "transparent"
+                    dark:workbench.darkChrome
+                    backgroundColor:workbench.terminalColors.background || "transparent"
+                    foregroundColor:workbench.terminalColors.foreground || "transparent"
                     cursorColor:workbench.accent
                     fontSize:Math.max(9,Math.min(workbench.baseFont,Math.floor(width/24),Math.floor(height/4.1)))
                     onActiveFocusChanged:if (activeFocus) workbench.activePane=pane.paneId
