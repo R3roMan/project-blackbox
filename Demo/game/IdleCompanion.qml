@@ -77,9 +77,9 @@ Item {
         beginFlight(Math.max(0,width-petWidth)*(.08+Math.random()*.84),floorY*(.13+Math.random()*.67),"flight",3.2+Math.random()*2.4)
     }
     function perchPoint(surface) {
-        const widthAtRest=petWidth*Math.min(1,Math.max(.16,(surface.y-3)/(petWidth*.47)))
+        const widthAtRest=petWidth*Math.min(1,Math.max(.16,(surface.y-3)/(petWidth*.445)))
         const x=Math.max(0,Math.min(width-widthAtRest,surface.x+surface.width/2-widthAtRest/2))
-        return {x,y:Math.max(0,surface.y-widthAtRest*.47),scale:widthAtRest/petWidth}
+        return {x,y:Math.max(0,surface.y-widthAtRest*.445),scale:widthAtRest/petWidth}
     }
     function chooseLanding(next,preferSurface=false) {
         const candidates=(typeof perchLookup==="function" ? perchLookup() : []).filter(candidate=>candidate.width>0)
@@ -209,7 +209,7 @@ Item {
             transform:Translate {y:idle.bob}
             Rectangle {
                 anchors.horizontalCenter:parent.horizontalCenter;anchors.bottom:parent.bottom
-                anchors.bottomMargin:parent.height*.15
+                anchors.bottomMargin:parent.height*.34
                 width:parent.width*.40;height:width*.125;radius:height/2
                 color:"transparent"
                 opacity:idle.airborne ? 0 : .82
