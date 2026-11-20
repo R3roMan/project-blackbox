@@ -20,7 +20,9 @@ Pure Code runs your usual Linux shell inside the Blackbox wallpaper. Ordinary co
 box help
 box help -options
 box help -options =graphics
-box help -options =graphics =framing
+box help -options =graphics .framing
+box help -pet =commands .tasks
+box help -pet =commands '.flight+.care'
 box get framing
 box set framing 16:9
 box theme custom --background '#10131c' --accent '#bc91e8'
@@ -49,7 +51,8 @@ Quote tokens beginning with `=` when using a shell that expands them, for exampl
 | `box look DIRECTION` | Turn one step left, right, up, or down. |
 | `box files [FOLDER]` | List a local folder, including hidden entries. Defaults to your current folder. |
 | `box location [FOLDER]` | Resolve a folder to an absolute path. Use `cd "$(box location FOLDER)"` to enter it. |
-| `box pet fly X,Y` | Send the roaming pet to logical screen coordinates. Try `box room front && box pet fly 600,240`. |
+| `box pet COMMAND [ARGS]` or `pet COMMAND [ARGS]` | Give the roaming pet a task. Try `pet help`, `pet fly 600,240`, or `pet say hello`. Enable Pet admin in BX or Desktop settings first. [Pet command reference](PET.md) |
+| `box report [TEXT]` | Save a report to the local issue ledger. With no text, open the reporter where you can add an optional screenshot. |
 | `box reset settings --yes` | Restore Blackbox desktop preferences and keep your artwork and saves. |
 | `box reset images --yes` | Restore bundled images and keep your preferences and saves. |
 | `box admin [-password =PHRASE]` | Unlock game practice for the current Pure Code shell for 15 minutes. The interactive prompt keeps the phrase out of shell history. |
@@ -69,12 +72,15 @@ Quote tokens beginning with `=` when using a shell that expands them, for exampl
 
 ## Settings and value types
 
-Use `box help -options =SECTION` for the names and permitted values, and `box options SECTION` for live values. The sections are **idle**, **graphics**, **audio**, **play**, and **terminal**. Values include switches, ranges, named choices, local file paths, text, and JSON objects. Coordinates use `X,Y`.
+Use `box help -options =SECTION` for the names and permitted values, and `box options SECTION` for live values. The sections are **idle**, **graphics**, **audio**, **play**, **desktop**, **terminal**, and **pet**. Values include switches, ranges, named choices, local file paths, text, and JSON objects. Coordinates use `X,Y`.
 
 ```sh
 box set idleFps 20
 box set audioAmbience 0.6
 box set terminalFontSize 18
+box set terminalImage ~/Pictures/terminal.webp
+box set terminalOpacity 0.82
+box set petFolder ~/Documents
 box set terminalPalette '{"background":"#151924","foreground":"#e9e7f8","accent":"#b585ee"}'
 box set controlBindings '{}'
 ```
