@@ -219,7 +219,7 @@ Item {
             Toggle {text:"Roaming Idle pet";checked:settings.options.idlePet;onToggled:value=>settings.set("idlePet",value)}
             Ui.ActionButton {Layout.fillWidth:true;text:"Pick another Idle pet";enabled:settings.options.idlePet;onClicked:Native.Desktop.command("idle-pet")}
             Title {text:"KDE workspace integration"}
-            Toggle {text:"Show the Blackbox cube when KDE shows the desktop";checked:settings.options.peekOverview;onToggled:value=>settings.set("peekOverview",value)}
+            Toggle {text:"Show the wallpaper picker when KDE peeks at the desktop";checked:settings.options.peekOverview;onToggled:value=>settings.set("peekOverview",value)}
             Copy {text:"With background play enabled, use Meta+Ctrl and an arrow to turn Idle from another app. Change these shortcuts in KDE System Settings."}
             Toggle {text:"Link each wallpaper to a KDE virtual desktop";checked:settings.options.linkDesktops;onToggled:value=>settings.set("linkDesktops",value)}
             Toggle {visible:settings.options.linkDesktops;text:"Use only the Blackbox turn animation while linked";checked:settings.options.singleWorkspaceTurn;onToggled:value=>settings.set("singleWorkspaceTurn",value)}

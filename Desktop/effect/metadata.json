@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "KWin/Effect",
+    "KPlugin": {
+        "Id": "org.projectblackbox.cube",
+        "Name": "Blackbox Cube",
+        "Description": "Open the six Blackbox rooms over the current desktop",
+        "Category": "Appearance",
+        "EnabledByDefault": false,
+        "Version": "0.4.14",
+        "Authors": [
+            {
+                "Name": "Project Blackbox"
+            }
+        ]
+    },
+    "X-KDE-Ordering": 60,
+    "X-KWin-Border-Activate": true,
+    "X-Plasma-API": "declarativescript"
+}
