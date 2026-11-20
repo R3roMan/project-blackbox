@@ -8,7 +8,7 @@ function waveLimit(profile, vault) {
     let highest = Math.max(profile?.bestClearedWave || 0, profile?.bestTimedWave || 0, profile?.bestFlawlessWave || 0)
     for (const record of records) {
         if (record?.eligible && record.cleared > 0)
-            highest = Math.max(highest, record.wave - Number(record.reason !== "retired"))
+            highest = Math.max(highest, record.stats?.clearedWave ?? record.wave - Number(record.reason !== "retired"))
     }
     return Math.min(90, Math.floor(highest))
 }

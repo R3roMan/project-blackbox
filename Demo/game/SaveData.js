@@ -287,6 +287,7 @@ function decodeBundle(text) {
     if (d.hudScale===undefined) d.hudScale=1
     if (![.8,1,1.15,1.3].includes(d.hudScale)) return null
     if (d.textScale!==undefined && ![1,1.15,1.3,1.45].includes(d.textScale)) return null
+    if (d.interfaceTheme!==undefined && !["bloodShrine","armory","terminal","dossier","lockdown","dark"].includes(d.interfaceTheme)) return null
     if (d.autoSave!==undefined && typeof d.autoSave!=="boolean") return null
     if (d.backgroundPlay!==undefined && typeof d.backgroundPlay!=="boolean") return null
     if (d.fieldStyle!==undefined) {

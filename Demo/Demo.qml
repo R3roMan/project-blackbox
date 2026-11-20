@@ -163,7 +163,7 @@ ApplicationWindow {
         return {backgroundFiles:display.backgroundFiles,framing:display.framing,quality:display.quality,zoom:display.zoom,mouseTurns:display.mouseTurns,
             wheelSwitch:display.wheelSwitch,showEnemyPreview:display.showEnemyPreview,controlBindings:display.controlBindings,
             frameLimit:display.frameLimit,showTimer:display.showTimer,detail:display.detail,transitionStyle:display.transitionStyle,transitionStrength:display.transitionStrength,
-            hudScale:display.hudScale,textScale:display.textScale,autoSave:display.autoSave,backgroundPlay:display.backgroundPlay,
+            hudScale:display.hudScale,textScale:display.textScale,interfaceTheme:display.interfaceTheme,autoSave:display.autoSave,backgroundPlay:display.backgroundPlay,
             fieldStyle:{hudColor:String(Ui.FieldStyle.hudColor),petGlow:String(Ui.FieldStyle.petGlow),aimColor:String(Ui.FieldStyle.aimColor),
                 aimShape:Ui.FieldStyle.aimShape,aimSpeed:Ui.FieldStyle.aimSpeed},
             audioMaster:display.audioMaster,audioMusic:display.audioMusic,audioEffects:display.audioEffects,audioAmbience:display.audioAmbience,audioInterface:display.audioInterface}

@@ -251,7 +251,8 @@ function report(run, reason, load) {
         points:{skill:skill,finance:finance,survival:survival,overall:score}, gems:gems,bonus:eligible ? bonus : 0,eligible:eligible,
         stats:{accuracy:round(accuracy*100),shots:shots,hits:hits,damage:round(damage),contacts:contacts,kills:kills,bosses:bosses,
             seals:seals,blocks:blocks,parries:parries,intercepts:intercepts,purchases:purchases,earned:gained,spent:spent,wallet:wallet,
-            flawless:flawless,items:load.items,upgrades:load.upgrades,restraint:restraint,waveScore:waveScore,fieldGems:lootGems,waveGems:waveGems,combatGems:combatGems,
+            flawless:flawless,items:load.items,upgrades:load.upgrades,restraint:restraint,
+            clearedWave:Math.min(stage,m.bestClearedWave || 0),waveScore:waveScore,fieldGems:lootGems,waveGems:waveGems,combatGems:combatGems,
             difficultyBonus:eligible ? award.difficulty : 0,autoTax:tax,autoTaxRate:eligible ? round(taxRate*100) : 0,
             autoRecoup:Math.max(0,tax-payout)}}
 }

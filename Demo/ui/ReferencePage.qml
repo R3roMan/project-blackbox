@@ -356,8 +356,8 @@ FocusScope {
                     height:parent.height
                     y:2
                     radius:6
-                    color:"#160f14"
-                    border.color:"#8d5a42"
+                    color:Qt.darker(InterfaceTheme.current.base,1.22)
+                    border.color:InterfaceTheme.current.line
                 }
                 Repeater {
                     model:5
