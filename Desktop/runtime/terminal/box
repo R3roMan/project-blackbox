@@ -37,7 +37,10 @@ OPTIONS = {
         "showEnemyPreview": "bool", "showTimer": "bool", "wheelSwitch": "bool",
         "cpuAmmo": "bool", "gpuEffects": "bool", "achievementOverride": "bool", "controlBindings": "bindings",
     },
-    "terminal": {"terminalFontSize": (int, 10, 26), "terminalPalette": "palette"},
+    "terminal": {"terminalFontSize": (int, 10, 26), "terminalPalette": "palette",
+                 "terminalImage": "image", "terminalOpacity": (float, .5, 1)},
+    "pet": {"petMuted": "bool", "petFolder": "folder"},
+    "desktop": {"darkDefaults": "bool"},
 }
 VERBS = {
     "help": ("[COMMAND [TOPIC]]", "Browse subcommands, option types, and examples.",
@@ -55,7 +58,8 @@ VERBS = {
     "look": ("left|right|up|down", "Move one turn from the current Idle room.", ["box look left"]),
     "files": ("[FOLDER]", "List a local directory, including hidden files.", ["box files ~/Projects"]),
     "location": ("[FOLDER]", "Resolve a folder for shell commands such as cd.", ['cd "$(box location ~/Projects)" && pwd']),
-    "pet": ("fly X,Y", "Send the roaming Idle pet to screen coordinates in logical pixels.", ["box room front && box pet fly 600,240"]),
+    "pet": ("COMMAND [ARGS]", "Send a command to the desktop companion.", ["box pet say hello", "box help -pet =commands"]),
+    "report": ("[TEXT]", "Open the local bug reporter or record a short report.", ["box report", "box report 'The pet did not land.'"]),
     "reset": ("settings|images --yes", "Restore Blackbox preferences or bundled artwork.", ["box reset images --yes"]),
     "admin": ("[-password =PHRASE] [--lock]", "Unlock or lock this shell’s game-practice commands.", ["box admin", "box admin --lock"]),
     "debug": ("practice|money|weapon|weather|unlocks ...", "Configure an unstarted practice run.", ["box help debug"]),
@@ -69,12 +73,50 @@ DEBUG = {
 }
 KEYS = {key: spec for options in OPTIONS.values() for key, spec in options.items()}
 MANUAL = Path(__file__).with_name("COMMANDS.md")
+PET_CATALOG = MANUAL.parent.parent / "PetCatalog.js"
+PET_MANUAL = MANUAL.with_name("PET.md")
+
+
+class BoxParser(argparse.ArgumentParser):
+    def error(self, message):
+        if "invalid choice" in message:
+            message = "Invalid command or value."
+        print(f"box: {message.rstrip('.')}. Try box help.", file=sys.stderr)
+        raise SystemExit(2)
+
+
+def pet_catalog():
+    return json.loads(PET_CATALOG.read_text().partition("var groups = ")[2])
+
+
+def pet_help(detail="", leaf=""):
+    groups = pet_catalog()
+    if detail in ("", "commands"):
+        if leaf in groups:
+            detail = leaf
+        elif leaf:
+            detail = leaf
+        else:
+            for group, commands in groups.items():
+                print(f"├─ {group:8} {len(commands)} commands   box help -pet =commands .{group}")
+            print("   Syntax  pet COMMAND [ARG]   + groups of related commands   : named values")
+            print("Full reference  " + PET_MANUAL.as_uri())
+            return
+    if detail in groups:
+        for item in groups[detail]:
+            print(f"├─ {item['name']:12} {item['args']:28} {item['description']}")
+    else:
+        match = next((entry for group in groups.values() for entry in group if entry["name"] == detail), None)
+        if not match:
+            raise ValueError("Unknown pet topic. Try box help -pet.")
+        print(f"pet {match['name']} {match['args']}\n{match['description']}".rstrip())
+    print("Full reference  " + PET_MANUAL.as_uri())
 
 
 def format_type(spec):
     if isinstance(spec, str):
         return {"bool": "on or off", "text": "text", "bindings": "JSON object",
-                "palette": "JSON object of #RRGGBB colours", "image": "local image or default"}[spec]
+                "palette": "JSON object of #RRGGBB colours", "image": "local image or default", "folder": "local folder or default"}[spec]
     if isinstance(spec[0], type):
         return f"{'integer' if spec[0] is int else 'number'} {spec[1]}–{spec[2]}"
     return " | ".join(map(str, spec))
@@ -105,6 +147,13 @@ def parse_setting(key, value):
         return "" if value == "default" else value
     if spec == "image":
         return image_url(value)
+    if spec == "folder":
+        if value == "default":
+            return ""
+        path = Path(value).expanduser().resolve()
+        if not path.is_dir():
+            raise ValueError("Folder not found.")
+        return str(path)
     if spec in ("bindings", "palette"):
         parsed = json.loads(value)
         if not isinstance(parsed, dict):
@@ -127,9 +176,12 @@ def parse_setting(key, value):
 
 
 def print_help(topics):
-    parts = [part.lstrip("-=") for part in topics if part.lstrip("-=")]
+    parts = [part.lstrip("-=.+:") for part in topics if part.lstrip("-=.+:")]
     command = parts[0] if parts else ""
     detail = parts[1] if len(parts) > 1 else ""
+    if command == "pet":
+        pet_help(detail, parts[2] if len(parts) > 2 else "")
+        return
     if command == "options" and detail in OPTIONS and len(parts) > 2:
         branch = OPTIONS[detail]
         detail = parts[2]
@@ -139,7 +191,7 @@ def print_help(topics):
         print("PURE CODE / BLACKBOX COMMANDS")
         for index, (name, (_, description, _)) in enumerate(VERBS.items()):
             print(f"{'└─' if index + 1 == len(VERBS) else '├─'} {name:9} {description}")
-        print("\nExpand a branch with box help -options, box help -options =graphics, or box help debug.")
+        print("\nExpand a branch with box help -options =graphics .framing or box help -pet =commands.")
     elif command == "options" and not detail:
         for section, options in OPTIONS.items():
             print(f"├─ {section:9} {len(options)} settings   box help -options ={section}")
@@ -268,7 +320,7 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "help":
         print_help(sys.argv[2:])
         return
-    parser = argparse.ArgumentParser(prog="box", epilog="Run box help for the command tree and full reference.")
+    parser = BoxParser(prog="box", epilog="Run box help for the command tree and full reference.")
     commands = parser.add_subparsers(dest="command")
     for name, (_, description, _) in VERBS.items():
         commands.add_parser(name, help=description)
@@ -288,8 +340,8 @@ def main():
     child["room"].add_argument("face", choices=ROOMS)
     for name in ("files", "location"):
         child[name].add_argument("folder", default=".", nargs="?")
-    child["pet"].add_argument("action", choices=("fly",))
-    child["pet"].add_argument("point")
+    child["pet"].add_argument("words", nargs=argparse.REMAINDER)
+    child["report"].add_argument("text", nargs=argparse.REMAINDER)
     child["reset"].add_argument("selection", choices=("settings", "images"))
     child["reset"].add_argument("--yes", action="store_true")
     child["admin"].add_argument("-password", "--password")
@@ -357,10 +409,19 @@ def main():
                 name = "".join(letter if letter.isprintable() else repr(letter)[1:-1] for letter in entry.name)
                 print(name + ("/" if entry.is_dir() else ""))
     elif args.command == "pet":
-        if not re.fullmatch(r"[0-9]{1,5},[0-9]{1,5}", args.point):
-            raise ValueError("Give screen coordinates as X,Y. Example: box pet fly 600,240")
-        if service("BoxPetFly", *args.point.split(",")).strip() != "true":
-            raise ValueError("Enable the roaming Idle pet and use coordinates from 0 to 16384.")
+        words = args.words
+        if not words or words[0] == "help":
+            pet_help(*(words[1:3] + [""] * 2)[:2])
+        else:
+            reply = json.loads(service("PetCommand", json.dumps(words)))
+            print(reply["message"], file=sys.stdout if reply["ok"] else sys.stderr)
+            if not reply["ok"]:
+                raise SystemExit(2)
+    elif args.command == "report":
+        message = " ".join(args.text)
+        if service("BoxReport", message).strip() != "true":
+            raise ValueError("Could not save the report.")
+        print("Report saved locally." if message else "Opening the local bug reporter.")
     elif args.command == "reset":
         if not args.yes:
             raise ValueError("Add --yes to restore those defaults.")

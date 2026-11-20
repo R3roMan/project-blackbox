@@ -17,6 +17,12 @@ WallpaperItem {
             onTriggered:Qt.callLater(()=>runtime.item?.showOverview(false))
         },
         PlasmaCore.Action {
+            text:"Pet terminal"
+            icon.name:"utilities-terminal"
+            visible:runtime.item?.home && runtime.item.options.petAdmin || false
+            onTriggered:Qt.callLater(()=>runtime.item?.showPetConsole())
+        },
+        PlasmaCore.Action {
             text:"Idle settings"
             icon.name:"preferences-desktop-wallpaper"
             visible:runtime.item?.idleActionsAvailable || false

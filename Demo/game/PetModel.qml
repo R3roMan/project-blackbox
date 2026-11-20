@@ -9,6 +9,7 @@ Node {
     required property real phase
     required property real strike
     property bool animate: true
+    property string idlePose:"flight"
     property bool resting: false
     property bool detailed: false
     property real chargeProgress:0
@@ -87,7 +88,12 @@ Node {
         sourceComponent:BirdPet {
             helper:pet.helper; phase:pet.phase; strike:pet.strike; animate:pet.animate; resting:pet.resting
             detailed:pet.detailed
+            idlePose:pet.idlePose
         }
+    }
+    Loader3D {
+        active:pet.helper.form==="surfPrimate"
+        sourceComponent:SurfPrimate {clock:pet.phase;action:pet.idlePose}
     }
     Loader3D {
         active:pet.helper.form==="jacko"
@@ -101,7 +107,7 @@ Node {
         }
     }
     Loader3D {
-        active:!pet.bird && pet.helper.form!=="jacko"
+        active:!pet.bird && !["jacko","surfPrimate"].includes(pet.helper.form)
         sourceComponent:Node {
             PetDetails {
                 helper:pet.helper

@@ -10,6 +10,16 @@ FocusScope {
     required property bool dark
     property bool exposed:false
     signal returnRequested()
+    function stageDraft(text) {
+        for (let index=0;index<panes.count;++index) {
+            const pane=panes.get(index)
+            if (pane.paneId!==activePane) continue
+            if (!sessions[pane.shellId]?.stageDraft(text)) return false
+            focusPane(pane.shellId)
+            return true
+        }
+        return false
+    }
     readonly property color base:terminalColors.background || (dark ? "#10151a" : "#eff4f1")
     readonly property bool darkChrome:base.r*.213+base.g*.715+base.b*.072<.46
     readonly property color chrome:terminalColors.background ? (darkChrome ? Qt.lighter(base,1.28) : Qt.darker(base,1.09))
@@ -26,6 +36,8 @@ FocusScope {
     palette.highlight:accent
     property int preferredFont:16
     property string paletteJson:"{}"
+    property url wallpaperImage:""
+    property real surfaceOpacity:.87
     readonly property var terminalColors: {
         try {return JSON.parse(paletteJson)} catch (_) {return {}}
     }
@@ -117,7 +129,15 @@ FocusScope {
         enabled:workbench.exposed && workbench.activeFocus
         onActivated:workbench.returnRequested()
     }
-    Rectangle {anchors.fill:parent;color:workbench.lineColor}
+    Rectangle {
+        anchors.fill:parent
+        gradient:Gradient {
+            GradientStop {position:0;color:Qt.lighter(workbench.base,1.46)}
+            GradientStop {position:.58;color:Qt.darker(workbench.base,1.18)}
+            GradientStop {position:1;color:Qt.lighter(workbench.base,1.16)}
+        }
+    }
+    Image {anchors.fill:parent;source:workbench.wallpaperImage;asynchronous:true;fillMode:Image.PreserveAspectCrop}
     Repeater {
         id:terminalPanes
         model:panes
@@ -213,6 +233,7 @@ FocusScope {
                     session:pane.terminal
                     readOnly:pane.outputOnly
                     dark:workbench.darkChrome
+                    surfaceOpacity:workbench.darkChrome ? workbench.surfaceOpacity : (String(workbench.wallpaperImage) ? .78 : 1)
                     backgroundColor:workbench.terminalColors.background || "transparent"
                     foregroundColor:workbench.terminalColors.foreground || "transparent"
                     cursorColor:workbench.accent

@@ -41,6 +41,8 @@ var pets = [
         power:"spark", duty:21, rest:9, description:"A pink-haired flying chibi. Every third attack sends a small Electric jump." },
     { id:"minishade", title:"Mini Shadow", form:"minishade", skin:"#21182e", accent:"#cba2ff", damage:1.68, interval:4.45,
         travel:1.07, power:"blind", duty:21, rest:11, description:"Sends bursts of ink that blind targets and make them drift off course.",locked:true },
+    {id:"vesper",title:"Vesper",form:"surfPrimate",skin:"#694899",accent:"#ffd04a",idleOnly:true,damage:.8,interval:4.5,travel:1.2,power:"rush",duty:21,rest:8,
+        description:"A mischievous purple primate with a yellow surfboard, blue wetsuit and a weakness for bananas."},
     {id:"jacko",title:"Jacko",form:"jacko",skin:"#b55322",accent:"#95ef5b",damage:1.21,interval:4.9,travel:1.22,
         power:"greenfire",duty:20,rest:10.5,tarot:true,
         description:"The Devil card lends you a second companion. Jacko attacks with green fire. His charged breath scorches the target and nearby enemies."}
@@ -72,7 +74,7 @@ function attackPose(id, remaining) {
 }
 
 function available(unlocks) {
-    return pets.filter(function(pet) { return !pet.tarot && (!pet.locked || unlocks.includes(pet.id)) })
+    return pets.filter(function(pet) { return !pet.tarot && !pet.idleOnly && (!pet.locked || unlocks.includes(pet.id)) })
 }
 
 function draft(unlocks, random, previous) {

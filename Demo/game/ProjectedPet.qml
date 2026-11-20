@@ -5,6 +5,8 @@ Canvas {
     objectName: "projectedPet"
     required property var helper
     required property real flap
+    property string idlePose:"flight"
+    onIdlePoseChanged:requestPaint()
     property bool resting: false
     property color glowTint:"transparent"
     property bool motion: true
@@ -35,6 +37,20 @@ Canvas {
         ctx.fillStyle = Qt.lighter(pet.helper.skin, 1.35)
         ctx.strokeStyle = pet.helper.accent
         ctx.lineWidth = .032
+        if (pet.helper.form==="surfPrimate") {
+            function oval(x,y,w,h,color) {ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(x,y,w,h);ctx.fill()}
+            if (idlePose==="vine") {
+                ctx.strokeStyle="#5e9056";ctx.beginPath();ctx.moveTo(.60,0);ctx.quadraticCurveTo(.83,.15,.58,.34);ctx.stroke()
+            } else oval(.13,.78,.75,.10,"#f4bd42")
+            oval(.29,.41,.43,.34,"#694899");oval(.33,.51,.35,.20,"#243e55")
+            oval(.27,.29,.15,.15,"#9571ab");oval(.61,.28,.15,.15,"#9571ab");oval(.32,.20,.36,.34,"#7453a0")
+            oval(.38,.37,.25,.13,"#b693c3");oval(.405,.30,.060,.074,"#fff1bb");oval(.535,.30,.06,.074,"#fff1bb")
+            oval(.433,.322,.032,.044,"#292133");oval(.542,.318,.034,.043,"#292133");oval(.455,.431,.09,.026,"#302033")
+            oval(.31,.18,.38,.074,"#203c55")
+            if (idlePose==="banana") oval(.32,.441,.16,.046,"#f6d258")
+            if (idlePose==="globe") {oval(.71,.14,.18,.20,"#3789ba");oval(.761,.17,.048,.117,"#9acb70")}
+            return
+        }
         if (["crow","owl","finch","chicken"].includes(pet.helper.form)) {
             drawBird(ctx)
             return

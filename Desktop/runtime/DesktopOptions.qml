@@ -219,6 +219,10 @@ Item {
             Toggle {objectName:"backgroundIdle";text:"Keep Idle running behind other apps";checked:settings.options.backgroundIdle;onToggled:value=>settings.set("backgroundIdle",value)}
             Copy {text:"Keeps Idle weather and the roaming pet active while another app has focus. Use Meta+Ctrl+arrow to change rooms."}
             Toggle {text:"Roaming Idle pet";checked:settings.options.idlePet;onToggled:value=>settings.set("idlePet",value)}
+            Toggle {objectName:"petAdminSettings";text:"Pet admin";checked:settings.options.petAdmin;onToggled:value=>settings.set("petAdmin",value)}
+            PetMood {Layout.fillWidth:true;visible:settings.options.idlePet;mood:Native.Desktop.state.petMood ?? .5;name:Native.Desktop.state.petName || "Pet"}
+            Toggle {text:"Mute pet sounds";checked:settings.options.petMuted;onToggled:value=>settings.set("petMuted",value)}
+            Copy {visible:settings.options.petAdmin;text:"Ctrl+P opens the pet terminal. File changes, shell drafts, and app closes ask for approval."}
             Ui.ActionButton {Layout.fillWidth:true;text:"Pick another Idle pet";enabled:settings.options.idlePet;onClicked:Native.Desktop.command("idle-pet")}
             Title {text:"KDE workspace integration"}
             Toggle {text:"Show the wallpaper picker when KDE peeks at the desktop";checked:settings.options.peekOverview;onToggled:value=>settings.set("peekOverview",value)}
@@ -270,6 +274,12 @@ Item {
         id:displayPage
         Stack {
             Title {text:"Appearance"}
+            Toggle {text:"Use dark Plasma and app colours on first activation";checked:settings.options.darkDefaults;onToggled:value=>settings.set("darkDefaults",value)}
+            RowLayout {
+                Layout.fillWidth:true
+                Ui.ActionButton {Layout.fillWidth:true;text:Native.Desktop.darkPanel ? "Restore Plasma style" : "Use dark Plasma style";enabled:!Native.Desktop.panelStyleBusy;onClicked:Native.Desktop.setDarkPanel(!Native.Desktop.darkPanel)}
+                Ui.ActionButton {Layout.fillWidth:true;text:Native.Desktop.darkApps ? "Restore app colours" : "Use dark app colours";enabled:!Native.Desktop.panelStyleBusy;onClicked:Native.Desktop.setDarkApps(!Native.Desktop.darkApps)}
+            }
             Ui.ThemeChooser {
                 Layout.fillWidth:true
                 selection:settings.options.interfaceTheme
@@ -340,6 +350,17 @@ Item {
     Component {
         id:imagesPage
         Stack {
+            Title {text:"Pure Code terminal"}
+            RowLayout {
+                Layout.fillWidth:true
+                Ui.ActionButton {Layout.fillWidth:true;text:"Choose terminal background…";onClicked:{settings.choosing="terminalImage";imagePicker.open()}}
+                Ui.ActionButton {text:"Reset";enabled:!!settings.options.terminalImage;onClicked:settings.set("terminalImage","")}
+            }
+            Copy {text:"Dark terminal opacity"}
+            Slider {
+                Layout.fillWidth:true;from:.50;to:1;stepSize:.01
+                value:settings.options.terminalOpacity;onMoved:settings.set("terminalOpacity",value)
+            }
             Title {text:"Wallpaper images"}
             Repeater {
                 model:[{id:"front",title:"Shrine"},{id:"left",title:"West"},{id:"right",title:"Droid Lab"},{id:"up",title:"Star Sky"},{id:"down",title:"Abyss"},{id:"back",title:"Pure Code"},{id:"cube",title:"Blackbox cube backdrop"}]
@@ -374,6 +395,6 @@ Item {
         title:"Choose wallpaper"
         fileMode:FileDialog.OpenFile
         nameFilters:["Images (*.png *.jpg *.jpeg *.webp)"]
-        onAccepted:settings.set("wallpaper_"+settings.choosing,String(selectedFile))
+        onAccepted:settings.set(settings.choosing==="terminalImage" ? settings.choosing : "wallpaper_"+settings.choosing,String(selectedFile))
     }
 }

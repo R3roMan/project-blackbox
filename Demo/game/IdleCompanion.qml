@@ -35,6 +35,17 @@ Item {
     property real curiosityReady:12
     property real alertedUntil:0
     property bool affectionate:false
+    property string speech:""
+    property string draftText:""
+    property string carriedTitle:""
+    property int giftCount:0
+    property var routePoints:[]
+    property real routeSpeed:1
+    property real actionUntil:0
+    signal attention(string type)
+    signal carriedRequested()
+    signal giftRequested()
+    readonly property int droppingCount:marks.count
     property bool dragging:pointer.drag.active
     property double lastTick:0
     ListModel {id:marks}
@@ -51,6 +62,46 @@ Item {
         cursorSeen=clock
     }
     function chirp() {audio.item?.play("idle-chirp",.58)}
+    function say(text) {speech=text;if (text) speechTimer.restart()}
+    function transformInto(form) {
+        helper=form
+        perform("surprise",1.2)
+    }
+    function perform(next,seconds) {
+        routePoints=[]
+        perch=null
+        landedOn=""
+        pose=next
+        actionUntil=clock+seconds
+        if (next==="inside") poseScale=.53
+        else if (next!=="typing") poseScale=1
+    }
+    function flyTo(x,y,seconds=1.8) {
+        routePoints=[]
+        actionUntil=0
+        perch=null
+        landedOn=""
+        beginFlight(x-petWidth*.5,y-petWidth*.35,"flight",seconds)
+    }
+    function route(points,seconds) {
+        routePoints=points
+        routeSpeed=seconds
+        perch=null
+        landedOn=""
+        actionUntil=0
+        advanceRoute()
+    }
+    function advanceRoute() {
+        if (!routePoints.length) return false
+        const next=routePoints[0]
+        routePoints=routePoints.slice(1)
+        beginFlight(width*next[0]-petWidth*.5,height*next[1]-petWidth*.34,"flight",routeSpeed)
+        return true
+    }
+    function sweep() {
+        for (let i=marks.count-1;i>=0;--i)
+            if (marks.get(i).spotFront===front) marks.remove(i)
+    }
     function reload() {
         const available=Pets.pets.filter(pet=>pet.id!==helper.id && !pet.tarot)
         helper=available[Math.floor(Math.random()*available.length)]
@@ -67,17 +118,19 @@ Item {
         arrival=next
         pose=next==="flight" ? "flight" : "landing"
         flightStart=clock
-        flightDuration=seconds
-        poseEnd=clock+seconds
+        flightDuration=helper.id==="chicken" ? seconds*.68 : seconds
+        poseEnd=clock+flightDuration
     }
     function wander() {
         if (dragging) return
+        actionUntil=0
+        routePoints=[]
         perch=null
         landedOn=""
         beginFlight(Math.max(0,width-petWidth)*(.08+Math.random()*.84),floorY*(.13+Math.random()*.67),"flight",3.2+Math.random()*2.4)
     }
     function perchPoint(surface) {
-        const widthAtRest=petWidth*Math.min(1,Math.max(.16,(surface.y-3)/(petWidth*.445)))
+        const widthAtRest=petWidth
         const x=Math.max(0,Math.min(width-widthAtRest,surface.x+surface.width/2-widthAtRest/2))
         return {x,y:Math.max(0,surface.y-widthAtRest*.445),scale:widthAtRest/petWidth}
     }
@@ -115,7 +168,7 @@ Item {
     function leaveDropping() {
         let count=0
         for (let i=0;i<marks.count;++i) count+=Number(marks.get(i).spotFront===front)
-        if (count<4) marks.append({spotFront:front,
+        if (count<30 && marks.count<120) marks.append({spotFront:front,
             horizontal:(creature.x+creature.width*(heading>0 ? .34 : .66))/Math.max(1,width),
             dropY:creature.y+creature.height*.69})
     }
@@ -130,6 +183,7 @@ Item {
         const distance=Math.hypot(offsetX,offsetY)
         if (distance<Math.max(24,creature.width*.22)) {
             alertedUntil=clock+1.45
+            attention("caught")
             chirp()
             wander()
         } else if (clock>=poseEnd) {
@@ -144,6 +198,8 @@ Item {
     function tick(dt) {
         clock+=dt
         if (dragging) return
+        if (clock<actionUntil) return
+        if (actionUntil) {actionUntil=0;wander();return}
         followPerch()
         if (pose==="curious") {chase(dt);return}
         if (pose==="flight" || pose==="landing") {
@@ -154,6 +210,7 @@ Item {
             creature.y=Math.max(0,Math.min(floorY,origin.y+(destination.y-origin.y)*eased
                 -(motion ? Math.sin(progress*Math.PI)*creature.height*(pose==="landing" ? .23 : .47) : 0)))
             if (progress<1) return
+            if (advanceRoute()) return
             if (pose==="landing") {
                 pose=arrival
                 landedOn=perch?.kind || ""
@@ -176,7 +233,7 @@ Item {
     }
     onFrontChanged:if (roaming && !dragging) {nextLanding=clock+2;wander()}
     onPerchModeChanged:if (roaming && !dragging) {nextLanding=clock+1;wander()}
-    onDraggingChanged:if (dragging) chirp(); else wander()
+    onDraggingChanged:if (dragging) {chirp();attention("drag")} else wander()
     onRoamingChanged:lastTick=0
     Component.onCompleted:{
         creature.x=maxX*.75
@@ -196,6 +253,7 @@ Item {
             idle.lastTick=now
         }
     }
+    Timer {id:speechTimer;interval:5300;onTriggered:idle.speech=""}
     Timer {id:hearts;interval:1250;onTriggered:idle.affectionate=false}
     Item {
         id:creature
@@ -206,7 +264,10 @@ Item {
         onHeightChanged:if (y>idle.floorY) y=idle.floorY
         Item {
             anchors.fill:parent
-            transform:Translate {y:idle.bob}
+            transform:Translate {
+                x:["sneak","strut","vine"].includes(idle.pose) ? Math.sin(idle.clock*4)*creature.width*.19 : 0
+                y:idle.bob+(["hop","dance","surprise","cheer"].includes(idle.pose) ? -Math.abs(Math.sin(idle.clock*7))*creature.height*.18 : 0)
+            }
             Rectangle {
                 anchors.horizontalCenter:parent.horizontalCenter;anchors.bottom:parent.bottom
                 anchors.bottomMargin:parent.height*.34
@@ -231,7 +292,11 @@ Item {
                 rotation:!idle.motion ? 0 : idle.dragging ? -17 : idle.pose==="spin"
                     ? (1-(idle.poseEnd-idle.clock)/1.6)*360
                     : idle.pose==="feed" ? 13+Math.sin(idle.clock*7)*16
-                    : idle.pose==="scratch" ? Math.sin(idle.clock*13)*17
+                    : idle.pose==="scratch" || idle.pose==="feathers" || idle.pose==="shake" ? Math.sin(idle.clock*13)*17
+                    : idle.pose==="bow" || idle.pose==="peck" ? 18+Math.sin(idle.clock*8)*16
+                    : idle.pose==="dance" || idle.pose==="strut" || idle.pose==="sing" ? Math.sin(idle.clock*10)*14
+                    : idle.pose==="sulk" ? -22 : idle.pose==="vine" ? Math.sin(idle.clock*5)*25
+                    : idle.pose==="wave" || idle.pose==="salute" ? Math.sin(idle.clock*8)*9
                     : idle.airborne ? idle.heading*(4+4*Math.sin(idle.clock*3.6)) : -7
                 sourceComponent:idle.software ? flat : solid
             }
@@ -260,6 +325,7 @@ Item {
             id:solid
             PetPortrait3D {
                 helper:idle.helper;clock:idle.clock;animate:idle.motion
+                idlePose:idle.pose
                 heading:idle.airborne ? idle.heading*35 : 15
                 textureWidthLimit:900
                 resting:!idle.dragging && !idle.airborne
@@ -268,10 +334,43 @@ Item {
         Component {
             id:flat
             ProjectedPet {
-                helper:idle.helper;flap:idle.motion ? Math.sin(idle.clock*(idle.dragging ? 21 : 9)) : 0
+                helper:idle.helper;idlePose:idle.pose;flap:idle.motion ? Math.sin(idle.clock*(idle.dragging ? 21 : 9)) : 0
                 resting:!idle.dragging && !idle.airborne
                 glowTint:Ui.FieldStyle.petGlow
                 transform:Scale {origin.x:width/2;xScale:idle.heading<0 ? -1 : 1}
+            }
+        }
+        Column {
+            z:5
+            anchors.horizontalCenter:parent.horizontalCenter
+            y:creature.y<62 ? creature.height*.79 : -height-3
+            spacing:4
+            Rectangle {
+                visible:!!idle.speech || !!idle.draftText
+                width:Math.min(310,Math.max(105,bubble.implicitWidth+19))
+                height:bubble.implicitHeight+16
+                radius:9;color:"#ef211928";border.color:"#aa7969"
+                Text {
+                    id:bubble
+                    anchors.left:parent.left;anchors.right:parent.right
+                    anchors.margins:9;anchors.verticalCenter:parent.verticalCenter
+                    color:"#fff2e6";wrapMode:Text.Wrap;font.pixelSize:14
+                    text:idle.draftText ? "$ "+idle.draftText+"▍" : idle.speech
+                    textFormat:Text.PlainText
+                }
+            }
+            Repeater {
+                model:[idle.carriedTitle, idle.giftCount ? "★ Gift" : ""]
+                Rectangle {
+                    required property string modelData
+                    required property int index
+                    visible:!!modelData
+                    width:Math.min(205,card.implicitWidth+21);height:30;radius:5
+                    color:"#342839";border.color:"#bc8e6e"
+                    Text {id:card;anchors.centerIn:parent;text:parent.modelData;color:"#ffeac6";elide:Text.ElideRight;width:parent.width-13}
+                    MouseArea {anchors.fill:parent;cursorShape:Qt.PointingHandCursor
+                        onClicked:if (parent.index===0) idle.carriedRequested();else idle.giftRequested()}
+                }
             }
         }
         MouseArea {
@@ -281,7 +380,7 @@ Item {
             drag.minimumX:0;drag.maximumX:idle.maxX
             drag.minimumY:0;drag.maximumY:idle.floorY
             cursorShape:pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-            onClicked:{idle.affectionate=true;hearts.restart()}
+            onClicked:{idle.affectionate=true;hearts.restart();idle.attention("click")}
         }
     }
     Repeater {

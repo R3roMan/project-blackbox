@@ -31,6 +31,8 @@ function reportPerches() {
 function reportBlackbox() {
     const window=workspace.activeWindow
     if (!window || !window.dock) notify("Visibility",!window || Boolean(window.desktopWindow))
+    if (window?.normalWindow && !window.fullScreen)
+        notify("PetWindow",String(tracked.get(window) || ""),String(window.caption || "Application"))
     reportPerches()
 }
 function track(window) {
@@ -43,6 +45,16 @@ for (const [name,key] of [["left","Left"],["right","Right"],["up","Up"],["down",
     registerShortcut("BlackboxIdle"+key,"Blackbox Idle · "+key,"Meta+Ctrl+"+key,
         ()=>notify("Command","idle-"+name))
 }
+registerShortcut("BlackboxPetClose","Blackbox · Close approved window","",()=>{
+    callDBus(service,"/Blackbox",service,"PetCloseTarget",target=>{
+        if (!target) return
+        for (const [window,id] of tracked) {
+            if (String(id)!==target || !window.normalWindow || window.fullScreen) continue
+            window.closeWindow()
+            break
+        }
+    })
+})
 workspace.windowActivated.connect(reportBlackbox)
 workspace.windowAdded.connect(window=>{track(window);reportBlackbox()})
 workspace.windowRemoved.connect(window=>{tracked.delete(window);reportBlackbox()})

@@ -4,13 +4,14 @@ import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import "../../../../../project-blackbox/native" as Native
 import "../../../../../project-blackbox/Demo/ui" as Ui
+import "../../../../../project-blackbox/runtime" as Runtime
 PlasmoidItem {
     id:applet
     Plasmoid.title:"Project Blackbox"
     Plasmoid.icon:blackboxIcon.toString()
     readonly property url blackboxIcon:Qt.resolvedUrl("../../../../../project-blackbox/runtime/blackbox-desktop.svg")
     readonly property bool activeWallpaper:Native.Desktop.wallpaperActive
-    readonly property bool showing:!activeWallpaper || Native.Desktop.config.mode==="play" || !!Native.Desktop.state.idleControls
+    readonly property bool showing:!activeWallpaper || Native.Desktop.config.mode==="play" || !!Native.Desktop.state.idleControls || !!Native.Desktop.config.petAdmin
     property string layoutNotice:""
     onShowingChanged:if (!showing) expanded=false
     onExpandedChanged:if (expanded) Native.Desktop.refreshPanelStyle()
@@ -133,6 +134,26 @@ PlasmoidItem {
                                 const opened=Native.Desktop.useKdeLayout(Qt.resolvedUrl("../../../../../project-blackbox/runtime/desktop-session.py"))
                                 applet.layoutNotice=opened ? "Opening Blackbox on this Activity…" : "Select Blackbox in KDE’s Desktop and Wallpaper settings."
                             }
+                        }
+                        Switch {
+                            objectName:"petAdminBx"
+                            Layout.fillWidth:true
+                            visible:applet.activeWallpaper
+                            text:"Pet admin"
+                            checked:Native.Desktop.config.petAdmin
+                            onToggled:Native.Desktop.setOption("petAdmin",checked)
+                        }
+                        Runtime.PetMood {
+                            Layout.fillWidth:true
+                            visible:applet.activeWallpaper && Native.Desktop.config.idlePet
+                            mood:Native.Desktop.state.petMood ?? .5
+                            name:Native.Desktop.state.petName || "Pet"
+                        }
+                        Ui.ActionButton {
+                            Layout.fillWidth:true
+                            visible:applet.activeWallpaper && Native.Desktop.config.petAdmin
+                            text:"Pet terminal · Ctrl+P"
+                            onClicked:{Native.Desktop.command("pet-console");applet.expanded=false}
                         }
                         Label {Layout.fillWidth:true;visible:!applet.activeWallpaper && text.length>0;text:applet.layoutNotice;wrapMode:Text.WordWrap}
                         Ui.ActionButton {

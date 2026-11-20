@@ -4,6 +4,7 @@ import QtQuick3D
 
 Node {
     id: bird
+    property string idlePose:"flight"
     required property var helper
     required property real phase
     required property real strike
@@ -250,6 +251,23 @@ Node {
                     materials:[horn]
                 }
             }
+        }
+    }
+    PrincipledMaterial {id:eggIvory;baseColor:"#ead4a8";roughness:.78}
+    PrincipledMaterial {id:nestStraw;baseColor:"#9c673d";roughness:.95}
+    Model {
+        visible:bird.helper.id==="chicken" && bird.idlePose==="egg"
+        y:-17+Math.abs(Math.sin(bird.phase*8))*3
+        x:-14;z:12;source:"#Sphere"
+        scale:Qt.vector3d(.084,.11,.08);materials:[eggIvory]
+    }
+    Repeater3D {
+        model:bird.helper.id==="chicken" && bird.idlePose==="nest" ? 15 : 0
+        Model {
+            required property int index
+            x:Math.cos(index*.419)*19;y:-18;z:Math.sin(index*.419)*15
+            source:"#Sphere";eulerRotation.y:index*24
+            scale:Qt.vector3d(.195,.019,.03);materials:[nestStraw]
         }
     }
 }
