@@ -4422,6 +4422,23 @@ function evadesImpact(run, projectile) {
     return true
 }
 
+function absorbBarrierHit(run) {
+    const temporary = run.barrier > 0 ? run.barrierHp : 0
+    if (temporary > 0)
+        run.barrierHp -= 1
+    else if (run.barrierCell.hp > 0)
+        run.barrierCell.hp -= 1
+    else
+        return false
+    const remaining = (run.barrier > 0 ? run.barrierHp : 0)+run.barrierCell.hp
+    record(run,"blocks")
+    if (!remaining)
+        run.barrierBreak = .47
+    announce(run,remaining ? "Barrier absorbed the attack" : "Barrier shattered",
+        remaining ? "shieldBlock" : "shieldBreak")
+    return true
+}
+
 function damagePlayer(run, amount, origin, type, burningTick, payload, projectile) {
     const attacker = enemyTypes[type]
     const rain = Conditions.isRain(run.weatherEffect)
@@ -4458,18 +4475,10 @@ function damagePlayer(run, amount, origin, type, burningTick, payload, projectil
     }
     if (!burningTick && evadesImpact(run, projectile))
         return
-    if (!burningTick) record(run,"unblockedHits")
-    if (!burningTick && (run.barrier > 0 && run.barrierHp > 0 || run.barrierCell.hp > 0)) {
-        if (run.barrier > 0 && run.barrierHp > 0)
-            run.barrierHp -= 1
-        else
-            run.barrierCell.hp -= 1
-        const charges = run.barrierHp+run.barrierCell.hp
-        record(run, "blocks")
-        if (!charges)
-            run.barrierBreak = .47
-        announce(run, charges ? "Barrier absorbed the attack" : "Barrier shattered",charges ? "shieldBlock" : "shieldBreak")
-        return
+    if (!burningTick) {
+        record(run,"unblockedHits")
+        if (absorbBarrierHit(run))
+            return
     }
     const padding=Gear.passiveSockets(run,"armour",.18)
     const insulation = attacker.role === "alien" ? rank(run, "insulation") * .085 : 0

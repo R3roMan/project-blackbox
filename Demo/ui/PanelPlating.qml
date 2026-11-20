@@ -85,6 +85,7 @@ Item {
         opacity: panel.blood
         visible: opacity > 0
         mirrorX: true
+        spatter:panel.shape==="arch" && !panel.compact
         seed: 17
     }
     BloodStain {
@@ -96,6 +97,7 @@ Item {
         opacity: panel.blood * .76
         visible: opacity > 0
         mirrorY: true
+        spatter:panel.shape==="arch" && !panel.compact
         seed: 36
     }
 }

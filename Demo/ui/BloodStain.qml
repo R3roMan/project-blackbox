@@ -3,12 +3,14 @@ import QtQuick
 Canvas {
     id: stain
     property int seed: 7
+    property bool spatter: false
     property bool mirrorX: false
     property bool mirrorY: false
 
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
     onSeedChanged: requestPaint()
+    onSpatterChanged: requestPaint()
     onVisibleChanged: if (visible) requestPaint()
 
     function grain(index) {
@@ -40,6 +42,23 @@ Canvas {
         ctx.bezierCurveTo(18, 53, 15, 33, 0, 54)
         ctx.closePath()
         ctx.fill()
+
+        if (spatter) {
+            for (let i=0;i<13;++i) {
+                const angle=.05+grain(i+136)*1.53
+                const reach=36+grain(i+149)*112
+                const mass=grain(i+160)
+                const x=4+Math.cos(angle)*reach
+                const y=2+Math.sin(angle)*reach*.66
+                ctx.fillStyle=i%3===0 ? "#a4bc2340" : "#aa861028"
+                ctx.beginPath()
+                ctx.moveTo(2+i*1.75,3)
+                ctx.quadraticCurveTo(x*.38+10,y*.52-7,x,y)
+                ctx.quadraticCurveTo(x*.57,y*.43+10+mass*6,1,5+i)
+                ctx.closePath()
+                ctx.fill()
+            }
+        }
 
         for (let i = 0; i < 6; ++i) {
             const x = 7 + i * 17 + grain(i) * 9

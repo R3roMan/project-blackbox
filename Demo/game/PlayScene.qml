@@ -2791,7 +2791,8 @@ FocusScope {
         readonly property int inset:play.compactLayout ? 12 : 17
         implicitHeight:screen.implicitHeight+menuFooter.implicitHeight+inset*2+9
         // The frame stays put when the selected tab changes. Only its contents scroll.
-        height:play.paused ? Math.max(1,Math.min(parent.height-fieldHeader.height-16,610*Math.sqrt(Ui.UiMetrics.textScale)))
+        height:play.paused ? Math.max(1,Math.min(parent.height-fieldHeader.height-16,588*Math.sqrt(Ui.UiMetrics.textScale)))
+            : play.phase==="shop" ? Math.min(parent.height*.91,725*Math.sqrt(Ui.UiMetrics.textScale))
             : Math.min(implicitHeight,parent.height*(play.previewing ? .61 : .91))
         decorated:true
         blood:play.paused ? 1 : play.preparing ? .61 : .76

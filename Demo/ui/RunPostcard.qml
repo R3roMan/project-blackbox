@@ -16,12 +16,12 @@ Rectangle {
     signal exitRequested()
     readonly property bool compact: width<680 || height<505
     readonly property color stamp:Meta.colors[Meta.familyOf(report?.grades?.overall || "")] || "#d4abb0"
-    radius:12
+    radius:InterfaceTheme.current.radius
     gradient:Gradient {
-        GradientStop {position:0;color:"#30232d"}
-        GradientStop {position:1;color:"#1d1822"}
+        GradientStop {position:0;color:InterfaceTheme.current.surface}
+        GradientStop {position:1;color:InterfaceTheme.current.base}
     }
-    border.color:"#978278"
+    border.color:InterfaceTheme.current.line
     PanelPlating {anchors.fill:parent;tone:InterfaceTheme.current.line;blood:InterfaceTheme.current.blood}
 
     ColumnLayout {

@@ -31,4 +31,9 @@ ColumnLayout {
         onMoved:function(cell,group,slot) { preparation.inventoryRequested(cell,group,slot) }
         onSwapped:function(group,from,to) { preparation.swapRequested(group,from,to) }
     }
+    KitSummary {
+        Layout.fillWidth:true
+        run:preparation.run
+        revision:preparation.revision
+    }
 }

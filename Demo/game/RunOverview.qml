@@ -55,13 +55,6 @@ ColumnLayout {
     readonly property bool loadoutTab:tab === "build" || tab === "inventory"
     readonly property var equipped: { revision; return Gear.current(run) }
     readonly property var crit: { revision; return Rules.criticalProfile(run,Gear.weapons[equipped.id]) }
-    readonly property var relevantKits: {
-        revision
-        return Gear.kits.filter(function(kit) {
-            return Object.keys(Gear.limits).some(function(group) { return !!Gear.ownedItem(run,group,kit[group]) })
-        })
-    }
-
     spacing: dense ? 8 : 12
 
     component Detail: Text {
@@ -196,63 +189,10 @@ ColumnLayout {
             onMoved:function(cell,group,slot) { overview.inventoryRequested(cell,group,slot) }
             onSwapped:function(group,from,to) { overview.swapRequested(group,from,to) }
         }
-        ScrollView {
-            id: kitScroll
-            Layout.fillWidth: true
-            Layout.preferredHeight:Math.min(Ui.UiMetrics.text(90),kitRows.implicitHeight)
-            visible: kitRows.implicitHeight > 0
-            contentWidth: availableWidth
-            clip: true
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-
-            ColumnLayout {
-                id: kitRows
-                width: kitScroll.availableWidth
-                spacing: 4
-                Repeater {
-                    model: overview.relevantKits
-                    delegate: ColumnLayout {
-                        id:kitRow
-                        required property var modelData
-                        Layout.fillWidth:true
-                        spacing:3
-                        readonly property bool complete:{overview.revision;return Gear.completeKit(overview.run,modelData)}
-                        readonly property var members:{overview.revision;return Gear.kitMembers(overview.run,modelData)}
-                        RowLayout {
-                            Layout.fillWidth:true
-                            Detail {
-                                text:kitRow.modelData.title
-                                color:Ui.InterfaceTheme.text
-                                font.bold:true
-                                font.pixelSize:Ui.UiMetrics.text(12)
-                            }
-                            Ui.KitStatus {run:overview.run;kit:kitRow.modelData;revision:overview.revision}
-                        }
-                        Flow {
-                            Layout.fillWidth:true
-                            spacing:8
-                            Repeater {
-                                model:kitRow.members
-                                Text {
-                                    required property var modelData
-                                    objectName:"kitPart-"+modelData.id
-                                    width:Math.min(implicitWidth,parent.width)
-                                    text:modelData.title
-                                    color:modelData.owned ? Ui.InterfaceTheme.equipped : Ui.InterfaceTheme.secondary
-                                    font.family:"Inter"
-                                    font.pixelSize:Ui.UiMetrics.text(12)
-                                    wrapMode:Text.Wrap
-                                }
-                            }
-                        }
-                        Detail {
-                            text:kitRow.modelData.bonus
-                            color:kitRow.complete ? "#ffe47b" : "#bdafc6"
-                            font.pixelSize:Ui.UiMetrics.text(12)
-                        }
-                    }
-                }
-            }
+        KitSummary {
+            Layout.fillWidth:true
+            run:overview.run
+            revision:overview.revision
         }
     }
 }

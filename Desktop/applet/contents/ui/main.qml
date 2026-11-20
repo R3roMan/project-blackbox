@@ -57,8 +57,8 @@ PlasmoidItem {
         objectName:"blackboxPanelMenu"
         Layout.minimumWidth:356
         Layout.preferredWidth:400
-        Layout.minimumHeight:410
-        Layout.preferredHeight:410
+        Layout.minimumHeight:335
+        Layout.preferredHeight:346
         property bool appearance:false
         readonly property var style:Ui.InterfaceTheme.style(Native.Desktop.config.interfaceTheme)
         readonly property bool activePlay:Native.Desktop.config.mode==="play"
@@ -99,8 +99,8 @@ PlasmoidItem {
             }
             RowLayout {
                 Layout.fillWidth:true
-                Ui.ActionButton {Layout.fillWidth:true;text:"Desktop";primary:!popup.appearance;accent:popup.style.accent;onClicked:popup.appearance=false}
-                Ui.ActionButton {Layout.fillWidth:true;text:"Appearance";primary:popup.appearance;accent:popup.style.accent;onClicked:popup.appearance=true}
+                Ui.ActionButton {Layout.fillWidth:true;objectName:"bxDesktopTab";text:"Desktop";primary:!popup.appearance;accent:popup.style.accent;onClicked:popup.appearance=false}
+                Ui.ActionButton {Layout.fillWidth:true;objectName:"bxAppearanceTab";text:"Appearance";primary:popup.appearance;accent:popup.style.accent;onClicked:popup.appearance=true}
             }
             Rectangle {Layout.fillWidth:true;implicitHeight:1;color:popup.style.line}
             ScrollView {

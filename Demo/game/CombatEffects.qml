@@ -18,13 +18,13 @@ Item {
         opacity: Math.min(1, (effects.shield === 1 ? .72 : .94)
             + (effects.motion ? effects.recharge * .32 : 0))
         radius: 22
-        border.color: "#ab80d7ff"
+        border.color: "#ab68f8f1"
         border.width: 5
         gradient: Gradient {
-            GradientStop { position: 0; color: "#74336dc1" }
-            GradientStop { position: .22; color: "#332452aa" }
-            GradientStop { position: .62; color: "#37186ac6" }
-            GradientStop { position: 1; color: "#7c2f8bc5" }
+            GradientStop { position: 0; color: "#742695aa" }
+            GradientStop { position: .22; color: "#33207488" }
+            GradientStop { position: .62; color: "#372591a3" }
+            GradientStop { position: 1; color: "#7c309aa8" }
         }
     }
 
