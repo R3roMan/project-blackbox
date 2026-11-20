@@ -216,11 +216,12 @@ Item {
                 }
             }
             Toggle {text:"Safe rendering · use 2D combat and static Idle";checked:settings.options.safeRendering;onToggled:value=>settings.set("safeRendering",value)}
+            Toggle {objectName:"backgroundIdle";text:"Keep Idle running behind other apps";checked:settings.options.backgroundIdle;onToggled:value=>settings.set("backgroundIdle",value)}
+            Copy {text:"Keeps Idle weather and the roaming pet active while another app has focus. Use Meta+Ctrl+arrow to change rooms."}
             Toggle {text:"Roaming Idle pet";checked:settings.options.idlePet;onToggled:value=>settings.set("idlePet",value)}
             Ui.ActionButton {Layout.fillWidth:true;text:"Pick another Idle pet";enabled:settings.options.idlePet;onClicked:Native.Desktop.command("idle-pet")}
             Title {text:"KDE workspace integration"}
             Toggle {text:"Show the wallpaper picker when KDE peeks at the desktop";checked:settings.options.peekOverview;onToggled:value=>settings.set("peekOverview",value)}
-            Copy {text:"With background play enabled, use Meta+Ctrl and an arrow to turn Idle from another app. Change these shortcuts in KDE System Settings."}
             Toggle {text:"Link each wallpaper to a KDE virtual desktop";checked:settings.options.linkDesktops;onToggled:value=>settings.set("linkDesktops",value)}
             Toggle {visible:settings.options.linkDesktops;text:"Use only the Blackbox turn animation while linked";checked:settings.options.singleWorkspaceTurn;onToggled:value=>settings.set("singleWorkspaceTurn",value)}
             Copy {text:"Blackbox uses your current KDE panels, apps and widgets. Add tray or panel widgets in KDE’s Edit Mode. Use KDE Activities for separate desktop widget layouts."}
@@ -239,7 +240,7 @@ Item {
             Toggle {objectName:"showEnemyPreview";text:"Show enemy lineup before waves";checked:settings.options.showEnemyPreview;onToggled:value=>settings.set("showEnemyPreview",value)}
             Copy {text:"Quick start goes straight into Wave 1 after the countdown. Regular runs keep their loadout and reward screens."}
             Toggle {text:"Show wave timer";checked:settings.options.showTimer;onToggled:value=>settings.set("showTimer",value)}
-            Toggle {text:"Keep Blackbox running behind other apps";checked:settings.options.backgroundPlay;onToggled:value=>settings.set("backgroundPlay",value)}
+            Toggle {text:"Keep battles running behind other apps";checked:settings.options.backgroundPlay;onToggled:value=>settings.set("backgroundPlay",value)}
             Title {text:"Run checkpoints"}
             Toggle {text:"Save at wave checkpoints";checked:settings.options.autoSave;onToggled:value=>settings.set("autoSave",value)}
             Ui.ActionButton {Layout.fillWidth:true;text:"Save current run";onClicked:Native.Desktop.command("save")}

@@ -2,6 +2,10 @@
 """Manage Blackbox from the Pure Code Konsole session."""
 import argparse
 import json
+import math
+import shutil
+import sys
+import time
 from pathlib import Path
 import subprocess
 
@@ -26,6 +30,7 @@ OPTIONS = {
     "idlePet": (bool, ()),
     "motion": (bool, ()),
     "backgroundPlay": (bool, ()),
+    "backgroundIdle": (bool, ()),
     "peekOverview": (bool, ()),
     "safeRendering": (bool, ()),
 }
@@ -33,6 +38,77 @@ OPTIONS = {
 
 def service(method, *args):
     return subprocess.check_output([*RPC[:3], RPC[3] + method, *args], text=True, timeout=6)
+
+
+SKULL = (
+    "                    .----------------.                    ",
+    "                .--'                  '--.                ",
+    "             .-'      /\\        /\\      '-.             ",
+    "            /       _/  \\______/  \\_       \\            ",
+    "           |       /     ______     \\       |           ",
+    "           |      |  ___/      \\___  |      |           ",
+    "           |      | (####) /\\ (####) |      |           ",
+    "            \\     |       /__\\       |     /            ",
+    "             '-.  \\_   ___||___   _/  .-'             ",
+    "                '-._|  | |||| |  |_.-'                 ",
+    "                     \\_|_||||_|_/                       ",
+    "                         '----'                           ",
+)
+TITLE = (
+    " BBB  L      A   CCC  K  K BBB   OOO  X   X ",
+    " B  B L     A A C     K K  B  B O   O  X X  ",
+    " BBB  L    AAAAA C    KK   BBB  O   O   X   ",
+    " B  B L    A   A C    K K  B  B O   O  X X  ",
+    " BBB  LLLL A   A  CCC K  K BBB   OOO  X   X ",
+)
+
+
+def cube_frame(width, height, frame):
+    grid = [[" "] * width for _ in range(height)]
+    phase = frame * math.tau / 48
+    yaw, pitch = math.cos(phase), math.sin(phase)
+    nodes = []
+    for index in range(8):
+        x, y, z = (1 if index & (1 << coordinate) else -1 for coordinate in range(3))
+        x, z = x * yaw - z * pitch, x * pitch + z * yaw
+        y, z = y * .92 - z * .39, y * .39 + z * .92
+        distance = 4.1 + z * .55
+        nodes.append((int(width / 2 + x * height * 2.0 / distance),
+                      int(height / 2 + y * height * 1.46 / distance), z))
+    for index, (x1, y1, z1) in enumerate(nodes):
+        for bit in (1, 2, 4):
+            other = index ^ bit
+            if other < index:
+                continue
+            x2, y2, z2 = nodes[other]
+            steps = max(abs(x1 - x2), abs(y1 - y2), 1)
+            for step in range(steps + 1):
+                x = round(x1 + (x2 - x1) * step / steps)
+                y = round(y1 + (y2 - y1) * step / steps)
+                if 0 <= y < height and 0 <= x < width:
+                    grid[y][x] = "+" if step in (0, steps) else "#" if z1 + z2 < 0 else "."
+    return "\n".join("".join(row).rstrip() for row in grid)
+
+
+def show_blackbox():
+    size = shutil.get_terminal_size((80, 24))
+    width, height = min(114, size.columns - 2), min(32, size.lines - 2)
+    art = [*SKULL, "", *TITLE] if width >= 60 else ["+--------+", "|  X  X  |", "|   /\\   |", "|  ====  |", "+--------+", " BLACKBOX"]
+    art = "\n".join(line.strip("\n").rstrip().center(max(12, width)) for line in art).rstrip()
+    if sys.stdout.isatty() and width >= 19 and height >= 8:
+        print("\033[?1049h\033[?25l", end="", flush=True)
+        try:
+            for frame in range(49):
+                print("\033[H\033[2J\033[38;5;79m" + cube_frame(width, height, frame) + "\033[0m", end="", flush=True)
+                time.sleep(.043)
+            for _ in range(12):
+                print("\033[H\033[2J\033[38;5;159m" + art + "\033[0m", end="", flush=True)
+                time.sleep(.043)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            print("\033[0m\033[?25h\033[?1049l", end="", flush=True)
+    print(art)
 
 
 def main():
@@ -53,16 +129,7 @@ def main():
     setting.add_argument("value")
     args = parser.parse_args()
     if args.command == "me":
-        print(r"""
-             +-----------+
-            /           /|
-           / BLACKBOX  / |
-          +-----------+  |
-          |    .-.    |  +
-          |   (o o)   | /
-          |    |=|    |/
-          +-----------+
-""")
+        show_blackbox()
     elif args.command == "status":
         print(json.dumps(json.loads(service("Status")), indent=2))
     elif args.command == "options":

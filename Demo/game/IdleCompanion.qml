@@ -11,6 +11,15 @@ Item {
     property bool audioEnabled:true
     property int floorInset:0
     property var perchLookup:null
+    property string perchMode:"desktop"
+    property var perch:null
+    property string landedOn:""
+    property real nextLanding:2
+    property real nextPerchCheck:0
+    property int perchIndex:0
+    property real poseScale:1
+    property real originScale:1
+    property real destinationScale:1
     property var helper:Pets.spec("crow")
     property string pose:"flight"
     property real clock:0
@@ -42,15 +51,18 @@ Item {
         cursorSeen=clock
     }
     function chirp() {audio.item?.play("idle-chirp",.58)}
-    function breathe() {audio.item?.play("idle-breath",.46)}
     function reload() {
         const available=Pets.pets.filter(pet=>pet.id!==helper.id && !pet.tarot)
         helper=available[Math.floor(Math.random()*available.length)]
         wander()
     }
-    function beginFlight(x,y,next,seconds) {
+    function beginFlight(x,y,next,seconds,scale=1) {
+        const widthAtLanding=petWidth*scale
         origin=Qt.point(creature.x,creature.y)
-        destination=Qt.point(Math.max(0,Math.min(maxX,x)),Math.max(0,Math.min(floorY,y)))
+        originScale=poseScale
+        destinationScale=scale
+        destination=Qt.point(Math.max(0,Math.min(width-widthAtLanding,x)),
+            Math.max(0,Math.min(height-floorInset-widthAtLanding*99/134,y)))
         if (Math.abs(destination.x-origin.x)>8) heading=destination.x>origin.x ? 1 : -1
         arrival=next
         pose=next==="flight" ? "flight" : "landing"
@@ -60,15 +72,45 @@ Item {
     }
     function wander() {
         if (dragging) return
-        beginFlight(maxX*(.08+Math.random()*.84),floorY*(.13+Math.random()*.67),"flight",3.2+Math.random()*2.4)
+        perch=null
+        landedOn=""
+        beginFlight(Math.max(0,width-petWidth)*(.08+Math.random()*.84),floorY*(.13+Math.random()*.67),"flight",3.2+Math.random()*2.4)
     }
-    function chooseLanding(next) {
-        const candidates=typeof perchLookup==="function" ? perchLookup() : []
-        const perch=candidates.length && Math.random()<.86 ? candidates[Math.floor(Math.random()*candidates.length)] : null
-        // Feet reach the top edge. Keep the mouse target centred over the body.
-        const x=perch ? perch.x+perch.width/2-creature.width/2 : maxX*(.08+Math.random()*.84)
-        const y=perch ? perch.y-creature.height*.79 : floorY
-        beginFlight(x,y,next,2.5+Math.random()*1.4)
+    function perchPoint(surface) {
+        const widthAtRest=petWidth*Math.min(1,Math.max(.16,(surface.y-3)/(petWidth*.47)))
+        const x=Math.max(0,Math.min(width-widthAtRest,surface.x+surface.width/2-widthAtRest/2))
+        return {x,y:Math.max(0,surface.y-widthAtRest*.47),scale:widthAtRest/petWidth}
+    }
+    function chooseLanding(next,preferSurface=false) {
+        const candidates=(typeof perchLookup==="function" ? perchLookup() : []).filter(candidate=>candidate.width>0)
+        if (candidates.length && (preferSurface || Math.random()<.9)) {
+            perch=candidates[perchIndex++%candidates.length]
+            const target=perchPoint(perch)
+            landedOn=""
+            nextPerchCheck=clock+.55
+            beginFlight(target.x,target.y,next,2.3+Math.random()*.8,target.scale)
+        } else {
+            perch=null
+            landedOn=""
+            beginFlight(Math.max(0,width-petWidth)*(.08+Math.random()*.84),Math.max(0,height-floorInset-petWidth*99/134-6),
+                next,2.5+Math.random()*1.4)
+        }
+        nextLanding=clock+12+Math.random()*7
+    }
+    function followPerch() {
+        if (!perch || clock<nextPerchCheck) return
+        nextPerchCheck=clock+.55
+        const current=perchLookup()?.find(surface=>surface.key===perch.key)
+        if (!current) {wander();return}
+        const target=perchPoint(current)
+        perch=current
+        destination=Qt.point(target.x,target.y)
+        destinationScale=target.scale
+        if (!airborne) {
+            poseScale=target.scale
+            creature.x=target.x
+            creature.y=target.y
+        }
     }
     function leaveDropping() {
         let count=0
@@ -102,23 +144,27 @@ Item {
     function tick(dt) {
         clock+=dt
         if (dragging) return
+        followPerch()
         if (pose==="curious") {chase(dt);return}
         if (pose==="flight" || pose==="landing") {
             const progress=Math.min(1,(clock-flightStart)/flightDuration)
             const eased=progress*progress*(3-2*progress)
+            poseScale=originScale+(destinationScale-originScale)*eased
             creature.x=Math.min(maxX,origin.x+(destination.x-origin.x)*eased)
             creature.y=Math.max(0,Math.min(floorY,origin.y+(destination.y-origin.y)*eased
                 -(motion ? Math.sin(progress*Math.PI)*creature.height*(pose==="landing" ? .23 : .47) : 0)))
             if (progress<1) return
             if (pose==="landing") {
                 pose=arrival
-                poseEnd=clock+(pose==="sleep" ? 23+Math.random()*15 : 3.4+Math.random()*2)
-                if (pose==="sleep") breathe()
+                landedOn=perch?.kind || ""
+                poseEnd=clock+(pose==="sleep" ? 23+Math.random()*15 : 4.5+Math.random()*3)
                 return
             }
         } else if (clock<poseEnd) return
         const roll=Math.random()
-        if (clock>curiosityReady && clock-cursorSeen<8 && roll<.25) startCuriosity()
+        if (pose==="flight" && clock>=nextLanding) chooseLanding(roll<.16 ? "sleep" : roll<.56 ? "feed" : "scratch",true)
+        else if (!airborne) wander()
+        else if (clock>curiosityReady && clock-cursorSeen<8 && roll<.25) startCuriosity()
         else if (roll<.18) chooseLanding("sleep")
         else if (roll<.31) chooseLanding("feed")
         else if (roll<.43) chooseLanding("scratch")
@@ -128,7 +174,8 @@ Item {
             wander()
         }
     }
-    onFrontChanged:if (roaming && !dragging) wander()
+    onFrontChanged:if (roaming && !dragging) {nextLanding=clock+2;wander()}
+    onPerchModeChanged:if (roaming && !dragging) {nextLanding=clock+1;wander()}
     onDraggingChanged:if (dragging) chirp(); else wander()
     onRoamingChanged:lastTick=0
     Component.onCompleted:{
@@ -149,13 +196,12 @@ Item {
             idle.lastTick=now
         }
     }
-    Timer {id:respiration;interval:4900;repeat:true;running:idle.roaming && idle.pose==="sleep" && !idle.dragging;onTriggered:idle.breathe()}
     Timer {id:hearts;interval:1250;onTriggered:idle.affectionate=false}
     Item {
         id:creature
         objectName:"idlePetBody"
         z:2
-        width:idle.petWidth;height:width*99/134
+        width:idle.petWidth*idle.poseScale;height:width*99/134
         onWidthChanged:if (x+width>idle.width) x=idle.maxX
         onHeightChanged:if (y>idle.floorY) y=idle.floorY
         Item {

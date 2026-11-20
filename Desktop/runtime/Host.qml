@@ -165,14 +165,18 @@ FocusScope {
     }
     readonly property bool idleOverlay:overviewOpen || compositorCube || bookOpen || vaultOpen || settingsDrawer.visible || !!galleryLoader.item?.drawerOpen
     readonly property bool ambientMode:mode==="idle" || mode==="performance"
-    readonly property bool idleExposure:!Native.Desktop.sessionLocked && here && visible && !editingDesktop && (home || options.backgroundPlay)
+    readonly property bool idleExposure:!Native.Desktop.sessionLocked && here && visible && !editingDesktop && (home || options.backgroundIdle)
+    readonly property bool terminalRoom:ambientMode && galleryLoader.item?.room==="code" && !galleryLoader.item?.moving
+    readonly property bool terminalInput:terminalRoom && home && !idleOverlay && !quickCount
+    property bool terminalVisited:false
+    onTerminalInputChanged:if (terminalInput) terminalVisited=true
     readonly property bool idleActionsAvailable:idleKeys && !quickCount
     readonly property double idleClockOrigin:Date.now()
     property int quickCount:0
     property bool quickQueued:false
     property int armedQuickKey:0
     property bool armedQuickClick:false
-    readonly property bool idleKeys:home && claimed && ambientMode && !idleOverlay
+    readonly property bool idleKeys:home && claimed && ambientMode && !idleOverlay && !terminalRoom
     readonly property bool idleWatch:useWorkArea && !!desktopInputParent
     Binding {target:Native.Desktop;property:"idleInputWindow";value:host.Window.window;when:host.idleWatch && host.claimed}
     Connections {
@@ -451,7 +455,9 @@ FocusScope {
         const game=battle.item,run=game.run
         const actives=run.slots.active.map(function(slot,i){return slot.item ? {title:Gear.activeAbilities[slot.item.id].title,id:slot.item.id,cooldown:Rules.activeCooldown(run,slot.item.id),duration:Rules.abilityRecovery(run,slot)} : {title:"Empty",cooldown:0,duration:1}})
         Native.Desktop.publish({renderer:game.projectedMode ? "2D fallback" : "Qt Quick 3D",
-            idleFront:galleryLoader.item?.liveFront || "",idlePhase:galleryLoader.item?.forecast.phase || "",idleWeather:galleryLoader.item?.forecast.weather || "",previewing:game.previewing,canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,idleControls:host.idleControls,overview:host.overviewOpen || host.compositorCube,cubeEffect:host.compositorCube,appPerch:Native.Desktop.appPerch.width,appPet:host.appPetVisible && !!petOverlay.item?.visible,idleChrome:idleQuickBar.visible,idleSettings:settingsDrawer.visible,idlePet:companionLoader.visible ? companionLoader.item?.helper.id || "" : "",hudVisible:game.fieldHudVisible,countdown:host.quickCount,weapon:Gear.current(run).id,pet:run.pet?.id || "",difficulty:run.difficulty,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
+            terminalActive:host.terminalInput,terminalPanes:pureCode.item?.paneCount || 0,idleBackground:host.options.backgroundIdle,
+            petPose:companionLoader.item?.pose || "",petSurface:companionLoader.item?.landedOn || "",
+            appPerches:Native.Desktop.appPerches.length,idleFront:galleryLoader.item?.liveFront || "",idlePhase:galleryLoader.item?.forecast.phase || "",idleWeather:galleryLoader.item?.forecast.weather || "",previewing:game.previewing,canContinue:Native.Desktop.hasSave,debug:run.debug,startAt:run.startAt,saveStatus:host.saveStatus,atHome:host.home,visibilityReady:Native.Desktop.visibilityReady,wave:run.wave,phase:run.phase,idleControls:host.idleControls,overview:host.overviewOpen || host.compositorCube,cubeEffect:host.compositorCube,appPerch:Native.Desktop.appPerch.width,appPet:host.appPetVisible && !!petOverlay.item?.visible,idleChrome:idleQuickBar.visible,idleSettings:settingsDrawer.visible,idlePet:companionLoader.visible ? companionLoader.item?.helper.id || "" : "",hudVisible:game.fieldHudVisible,countdown:host.quickCount,weapon:Gear.current(run).id,pet:run.pet?.id || "",difficulty:run.difficulty,auto:game.autoPlaying,autoLimit:game.autoLimit,waveTime:run.waveTime,workspace:host.linkedFront,workBottom:host.areaBottom,hp:Math.ceil(run.health),maxHp:Gear.maxHealth(run),front:game.frontId,ammo:Gear.current(run).ammo,magazine:Rules.magazine(run),paused:game.paused,actives:actives,mode:mode,critical:Rules.criticalProfile(run,Gear.weapons[Gear.current(run).id]).chance,heat:run.desktop?.heat || 0,gpuPressure:run.desktop?.pressure || 0})
     }
     onHomeChanged:if(!home) {
         if (overviewOpen) closeOverview()
@@ -486,10 +492,10 @@ FocusScope {
             enabled:host.home
             focus:host.mode!=="play"
             mouseLook:host.options.mouseTurns && host.idleActionsAvailable
-            externalTurnKeys:host.idleWatch
+            externalTurnKeys:host.idleWatch || host.terminalRoom
             pointerSurface:idleInput
             turnArea:Qt.rect(host.areaLeft,host.areaTop,width-host.areaLeft-host.areaRight,height-host.areaTop-host.areaBottom)
-            escapeBack:!host.quickCount && !host.overviewOpen && !host.compositorCube
+            escapeBack:!host.quickCount && !host.overviewOpen && !host.compositorCube && !host.terminalRoom
             wallpaperFraming:host.options.framing
             wallpaperQuality:host.options.quality
             wallpaperZoom:host.options.zoom
@@ -633,7 +639,7 @@ FocusScope {
                 return
             }
             if (["idle-left","idle-right","idle-up","idle-down"].includes(name)) {
-                if (host.ambientMode && host.idleExposure && host.options.backgroundPlay && !host.idleOverlay && !host.quickCount)
+                if (host.ambientMode && host.idleExposure && host.options.backgroundIdle && !host.idleOverlay && !host.quickCount)
                     galleryLoader.item?.move(name.slice(5))
                 return
             }
@@ -642,7 +648,7 @@ FocusScope {
             if(name==="revert") host.returnToPlasma()
             else if(name==="grimoire") {if(host.home)host.openBook("enemies","")}
             else if(name==="overview") host.showOverview(false)
-            else if(name==="terminal") host.enterTerminal()
+            else if(name==="terminal" && host.terminalInput) pureCode.item?.focusPane(pureCode.item.activePane)
             else if(name==="idle-pet") companionLoader.item?.reload()
             else if(name==="play") {
                 Native.Desktop.setOption("mode","play")
@@ -731,66 +737,54 @@ FocusScope {
         Ui.ActionButton {text:"Idle settings";onClicked:host.openIdleSettings()}
     }
     property bool directRoomChange:false
-    property string terminalNotice:""
-    function enterTerminal() {
-        if (!home || !ambientMode || galleryLoader.item?.room!=="code") return
-        terminalNotice=Native.Desktop.openTerminal(Qt.resolvedUrl("terminal"),Native.Desktop.darkPanel || Native.Desktop.darkApps)
-            ? "" : "Konsole could not open. Install Konsole to use Pure Code."
-    }
-    Column {
+    Loader {
+        id:pureCode
         parent:idleInput
-        anchors.centerIn:parent
-        anchors.horizontalCenterOffset:(host.areaLeft-host.areaRight)/2
-        anchors.verticalCenterOffset:(host.areaTop-host.areaBottom)/2
-        z:19
-        visible:host.home && host.ambientMode && galleryLoader.item?.room==="code"
-            && !galleryLoader.item?.moving && !host.idleOverlay && !host.quickCount
-        spacing:10
-        Text {
-            anchors.horizontalCenter:parent.horizontalCenter;text:"Pure Code"
-            color:"#dcf7ec";font.family:Ui.InterfaceTheme.heading;font.pixelSize:Ui.UiMetrics.text(40)
-        }
-        Ui.ActionButton {
-            objectName:"openPureCodeTerminal"
-            anchors.horizontalCenter:parent.horizontalCenter
-            text:"Open terminal";primary:true;onClicked:host.enterTerminal()
-        }
-        Text {
-            anchors.horizontalCenter:parent.horizontalCenter
-            text:host.terminalNotice || "Try box me or box --help"
-            color:"#b4d8ce";font.pixelSize:Ui.UiMetrics.text(15)
+        anchors.fill:parent
+        anchors.leftMargin:host.areaLeft;anchors.rightMargin:host.areaRight
+        anchors.topMargin:host.areaTop;anchors.bottomMargin:host.areaBottom
+        z:25
+        active:host.claimed && host.terminalVisited
+        visible:active && host.terminalInput
+        sourceComponent:PureCode {
+            dark:Native.Desktop.darkPanel || Native.Desktop.darkApps || host.options.interfaceTheme==="dark"
+            exposed:pureCode.visible
+            onReturnRequested:galleryLoader.item?.go(galleryLoader.item.previousRoom==="code" ? "shrine" : galleryLoader.item.previousRoom)
         }
     }
     function petPerches() {
         const perches=[]
-        function add(item) {
-            if (!item?.visible || item.width<13 || item.height<12) return
+        function add(item,key,kind) {
+            if (!item?.visible || item.width<9 || item.height<9) return
             const pos=item.mapToItem(host,0,0)
-            if (pos.y>50 && pos.y<host.height-host.areaBottom && pos.x+item.width>0 && pos.x<host.width)
-                perches.push(Qt.rect(pos.x,pos.y,item.width,item.height))
+            if (pos.y+item.height>0 && pos.y<host.height-host.areaBottom && pos.x+item.width>0 && pos.x<host.width)
+                perches.push({key,kind,x:pos.x,y:Math.max(host.areaTop+25,pos.y+Math.min(8,item.height*.12)),width:item.width})
         }
-        const folder=desktopInputParent?.folderViewLayer?.item?.view?.view
+        if (!home) {
+            for (const entry of Native.Desktop.appPerches) {
+                const frame=entry.frame
+                const pos=host.mapFromGlobal(frame.x,frame.y)
+                const left=Math.max(host.areaLeft,pos.x),right=Math.min(width-host.areaRight,pos.x+frame.width)
+                if (right-left>=48 && pos.y<height-areaBottom && pos.y+frame.height>areaTop)
+                    perches.push({key:"window-"+entry.id,kind:"window",x:left,width:right-left,y:Math.max(areaTop+27,pos.y)})
+            }
+            return perches
+        }
+        const folder=desktopInputParent?.folderViewLayer?.view?.view
+            || desktopInputParent?.folderViewLayer?.item?.view?.view
         for (const child of folder?.contentItem?.children || []) {
-            if (child.iconArea && !child.blank) add(child.iconArea)
+            if (child.blank===false && child.iconArea) add(child.iconArea,child,child.isDir ? "folder" : "icon")
         }
         for (const child of desktopInputParent?.appletsLayout?.children || []) {
-            if (child.applet) add(child)
-        }
-        const frame=Native.Desktop.appPerch
-        if (frame.width>0) {
-            const pos=host.mapFromGlobal(frame.x,frame.y)
-            if (pos.y>48 && pos.y<height-areaBottom && pos.x+frame.width>0 && pos.x<width) {
-                const left=Math.max(0,pos.x),right=Math.min(width,pos.x+frame.width)
-                if (right-left>70) perches.unshift(Qt.rect(left,pos.y,right-left,frame.height))
-            }
+            if (child.applet) add(child,child,"widget")
         }
         return perches
     }
-    readonly property bool appPetVisible:!home && useWorkArea && ambientMode && idleExposure && options.backgroundPlay
-        && options.idlePet && !options.safeRendering && mode==="idle" && Native.Desktop.appPerch.width>0
+    readonly property bool appPetVisible:!home && useWorkArea && ambientMode && idleExposure && options.backgroundIdle
+        && options.idlePet && !options.safeRendering && mode==="idle" && !Native.Desktop.fullscreenApp && Native.Desktop.appPerches.length>0
     Loader {
         id:petOverlay
-        active:host.useWorkArea && host.claimed && host.options.idlePet && host.options.backgroundPlay
+        active:host.useWorkArea && host.claimed && host.options.idlePet && host.options.backgroundIdle
             && !host.options.safeRendering && Qt.platform.pluginName==="wayland"
         source:active ? Qt.resolvedUrl("AppPetOverlay.qml") : ""
     }
@@ -808,6 +802,7 @@ FocusScope {
             motion:host.options.motion
             audioEnabled:host.options.audioMaster>0 && host.options.audioAmbience>0
             perchLookup:host.petPerches
+            perchMode:host.home ? "desktop" : "windows"
             roaming:companionLoader.visible
             software:GraphicsInfo.api===GraphicsInfo.Software
         }
