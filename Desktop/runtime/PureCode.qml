@@ -27,7 +27,10 @@ FocusScope {
 
     function openSession(id,posix) {
         const shell=shellFactory.createObject(workbench)
-        sessions={...sessions,[id]:shell}
+        sessions=Object.assign({},sessions)
+        const next=Object.assign({},sessions)
+        next[id]=shell
+        sessions=next
         Qt.callLater(()=>{if (sessions[id]===shell) shell.start(Qt.resolvedUrl("terminal"),posix)})
     }
     function start() {
@@ -74,7 +77,7 @@ FocusScope {
             if (!placement.dividers[dividers.get(i).dividerId]) dividers.remove(i)
         if (!output) {
             const terminal=sessions[shell]
-            const remaining={...sessions}
+            const remaining=Object.assign({},sessions)
             delete remaining[shell]
             sessions=remaining
             terminal?.destroy()

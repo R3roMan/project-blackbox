@@ -5,13 +5,13 @@ function replacePane(node,pane,replacement) {
     if (node.pane!==undefined) return node.pane===pane ? replacement : node
     const first=replacePane(node.first,pane,replacement)
     const second=replacePane(node.second,pane,replacement)
-    return first && second ? {...node,first,second} : first || second
+    return first && second ? Object.assign({},node,{first,second}) : first || second
 }
 
 function changeRatio(node,divider,ratio) {
     if (node.pane!==undefined) return node
-    if (node.divider===divider) return {...node,ratio}
-    return {...node,first:changeRatio(node.first,divider,ratio),second:changeRatio(node.second,divider,ratio)}
+    if (node.divider===divider) return Object.assign({},node,{ratio})
+    return Object.assign({},node,{first:changeRatio(node.first,divider,ratio),second:changeRatio(node.second,divider,ratio)})
 }
 
 function arrange(node,width,height) {
