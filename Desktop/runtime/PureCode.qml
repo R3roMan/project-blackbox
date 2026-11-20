@@ -56,7 +56,8 @@ FocusScope {
         })
     }
     function split(pane,shell,across,output,posix) {
-        if (panes.count>=12) return
+        const region=placement.panes[pane]
+        if (panes.count>=12 || !region || (across ? region.w<258 : region.h<178)) return
         const id=++nextId
         tree=LayoutTree.replacePane(tree,pane,{divider:id,across,ratio:.5,first:{pane},second:{pane:id}})
         dividers.append({dividerId:id})
@@ -120,7 +121,8 @@ FocusScope {
             readonly property var terminal:workbench.sessions[shellId] || null
             readonly property bool current:workbench.activePane===paneId
             readonly property bool allowSplit:panes.count<12
-            property string findText:""
+            readonly property bool canSplitAcross:allowSplit && width>=258
+            readonly property bool canSplitDown:allowSplit && height>=178
             property bool found:true
             x:bounds?.x || 0;y:bounds?.y || 0
             width:bounds?.w || 0;height:bounds?.h || 0
@@ -154,13 +156,13 @@ FocusScope {
                         ToolButton {
                             visible:pane.width>=300
                             text:"Split right"
-                            enabled:pane.allowSplit
+                            enabled:pane.canSplitAcross
                             onClicked:workbench.split(pane.paneId,pane.shellId,true,false,false)
                         }
                         ToolButton {
                             visible:pane.width>=400
                             text:"Split below"
-                            enabled:pane.allowSplit
+                            enabled:pane.canSplitDown
                             onClicked:workbench.split(pane.paneId,pane.shellId,false,false,false)
                         }
                         ToolButton {
@@ -226,28 +228,29 @@ FocusScope {
             Menu {
                 id:terminalMenu
                 popupType:Popup.Item
-                MenuItem {text:"Split shell right";enabled:pane.allowSplit;onTriggered:workbench.split(pane.paneId,pane.shellId,true,false,false)}
-                MenuItem {text:"Split shell below";enabled:pane.allowSplit;onTriggered:workbench.split(pane.paneId,pane.shellId,false,false,false)}
+                MenuItem {text:"Split shell right";enabled:pane.canSplitAcross;onTriggered:workbench.split(pane.paneId,pane.shellId,true,false,false)}
+                MenuItem {text:"Split shell below";enabled:pane.canSplitDown;onTriggered:workbench.split(pane.paneId,pane.shellId,false,false,false)}
                 Menu {
                     title:"New POSIX shell"
                     enabled:pane.allowSplit
-                    MenuItem {text:"On the right";onTriggered:workbench.split(pane.paneId,pane.shellId,true,false,true)}
-                    MenuItem {text:"Below";onTriggered:workbench.split(pane.paneId,pane.shellId,false,false,true)}
+                    MenuItem {text:"On the right";enabled:pane.canSplitAcross;onTriggered:workbench.split(pane.paneId,pane.shellId,true,false,true)}
+                    MenuItem {text:"Below";enabled:pane.canSplitDown;onTriggered:workbench.split(pane.paneId,pane.shellId,false,false,true)}
                 }
                 Menu {
                     title:"Split out linked output"
                     enabled:pane.allowSplit
-                    MenuItem {text:"On the right";onTriggered:workbench.split(pane.paneId,pane.shellId,true,true,false)}
-                    MenuItem {text:"Below";onTriggered:workbench.split(pane.paneId,pane.shellId,false,true,false)}
+                    MenuItem {text:"On the right";enabled:pane.canSplitAcross;onTriggered:workbench.split(pane.paneId,pane.shellId,true,true,false)}
+                    MenuItem {text:"Below";enabled:pane.canSplitDown;onTriggered:workbench.split(pane.paneId,pane.shellId,false,true,false)}
                 }
                 MenuSeparator {}
                 MenuItem {text:"Copy";enabled:screen.hasSelection;onTriggered:{screen.copy();screen.forceActiveFocus()}}
                 MenuItem {text:"Paste";enabled:!pane.outputOnly;onTriggered:{screen.paste();screen.forceActiveFocus()}}
                 MenuItem {text:"Find…";onTriggered:pane.showFind()}
+                MenuItem {text:"Command reference";onTriggered:Qt.openUrlExternally(Qt.resolvedUrl("terminal/COMMANDS.md"))}
                 MenuItem {text:"Larger text";enabled:workbench.baseFont<26;onTriggered:workbench.localFontChange++}
                 MenuItem {text:"Smaller text";enabled:workbench.baseFont>11;onTriggered:workbench.localFontChange--}
                 MenuSeparator {}
-                MenuItem {text:"Close pane";enabled:panes.count>1;onTriggered:workbench.closePane(pane.paneId,pane.shellId,pane.outputOnly)}
+                MenuItem {text:"Close pane";enabled:pane.outputOnly || Object.keys(workbench.sessions).length>1;onTriggered:workbench.closePane(pane.paneId,pane.shellId,pane.outputOnly)}
                 MenuItem {text:"Leave Pure Code";onTriggered:workbench.returnRequested()}
             }
         }

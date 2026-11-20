@@ -382,6 +382,12 @@ def main():
             value = str(as_bool(value)).lower()
         if service("BoxDebug", terminal_session(), args.action, value).strip() != "true":
             raise ValueError("Unlock this shell with box admin and use an unstarted practice run.")
+        state = json.loads(service("Status"))
+        key = {"practice": "startAt", "money": "debugMoney", "weapon": "debugWeapon",
+               "weather": "debugLayer", "unlocks": "debugUnlocks"}[args.action]
+        expected = args.wave if args.action == "practice" else as_bool(value) if args.action in ("money", "unlocks") else value
+        if state.get(key) != expected:
+            raise ValueError("Blackbox rejected that practice setting.")
         print("Practice setting applied.")
     else:
         print_help([])

@@ -14,6 +14,13 @@ function changeRatio(node,divider,ratio) {
     return Object.assign({},node,{first:changeRatio(node.first,divider,ratio),second:changeRatio(node.second,divider,ratio)})
 }
 
+function minimum(node) {
+    if (node.pane!==undefined) return {w:126,h:86}
+    const first=minimum(node.first),second=minimum(node.second)
+    return node.across ? {w:first.w+second.w+6,h:Math.max(first.h,second.h)}
+        : {w:Math.max(first.w,second.w),h:first.h+second.h+6}
+}
+
 function arrange(node,width,height) {
     const panes={}
     const dividers={}
@@ -26,9 +33,11 @@ function arrange(node,width,height) {
         const length=across ? w : h
         const grip=Math.min(6,length*.1)
         const usable=length-grip
-        const left=usable*branch.ratio
+        const first=minimum(branch.first),second=minimum(branch.second)
+        const a=across ? first.w : first.h,b=across ? second.w : second.h
+        const left=usable>=a+b ? Math.max(a,Math.min(usable-b,usable*branch.ratio)) : usable*a/(a+b)
         dividers[branch.divider]={x:x+(across ? left : 0),y:y+(across ? 0 : left),
-            w:across ? grip : w,h:across ? h : grip,usable,across,ratio:branch.ratio}
+            w:across ? grip : w,h:across ? h : grip,usable,across,ratio:usable>0 ? left/usable : .5}
         if (across) {
             walk(branch.first,x,y,left,h)
             walk(branch.second,x+left+grip,y,usable-left,h)

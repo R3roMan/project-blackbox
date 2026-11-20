@@ -7,6 +7,7 @@ Pure Code runs your usual Linux shell inside the Blackbox wallpaper. Ordinary co
 | Up and Down | Recall commands using the shell’s history |
 | Ctrl+C | Interrupt the foreground command |
 | Ctrl+Shift+C and Ctrl+Shift+V | Copy selected text and paste from the desktop clipboard |
+| Ctrl+click a link | Open it through KDE |
 | Ctrl+F | Search the terminal, including scrollback |
 | Shift+Page Up and Shift+Page Down | Scroll by a page |
 | Right-click | Split, mirror output, search, copy, paste, or adjust text size |
