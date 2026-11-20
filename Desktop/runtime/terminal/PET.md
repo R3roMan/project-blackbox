@@ -11,7 +11,7 @@ pet folder "~/Projects"
 pet fetch "notes.txt" to me
 pet write in "notes.txt" -Remember the Shrine
 pet terminal left
-pet code printf 'Hello from the Shrine'
+pet code 'printf "Hello from the Shrine\\n"'
 pet report 'The pet flew under a window.'
 box help -options =graphics .framing
 box help -pet =commands .care +show
@@ -19,7 +19,7 @@ box help -pet =commands .care +show
 
 In this reference, **[ ]** mark optional arguments, **+** adds a second help branch or joins related steps, and **:** introduces a named value or label. Example: `pet terminal left` + `pet code COMMAND` places a draft on West Approach. Quote paths with spaces, for example `pet folder "~/My Notes"`. Relative paths use the quick-access folder. `me` means the most recently observed pointer position on the desktop.
 
-The mini console shows the mood and pending actions. Approve file copies, text appends, folder creation, app closes, volume changes, battle or load requests, and terminal drafts there. The pet can open a local file or show its location. A fetch to `me` produces a clickable file card. The pet types into a Blackbox shell while its prompt has focus. Press Enter yourself to run the draft. Idle antics use the pet’s own log and animation.
+The mini console shows the mood and pending actions. Approve file copies, text appends, folder creation, app closes, volume changes, battle or load requests, and terminal drafts there. The pet can open a local file or show its location. A fetch to `me` produces a clickable file card. Pass a shell draft as one quoted argument to preserve its own quoting. The pet types it into a Blackbox shell while its prompt has focus. Press Enter yourself to run the draft. Idle antics use the pet’s own log and animation.
 
 Mute pet audio with `pet quiet` and restore it with `pet unquiet`. `pet sing` pitches playback of a supported local audio file and animates singing. Mood changes come from attention, dragging, repeated waking, droppings and occasional whims. A rush of commands makes the pet nap. Vesper gets annoyed faster. Wendy moves faster and stays at neutral or higher. Switching Pet admin off and back on resets mood and cancels pending actions.
 

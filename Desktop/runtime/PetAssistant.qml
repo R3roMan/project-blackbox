@@ -220,11 +220,11 @@ Item {
         if (!["stop","hush","sleep"].includes(type)) {
             if (now-lastAttention>1800) {lastAttention=now;adjust(.025)}
             actions=actions.filter(t=>now-t<17000).concat(now)
-            if (actions.length>=7) {actions=[];pet.perform("sleep",25);return result(false,"Too many tasks. Taking a nap.")}
+            if (actions.length>=7) {actions=[];player.stop();pet.perform("sleep",25);return result(false,"Too many tasks. Taking a nap.")}
         }
-        if (type==="stop") {cancelDraft();pet.perform("stop",3600);return result(true,"Waiting here.")}
+        if (type==="stop") {cancelDraft();player.stop();pet.perform("stop",3600);return result(true,"Waiting here.")}
         if (type==="resume") {pet.wander();return result(true,"Roaming again.")}
-        if (type==="sleep") {pet.perform("sleep",30);return result(true,"Taking a quiet nap.")}
+        if (type==="sleep") {player.stop();pet.perform("sleep",30);return result(true,"Taking a quiet nap.")}
         if (type==="say" || type==="quip") {
             const lines={hello:"Hello!",thanks:"Thanks for looking after me.",
                 joke:"Why was the shrine quiet? Everyone took a byte break.",fortune:"A small detour will make today better."}
@@ -238,7 +238,8 @@ Item {
             if (muted) return result(false,"Use pet unquiet first.")
             const path=Native.Desktop.petPath(text)
             if (!path || !/\.(wav|ogg|flac|mp3|m4a|opus|aac)$/i.test(path)) return result(false,"Choose a supported local audio file.")
-            player.source=Qt.resolvedUrl("file://"+encodeURI(path))
+            if (!Native.Desktop.petTask("locate",path,"").ok) return result(false,"Audio file not found.")
+            player.source=Qt.resolvedUrl("file://"+encodeURI(path).replace(/#/g,"%23").replace(/\?/g,"%3F"))
             player.play()
             pet.perform("sing",12)
             return result(true,"Singing.")
@@ -376,6 +377,12 @@ Item {
         onErrorOccurred:assistant.record("Could not play that audio file.")
     }
     Timer {
+        running:assistant.singing && !!assistant.pet
+        repeat:true
+        interval:1000
+        onTriggered:if (assistant.pet.pose==="flight") assistant.pet.perform("sing",12)
+    }
+    Timer {
         running:assistant.enabledAdmin && !!assistant.pet && assistant.desktopHost.ambientMode && !Native.Desktop.sessionLocked
         repeat:true
         interval:9000
@@ -391,9 +398,13 @@ Item {
                 assistant.record("[idea] pet code printf 'The shrine is clear.'")
                 assistant.pet.perform("typing",2)
             } else if (roll<(assistant.mischievous ? .36 : .18) && assistant.mood<.34) {
-                assistant.record("[mischief] printf 'I demand snacks.'")
-                assistant.pet.perform("sulk",3)
-                assistant.say("I demand snacks.",false)
+                const antics=[{line:"I demand snacks.",pose:"sulk"},
+                    {line:"Nobody saw that.",pose:"sneak"},{line:"I hereby declare this ledge mine.",pose:"salute"},
+                    {line:"Time for a dramatic exit.",pose:"spin"}]
+                const prank=antics[Math.floor(Math.random()*antics.length)]
+                assistant.record("[mischief] printf '%s\\n' '"+prank.line+"'")
+                assistant.pet.perform(prank.pose,3)
+                assistant.say(prank.line,false)
             }
         }
     }
